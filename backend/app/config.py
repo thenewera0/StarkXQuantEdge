@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     min_reward_risk: float = 1.5          # hard RR gate; below this, no actionable signal
     conviction_floor: float = 25.0        # |composite| below this = no trade (silence)
 
+    # Regime filter (Confluence Engine L1 gate): only trade trend regimes; stand down in
+    # range / high_vol / squeeze where the live per-regime P&L is negative.
+    regime_filter_enabled: bool = True
+
     # Performance / P&L (fixed notional per trade for the paper track record)
     standard_trade_size_usd: float = 1000.0
 
