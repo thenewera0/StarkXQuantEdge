@@ -1,0 +1,16 @@
+# Universal Signal Cockpit — backend (Phase 0 + 1a)
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+httpx==0.28.1
+pandas==2.2.3
+numpy==2.2.1
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+psycopg[binary]==3.2.4
+
+apscheduler==3.11.0          # scheduled auto-outcome resolver
+
+# Optional / later phases (kept here for reference, not required for the backtest core):
+# tradingview-ta==3.3.0      # external-consensus factor (unofficial, may break)
+# supabase==2.11.0           # Phase 3 persistence client (we use psycopg directly)

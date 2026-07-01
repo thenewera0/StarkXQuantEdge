@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --bg: #f4f6fb;
+  --ink: #0b1220;
+  --muted: #64748b;
+  --line: #e7eaf0;
+  --accent: #4f46e5;
+}
+
+html,
+body {
+  color: var(--ink);
+  background:
+    radial-gradient(48rem 32rem at 88% -8%, rgba(99, 102, 241, 0.10) 0%, rgba(99, 102, 241, 0) 60%),
+    radial-gradient(42rem 30rem at -6% 6%, rgba(45, 212, 191, 0.10) 0%, rgba(45, 212, 191, 0) 55%),
+    var(--bg);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Card surface — bright, layered, premium. */
+.card {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: saturate(150%) blur(8px);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  box-shadow:
+    0 1px 1px rgba(13, 18, 32, 0.03),
+    0 6px 18px rgba(13, 18, 32, 0.05);
+}
+.card-pad {
+  padding: 1.25rem 1.35rem;
+}
+
+/* Segmented control. */
+.seg {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 0.7rem;
+  background: #eef1f7;
+  border: 1px solid var(--line);
+}
+.seg button {
+  border-radius: 0.55rem;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  transition: all 0.15s ease;
+}
+.seg button[data-active="true"] {
+  background: #ffffff;
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(13, 18, 32, 0.12);
+}
+
+/* Chip. */
+.chip {
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+  transition: all 0.15s ease;
+}
+.chip[data-active="true"] {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.chip:hover:not([data-active="true"]) {
+  background: #f1f4f9;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rise { animation: rise 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+@keyframes shimmer {
+  0% { opacity: 0.45; }
+  50% { opacity: 1; }
+  100% { opacity: 0.45; }
+}
+.shimmer { animation: shimmer 1.3s ease-in-out infinite; }

@@ -1,0 +1,30 @@
+# Render Blueprint for the always-on backend (API + scanner/resolver/retrain schedulers).
+# In Render: New + -> Blueprint -> connect this repo. Set the secret env vars in the dashboard.
+services:
+  - type: web
+    name: starkx-quant-edge-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter            # needs an always-on plan (free tier sleeps and stops the schedulers)
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false          # Supabase Session Pooler string (percent-encode special chars)
+      - key: CORS_ORIGINS
+        sync: false          # your Vercel URL, e.g. https://starkx-quant-edge.vercel.app
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL_STRONG
+        value: openrouter/auto
+      - key: TWELVEDATA_API_KEY
+        sync: false
+      - key: NEWSAPI_KEY
+        sync: false
+      - key: COINMARKETCAP_API_KEY
+        sync: false
+      - key: CRYPTOQUANT_API_KEY
+        sync: false
+      - key: TRADINGVIEW_WEBHOOK_SECRET
+        sync: false
