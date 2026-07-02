@@ -74,6 +74,15 @@ export default function Home() {
   }, [symbol, interval, market]);
 
   useEffect(() => { load(symbol, interval, market); }, [symbol, interval, market, load]);
+
+  // Live auto-refresh: silently re-fetch the signal every 30s (keeps the debate intact).
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      fetchSignal(symbol, interval, market).then(setSignal).catch(() => {});
+    }, 30000);
+    return () => window.clearInterval(id);
+  }, [symbol, interval, market]);
+
   useEffect(() => {
     fetch(`${API_BASE}/db/status`).then((r) => r.json()).then((d) => setDbOn(!!d.reachable)).catch(() => setDbOn(false));
   }, []);
@@ -105,6 +114,9 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-600">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> Live data
+            </span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-600">
               <Sparkles size={12} /> Multi-agent AI
             </span>

@@ -18,7 +18,7 @@ import httpx
 from ..config import settings
 
 _GLOBAL_URL = "https://pro-api.coinmarketcap.com/v1/global-metrics/quotes/latest"
-_TTL = 300  # seconds
+_TTL = 120  # seconds — kept short for freshness; well within the 20k/mo quota
 _cache: dict[str, tuple[float, dict]] = {}
 
 
