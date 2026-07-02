@@ -37,8 +37,15 @@ from .regime import detect_regime
 _LONG = {"Buy", "Strong Buy"}
 _SHORT = {"Sell", "Strong Sell"}
 _CRYPTO_MARKETS = {"crypto"}
-# Only trade trend regimes; stand down in range / high_vol / squeeze (per-regime P&L is negative there).
+# Baseline: only trade trend regimes. The live gate (learning.tradeable_regimes) narrows this
+# further to regimes with proven positive expectancy once enough outcomes exist.
 _TRADEABLE_REGIMES = {"strong_trend", "weak_trend"}
+
+
+def _allowed_regimes() -> set[str]:
+    if settings.regime_perf_gate_enabled:
+        return learning.tradeable_regimes(settings.regime_perf_min_sample)
+    return _TRADEABLE_REGIMES
 _OI_PERIODS = {"5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d"}
 
 
@@ -205,8 +212,8 @@ def compute_signal(
     silence_reason = None
     if crowd_veto:
         silence_reason = "crowd_veto"
-    elif settings.regime_filter_enabled and regime not in _TRADEABLE_REGIMES:
-        silence_reason = "regime_filter"  # only trade trend regimes
+    elif settings.regime_filter_enabled and regime not in _allowed_regimes():
+        silence_reason = "regime_filter"  # only trade regimes with proven positive expectancy
     elif abs(composite) < settings.conviction_floor:
         silence_reason = "below_conviction_floor"
     elif geo["direction"] == "flat":

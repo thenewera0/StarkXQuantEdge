@@ -33,6 +33,59 @@ def _last_price(symbol: str, market: str, interval: str) -> float | None:
         return None
 
 
+def summary(trade_size: float | None = None) -> dict:
+    """Weekly / monthly / all-time trade + P&L summary, plus what self-learning has changed."""
+    size = trade_size or settings.standard_trade_size_usd
+    if not db.enabled():
+        return {"enabled": False}
+
+    from . import learning
+
+    def window(days: int | None) -> dict:
+        clause = "o.pnl is not null"
+        if days:
+            clause += f" and o.resolved_at >= now() - interval '{int(days)} days'"
+        with db.get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                f"""select count(*), count(*) filter (where o.pnl>0),
+                        coalesce(sum(o.pnl),0), coalesce(max(o.pnl),0), coalesce(min(o.pnl),0)
+                    from outcomes o where {clause}"""
+            )
+            n, w, s, mx, mn = cur.fetchone()
+        n = int(n)
+        return {
+            "trades": n, "wins": int(w), "losses": n - int(w),
+            "hit_rate": round(int(w) / n, 4) if n else None,
+            "realized_pnl_usd": round(float(s) * size, 2),
+            "best_usd": round(float(mx) * size, 2),
+            "worst_usd": round(float(mn) * size, 2),
+        }
+
+    perf = learning.regime_performance()
+    tradeable = sorted(learning.tradeable_regimes())
+    regime_perf = {
+        r: {"trades": p["trades"], "pnl_usd": round(p["pnl_frac"] * size, 2),
+            "hit_rate": round(p["wins"] / p["trades"], 3) if p["trades"] else None,
+            "tradeable": r in tradeable}
+        for r, p in sorted(perf.items(), key=lambda x: -x[1]["pnl_frac"])
+    }
+    champions = learning.learning_status().get("champions", {}) if db.enabled() else {}
+
+    return {
+        "enabled": True,
+        "trade_size_usd": size,
+        "week": window(7),
+        "month": window(30),
+        "all_time": window(None),
+        "learning": {
+            "tradeable_regimes": tradeable,
+            "excluded_regimes": [r for r in regime_perf if r not in tradeable],
+            "regime_performance": regime_perf,
+            "champion_weight_profiles": len(champions),
+        },
+    }
+
+
 def performance(trade_size: float | None = None) -> dict:
     """Combined + per-asset realized and floating P&L in USD at a fixed notional per trade."""
     size = trade_size or settings.standard_trade_size_usd

@@ -241,6 +241,38 @@ export async function fetchPerformance(tradeSize = 1000): Promise<Performance> {
   return res.json();
 }
 
+export type WindowStats = {
+  trades: number;
+  wins: number;
+  losses: number;
+  hit_rate: number | null;
+  realized_pnl_usd: number;
+  best_usd: number;
+  worst_usd: number;
+};
+
+export type RegimePerf = { trades: number; pnl_usd: number; hit_rate: number | null; tradeable: boolean };
+
+export type Summary = {
+  enabled: boolean;
+  trade_size_usd?: number;
+  week?: WindowStats;
+  month?: WindowStats;
+  all_time?: WindowStats;
+  learning?: {
+    tradeable_regimes: string[];
+    excluded_regimes: string[];
+    regime_performance: Record<string, RegimePerf>;
+    champion_weight_profiles: number;
+  };
+};
+
+export async function fetchSummary(tradeSize = 1000): Promise<Summary> {
+  const res = await fetch(`${API_BASE}/summary?trade_size=${tradeSize}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
 export async function fetchCandles(symbol: string, interval: string, market: string): Promise<Candles> {
   const params = new URLSearchParams({ symbol, interval, market, limit: "300" });
   const url = `${API_BASE}/candles?${params.toString()}`;

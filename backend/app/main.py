@@ -185,6 +185,12 @@ def performance_report(trade_size: float = Query(1000.0, ge=1.0, le=1_000_000.0)
     return performance.performance(trade_size=trade_size)
 
 
+@app.get("/summary")
+def summary_report(trade_size: float = Query(1000.0, ge=1.0, le=1_000_000.0)) -> dict:
+    """Weekly / monthly / all-time trade + P&L summary and what self-learning changed."""
+    return performance.summary(trade_size=trade_size)
+
+
 @app.post("/resolve")
 def resolve_now(max_signals: int = Query(50, ge=1, le=500)) -> dict:
     """Manually trigger the auto-outcome resolver (also runs on a schedule)."""

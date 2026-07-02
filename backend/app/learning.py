@@ -17,6 +17,7 @@ say so. With almost no data (the current state), that is the correct, honest beh
 from __future__ import annotations
 
 import json
+import time
 
 import numpy as np
 
@@ -227,6 +228,58 @@ def train_and_gate(min_samples: int = MIN_SAMPLES) -> dict:
 
     refresh()
     return {"enabled": True, "min_samples": min_samples, "regimes": report}
+
+
+_TREND_REGIMES = {"strong_trend", "weak_trend"}
+_ALL_REGIMES = ("strong_trend", "weak_trend", "range", "high_vol", "squeeze")
+_regime_perf_cache: tuple[float, dict] | None = None
+_REGIME_TTL = 300
+
+
+def regime_performance() -> dict[str, dict]:
+    """Per-regime realized stats from live outcomes: {regime: {trades, wins, pnl_frac}}. Cached."""
+    global _regime_perf_cache
+    now = time.time()
+    if _regime_perf_cache and now - _regime_perf_cache[0] < _REGIME_TTL:
+        return _regime_perf_cache[1]
+    result: dict[str, dict] = {}
+    if db.enabled():
+        try:
+            with db.get_conn() as conn, conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select coalesce(s.regime,'unknown') r, count(*),
+                           count(*) filter (where o.pnl > 0), coalesce(sum(o.pnl), 0)
+                    from outcomes o join signals s on s.id = o.signal_id
+                    where o.pnl is not null
+                    group by r
+                    """
+                )
+                for r, n, w, pnl in cur.fetchall():
+                    result[r] = {"trades": int(n), "wins": int(w), "pnl_frac": float(pnl)}
+        except Exception:
+            pass
+    _regime_perf_cache = (now, result)
+    return result
+
+
+def tradeable_regimes(min_sample: int = 12) -> set[str]:
+    """Regimes we're allowed to trade: proven-positive (enough sample) or thin trend regimes.
+
+    Data-driven loss-cutting: a regime with >= min_sample resolved trades and NEGATIVE net P&L is
+    dropped. A regime with too little data is only allowed if it's a trend regime (benefit of the
+    doubt). This is what stops the engine from repeating the range/strong_trend bleed.
+    """
+    perf = regime_performance()
+    out: set[str] = set()
+    for r in _ALL_REGIMES:
+        p = perf.get(r)
+        if p is None or p["trades"] < min_sample:
+            if r in _TREND_REGIMES:
+                out.add(r)
+        elif p["pnl_frac"] > 0:
+            out.add(r)
+    return out or set(_TREND_REGIMES)  # never fully halt on a transient empty set
 
 
 def learning_status() -> dict:

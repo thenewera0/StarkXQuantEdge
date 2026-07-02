@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     # Regime filter (Confluence Engine L1 gate): only trade trend regimes; stand down in
     # range / high_vol / squeeze where the live per-regime P&L is negative.
     regime_filter_enabled: bool = True
+    # Data-driven upgrade: only trade regimes with PROVEN positive expectancy from live outcomes.
+    # Thin regimes (< min_sample) fall back to the trend-only default; proven-losing regimes are
+    # dropped automatically. This is the self-improving loss-cutting gate.
+    regime_perf_gate_enabled: bool = True
+    regime_perf_min_sample: int = 12
 
     # Performance / P&L (fixed notional per trade for the paper track record)
     standard_trade_size_usd: float = 1000.0
