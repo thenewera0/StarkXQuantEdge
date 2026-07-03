@@ -18,6 +18,8 @@ services:
         sync: false
       - key: OPENROUTER_MODEL_STRONG
         value: openrouter/auto
+      - key: OPENROUTER_MODEL_CHEAP
+        value: openai/gpt-4o-mini
       - key: TWELVEDATA_API_KEY
         sync: false
       - key: NEWSAPI_KEY

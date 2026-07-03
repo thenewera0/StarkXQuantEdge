@@ -74,8 +74,9 @@ def build_rationale(signal: dict) -> dict:
     if cached and now - cached[0] < _RATIONALE_TTL:
         return cached[1]
 
+    model = settings.openrouter_model_cheap  # rationale is simple narration -> cheap model
     payload = {
-        "model": settings.openrouter_model_strong,
+        "model": model,
         "messages": [
             {"role": "system", "content": _SYSTEM},
             {"role": "user", "content": json.dumps(signal, default=str)},
@@ -88,7 +89,7 @@ def build_rationale(signal: dict) -> dict:
         resp = httpx.post(_OPENROUTER_URL, json=payload, headers=headers, timeout=30.0)
         resp.raise_for_status()
         text = resp.json()["choices"][0]["message"]["content"].strip()
-        result = {"rationale": text, "source": "openrouter", "model": settings.openrouter_model_strong}
+        result = {"rationale": text, "source": "openrouter", "model": model}
         _rationale_cache[key] = (now, result)
         return result
     except (httpx.HTTPError, KeyError, IndexError):

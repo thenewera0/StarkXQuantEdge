@@ -15,10 +15,11 @@ class Settings(BaseSettings):
     # Webhook (Phase 0 stub)
     tradingview_webhook_secret: str = "changeme-shared-secret"
 
-    # LLM reasoning (OpenRouter)
+    # LLM reasoning (OpenRouter). Strong model = bull/bear/risk debate (quality matters);
+    # cheap model = the per-signal rationale (simple narration, ~5-10x cheaper).
     openrouter_api_key: str = ""
     openrouter_model_strong: str = "openrouter/auto"
-    openrouter_model_cheap: str = "openrouter/auto"
+    openrouter_model_cheap: str = "openai/gpt-4o-mini"
 
     # Forex / US markets / global indicators
     twelvedata_api_key: str = ""
