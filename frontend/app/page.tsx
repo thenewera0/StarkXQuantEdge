@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { fetchSignal, fetchDecision, type Signal, type Decision } from "@/lib/api";
+import { fetchSignal, fetchSignalLite, fetchDecision, type Signal, type Decision } from "@/lib/api";
 import { SignalCard } from "@/components/SignalCard";
 import { PriceChart } from "@/components/PriceChart";
 import { DebatePanel } from "@/components/DebatePanel";
@@ -78,10 +78,13 @@ export default function Home() {
 
   useEffect(() => { load(symbol, interval, market); }, [symbol, interval, market, load]);
 
-  // Live auto-refresh: silently re-fetch the signal every 30s (keeps the debate intact).
+  // Live auto-refresh: re-fetch the DETERMINISTIC signal every 30s (NO LLM cost).
+  // Preserve the existing rationale so the card keeps its narrative between full loads.
   useEffect(() => {
     const id = window.setInterval(() => {
-      fetchSignal(symbol, interval, market).then(setSignal).catch(() => {});
+      fetchSignalLite(symbol, interval, market)
+        .then((lite) => setSignal((prev) => (prev ? { ...lite, explanation: prev.explanation } : lite)))
+        .catch(() => {});
     }, 30000);
     return () => window.clearInterval(id);
   }, [symbol, interval, market]);

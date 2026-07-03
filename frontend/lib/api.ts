@@ -80,6 +80,7 @@ export type Signal = {
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
 
+// Full signal WITH the LLM-written rationale (1 LLM call). Use on initial load / symbol change only.
 export async function fetchSignal(symbol: string, interval: string, market: string): Promise<Signal> {
   const params = new URLSearchParams({ symbol, interval, market });
   const url = `${API_BASE}/explain?${params.toString()}`;
@@ -88,6 +89,14 @@ export async function fetchSignal(symbol: string, interval: string, market: stri
     const detail = await res.text().catch(() => "");
     throw new Error(`Backend ${res.status}: ${detail || res.statusText}`);
   }
+  return res.json();
+}
+
+// Deterministic signal WITHOUT the LLM (no rationale) — for cheap live auto-refresh polling.
+export async function fetchSignalLite(symbol: string, interval: string, market: string): Promise<Signal> {
+  const params = new URLSearchParams({ symbol, interval, market });
+  const res = await fetch(`${API_BASE}/signal?${params.toString()}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
   return res.json();
 }
 

@@ -8,6 +8,7 @@ configured (local dev default), we fall back to a deterministic template so the 
 from __future__ import annotations
 
 import json
+import time
 
 import httpx
 
@@ -15,6 +16,12 @@ from ..config import settings
 from ..factors.weights import weights_for_interval
 
 _OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+# Cache the LLM rationale per (symbol, interval, bar, label) so repeated /explain calls for the
+# SAME bar don't re-hit the LLM. A rationale is stable within a bar; regenerating it every poll
+# was the source of runaway OpenRouter cost.
+_rationale_cache: dict[tuple, tuple[float, dict]] = {}
+_RATIONALE_TTL = 3600
 
 _SYSTEM = (
     "You are a trading decision-support analyst. You are given structured, pre-computed numbers "
@@ -57,9 +64,15 @@ def _fallback(signal: dict) -> str:
 
 
 def build_rationale(signal: dict) -> dict:
-    """Return {'rationale': str, 'source': 'openrouter'|'fallback', 'model': str|None}."""
+    """Return {'rationale': str, 'source': 'openrouter'|'fallback', 'model': str|None}. Cached per bar."""
     if not settings.openrouter_api_key:
         return {"rationale": _fallback(signal), "source": "fallback", "model": None}
+
+    key = (signal.get("symbol"), signal.get("interval"), signal.get("as_of"), signal.get("label"))
+    now = time.time()
+    cached = _rationale_cache.get(key)
+    if cached and now - cached[0] < _RATIONALE_TTL:
+        return cached[1]
 
     payload = {
         "model": settings.openrouter_model_strong,
@@ -75,7 +88,9 @@ def build_rationale(signal: dict) -> dict:
         resp = httpx.post(_OPENROUTER_URL, json=payload, headers=headers, timeout=30.0)
         resp.raise_for_status()
         text = resp.json()["choices"][0]["message"]["content"].strip()
-        return {"rationale": text, "source": "openrouter", "model": settings.openrouter_model_strong}
+        result = {"rationale": text, "source": "openrouter", "model": settings.openrouter_model_strong}
+        _rationale_cache[key] = (now, result)
+        return result
     except (httpx.HTTPError, KeyError, IndexError):
         # Degrade gracefully — never let an LLM outage break the signal.
         return {"rationale": _fallback(signal), "source": "fallback", "model": None}
