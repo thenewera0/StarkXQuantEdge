@@ -43,12 +43,15 @@ export default function Home() {
   const [debateError, setDebateError] = useState<string | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
   const [dbOn, setDbOn] = useState<boolean | null>(null);
+  const [livePrice, setLivePrice] = useState<number | null>(null);
+  const handlePrice = useCallback((p: number) => setLivePrice(p), []);
 
   const load = useCallback(async (sym: string, tf: string, mkt: Market) => {
     setLoading(true);
     setError(null);
     setDecision(null);
     setDebateError(null);
+    setLivePrice(null);
     try {
       setSignal(await fetchSignal(sym, tf, mkt));
     } catch (e) {
@@ -189,8 +192,8 @@ export default function Home() {
 
         {!loading && !error && signal && (
           <div className="space-y-6">
-            <PriceChart symbol={symbol} interval={interval} market={market} />
-            <SignalCard s={signal} />
+            <PriceChart symbol={symbol} interval={interval} market={market} onPrice={handlePrice} />
+            <SignalCard s={signal} livePrice={livePrice} />
 
             <Card className="card-pad">
               <div className="flex flex-wrap items-center justify-between gap-3">

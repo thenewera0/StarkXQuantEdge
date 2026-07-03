@@ -15,9 +15,10 @@ const CATEGORIES: { key: keyof Signal["categories"]; label: string }[] = [
   { key: "consensus", label: "on-chain" },
 ];
 
-export function SignalCard({ s }: { s: Signal }) {
+export function SignalCard({ s, livePrice }: { s: Signal; livePrice?: number | null }) {
   const lv = s.levels;
   const silenced = s.actionable === false;
+  const delta = livePrice != null && s.price ? (livePrice - s.price) / s.price : null;
 
   return (
     <Card className="card-pad">
@@ -31,6 +32,21 @@ export function SignalCard({ s }: { s: Signal }) {
           <div className="mt-0.5 text-xs text-slate-500">
             {s.interval} · {new Date(s.as_of).toLocaleString()}
           </div>
+          {livePrice != null && (
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> LIVE
+              </span>
+              <span className="text-lg font-semibold tabular-nums text-slate-900">
+                {livePrice.toLocaleString(undefined, { maximumFractionDigits: livePrice >= 100 ? 2 : 6 })}
+              </span>
+              {delta != null && (
+                <span className={`text-xs font-medium tabular-nums ${delta >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                  {delta >= 0 ? "+" : ""}{(delta * 100).toFixed(2)}% since signal
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <SignalBadge label={s.label} size="lg" />
       </div>
