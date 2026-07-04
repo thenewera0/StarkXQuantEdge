@@ -50,7 +50,12 @@ def fetch_klines(symbol: str = "BTCUSDT", interval: str = "1h", limit: int = 500
         resp.raise_for_status()
         rows = resp.json()
     except httpx.HTTPError as exc:
-        raise RuntimeError(f"Binance klines fetch failed for {symbol} {interval}: {exc}") from exc
+        # Binance geo-blocks cloud IPs (418/451). Fall back to a global source (CryptoCompare).
+        from .kraken import fetch_klines as _cc_fetch_klines
+        try:
+            return _cc_fetch_klines(symbol, interval, limit)
+        except RuntimeError:
+            raise RuntimeError(f"Binance klines fetch failed for {symbol} {interval}: {exc}") from exc
 
     if not rows:
         raise RuntimeError(f"Binance returned no klines for {symbol} {interval}")
@@ -87,6 +92,13 @@ def fetch_klines_history(symbol: str = "BTCUSDT", interval: str = "1h", total: i
             resp.raise_for_status()
             rows = resp.json()
         except httpx.HTTPError as exc:
+            # Geo-block fallback: return one CryptoCompare batch (up to 2000 bars) and stop paging.
+            if not chunks:
+                from .kraken import fetch_klines as _cc_fetch_klines
+                try:
+                    return _cc_fetch_klines(symbol, interval, min(total, 2000))
+                except RuntimeError:
+                    pass
             raise RuntimeError(f"Binance history fetch failed for {symbol} {interval}: {exc}") from exc
         if not rows:
             break
