@@ -135,7 +135,11 @@ def fetch_depth(symbol: str = "BTCUSDT", limit: int = 100) -> dict:
         resp.raise_for_status()
         data = resp.json()
     except httpx.HTTPError as exc:
-        raise RuntimeError(f"Binance depth fetch failed for {symbol}: {exc}") from exc
+        from .bybit import fetch_depth as _bb_depth
+        try:
+            return _bb_depth(symbol)
+        except (httpx.HTTPError, RuntimeError):
+            raise RuntimeError(f"Binance depth fetch failed for {symbol}: {exc}") from exc
 
     bid_vol = sum(float(q) for _, q in data.get("bids", []))
     ask_vol = sum(float(q) for _, q in data.get("asks", []))
@@ -160,7 +164,11 @@ def fetch_funding_basis(symbol: str = "BTCUSDT") -> dict:
         resp.raise_for_status()
         d = resp.json()
     except (httpx.HTTPError, ValueError) as exc:
-        raise RuntimeError(f"Binance premiumIndex failed for {symbol}: {exc}") from exc
+        from .bybit import fetch_funding_basis as _bb_funding
+        try:
+            return _bb_funding(symbol)
+        except (httpx.HTTPError, RuntimeError):
+            raise RuntimeError(f"Binance premiumIndex failed for {symbol}: {exc}") from exc
     mark = float(d.get("markPrice", 0) or 0)
     index = float(d.get("indexPrice", 0) or 0)
     basis = (mark - index) / index if index else 0.0
@@ -179,7 +187,11 @@ def fetch_oi_trend(symbol: str = "BTCUSDT", period: str = "4h") -> dict:
         resp.raise_for_status()
         rows = resp.json()
     except (httpx.HTTPError, ValueError) as exc:
-        raise RuntimeError(f"Binance OI hist failed for {symbol}: {exc}") from exc
+        from .bybit import fetch_oi_trend as _bb_oi
+        try:
+            return _bb_oi(symbol, period)
+        except (httpx.HTTPError, RuntimeError):
+            raise RuntimeError(f"Binance OI hist failed for {symbol}: {exc}") from exc
     if not rows or len(rows) < 2:
         return {"symbol": symbol.upper(), "oi_change": None}
     prev = float(rows[0]["sumOpenInterest"])
@@ -199,7 +211,11 @@ def fetch_long_short_ratio(symbol: str = "BTCUSDT", period: str = "1h") -> dict:
         resp.raise_for_status()
         data = resp.json()
     except httpx.HTTPError as exc:
-        raise RuntimeError(f"Binance long/short fetch failed for {symbol}: {exc}") from exc
+        from .bybit import fetch_long_short_ratio as _bb_ls
+        try:
+            return _bb_ls(symbol, period)
+        except (httpx.HTTPError, RuntimeError):
+            raise RuntimeError(f"Binance long/short fetch failed for {symbol}: {exc}") from exc
 
     if not data:
         return {"symbol": symbol.upper(), "long_short_ratio": None}
