@@ -14,8 +14,9 @@ import logging
 from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from . import __version__, db, learning, performance, persistence, resolver, scanner
@@ -86,6 +87,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(RuntimeError)
+async def _data_error_handler(request: Request, exc: RuntimeError) -> JSONResponse:
+    # Data-provider failures (e.g., an upstream API blocking us) return a clean 503 with CORS
+    # headers instead of a raw 500 that the browser reports as "Failed to fetch".
+    return JSONResponse(status_code=503, content={"detail": f"data provider unavailable: {exc}"})
 
 
 @app.get("/health")

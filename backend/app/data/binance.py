@@ -13,7 +13,11 @@ from __future__ import annotations
 import httpx
 import pandas as pd
 
-SPOT_BASE = "https://api.binance.com"
+# data-api.binance.vision is Binance's PUBLIC market-data mirror — it serves the same /api/v3/*
+# spot endpoints (klines, depth) but is NOT geo-blocked, so it works from US cloud IPs (Render/
+# Vercel) where api.binance.com returns 418/451. Futures data (fapi) has no such mirror, so
+# funding/OI/long-short degrade to neutral when blocked (already handled best-effort).
+SPOT_BASE = "https://data-api.binance.vision"
 FUTURES_DATA_BASE = "https://fapi.binance.com"
 
 # Valid kline intervals we expose to the app's timeframe switcher.
