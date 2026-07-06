@@ -282,6 +282,55 @@ def tradeable_regimes(min_sample: int = 12) -> set[str]:
     return out or set(_TREND_REGIMES)  # never fully halt on a transient empty set
 
 
+_LONG_LABELS = ("Buy", "Strong Buy")
+_dir_perf_cache: tuple[float, dict] | None = None
+
+
+def direction_performance(window_days: int = 21) -> dict[str, dict]:
+    """Rolling per-direction stats {long/short: {trades, wins, pnl_frac}} over the last window."""
+    global _dir_perf_cache
+    now = time.time()
+    if _dir_perf_cache and now - _dir_perf_cache[0] < _REGIME_TTL:
+        return _dir_perf_cache[1]
+    result: dict[str, dict] = {}
+    if db.enabled():
+        try:
+            with db.get_conn() as conn, conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    select case when s.label in ('Buy','Strong Buy') then 'long' else 'short' end d,
+                           count(*), count(*) filter (where o.pnl > 0), coalesce(sum(o.pnl), 0)
+                    from outcomes o join signals s on s.id = o.signal_id
+                    where o.pnl is not null and s.label <> 'Neutral'
+                      and o.resolved_at > now() - interval '{int(window_days)} days'
+                    group by d
+                    """
+                )
+                for d, n, w, pnl in cur.fetchall():
+                    result[d] = {"trades": int(n), "wins": int(w), "pnl_frac": float(pnl)}
+        except Exception:
+            pass
+    _dir_perf_cache = (now, result)
+    return result
+
+
+def tradeable_directions(min_sample: int = 12, window_days: int = 21) -> set[str]:
+    """Directions allowed to trade: proven-positive, or thin (benefit of the doubt).
+
+    A direction with >= min_sample resolved trades and NEGATIVE rolling P&L is dropped until it
+    turns positive again. This cuts the persistent short (or long) bleed automatically.
+    """
+    perf = direction_performance(window_days)
+    out: set[str] = set()
+    for d in ("long", "short"):
+        p = perf.get(d)
+        if p is None or p["trades"] < min_sample:
+            out.add(d)
+        elif p["pnl_frac"] > 0:
+            out.add(d)
+    return out or {"long", "short"}  # never fully halt
+
+
 def learning_status() -> dict:
     if not db.enabled():
         return {"enabled": False}

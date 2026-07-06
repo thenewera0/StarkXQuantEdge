@@ -272,6 +272,8 @@ export type Summary = {
     tradeable_regimes: string[];
     excluded_regimes: string[];
     regime_performance: Record<string, RegimePerf>;
+    tradeable_directions?: string[];
+    direction_performance?: Record<string, RegimePerf>;
     champion_weight_profiles: number;
   };
 };

@@ -75,6 +75,27 @@ export function SummaryPanel({ refreshKey }: { refreshKey: number }) {
             ))}
           </div>
 
+          {L.direction_performance && Object.keys(L.direction_performance).length > 0 && (
+            <div className="mt-3 rounded-xl border border-slate-100 bg-white p-3">
+              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Direction gate</div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {Object.entries(L.direction_performance).map(([d, p]) => {
+                  const on = (L.tradeable_directions ?? []).includes(d);
+                  return (
+                    <div key={d} className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-2">
+                        <span className={`h-1.5 w-1.5 rounded-full ${on ? "bg-emerald-500" : "bg-rose-400"}`} />
+                        <span className="font-medium capitalize text-slate-700">{d}</span>
+                        <span className="text-[11px] text-slate-400">{p.trades}t · {on ? "trading" : "paused"}</span>
+                      </span>
+                      <span className={`font-semibold tabular-nums ${tone(p.pnl_usd)}`}>{usd(p.pnl_usd)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {Object.entries(L.regime_performance).map(([r, p]) => (
               <div key={r} className={`flex items-center justify-between rounded-lg border p-2.5 text-sm ${p.tradeable ? "border-emerald-100 bg-white" : "border-slate-100 bg-slate-50/60"}`}>

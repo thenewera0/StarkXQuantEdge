@@ -46,6 +46,14 @@ def _allowed_regimes() -> set[str]:
     if settings.regime_perf_gate_enabled:
         return learning.tradeable_regimes(settings.regime_perf_min_sample)
     return _TRADEABLE_REGIMES
+
+
+def _allowed_directions() -> set[str]:
+    if settings.direction_perf_gate_enabled:
+        return learning.tradeable_directions(
+            settings.direction_perf_min_sample, settings.direction_perf_window_days
+        )
+    return {"long", "short"}
 _OI_PERIODS = {"5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d"}
 
 
@@ -214,6 +222,8 @@ def compute_signal(
         silence_reason = "crowd_veto"
     elif settings.regime_filter_enabled and regime not in _allowed_regimes():
         silence_reason = "regime_filter"  # only trade regimes with proven positive expectancy
+    elif candidate_dir != "flat" and candidate_dir not in _allowed_directions():
+        silence_reason = "direction_filter"  # this direction has proven negative expectancy
     elif abs(composite) < settings.conviction_floor:
         silence_reason = "below_conviction_floor"
     elif geo["direction"] == "flat":

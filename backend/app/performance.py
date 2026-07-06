@@ -63,6 +63,14 @@ def summary(trade_size: float | None = None) -> dict:
 
     perf = learning.regime_performance()
     tradeable = sorted(learning.tradeable_regimes())
+    dir_perf = learning.direction_performance()
+    tradeable_dirs = sorted(learning.tradeable_directions())
+    direction_performance = {
+        d: {"trades": p["trades"], "pnl_usd": round(p["pnl_frac"] * size, 2),
+            "hit_rate": round(p["wins"] / p["trades"], 3) if p["trades"] else None,
+            "tradeable": d in tradeable_dirs}
+        for d, p in dir_perf.items()
+    }
     regime_perf = {
         r: {"trades": p["trades"], "pnl_usd": round(p["pnl_frac"] * size, 2),
             "hit_rate": round(p["wins"] / p["trades"], 3) if p["trades"] else None,
@@ -81,6 +89,8 @@ def summary(trade_size: float | None = None) -> dict:
             "tradeable_regimes": tradeable,
             "excluded_regimes": [r for r in regime_perf if r not in tradeable],
             "regime_performance": regime_perf,
+            "tradeable_directions": tradeable_dirs,
+            "direction_performance": direction_performance,
             "champion_weight_profiles": len(champions),
         },
     }
