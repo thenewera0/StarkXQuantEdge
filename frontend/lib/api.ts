@@ -207,6 +207,7 @@ export async function fetchStats(): Promise<Stats> {
 }
 
 export type PnlTrade = {
+  id?: number;
   symbol: string;
   interval: string;
   direction: string;
@@ -218,6 +219,49 @@ export type PnlTrade = {
   bars_held?: number;
   resolved_at?: string;
 };
+
+export type TradeDetail = {
+  id: number;
+  symbol: string;
+  market: string;
+  interval: string;
+  as_of: string;
+  created_at: string;
+  label: string;
+  regime: string | null;
+  tier: string | null;
+  composite: number | null;
+  confidence: number | null;
+  agreement: number | null;
+  conviction: number | null;
+  final_confidence: number | null;
+  price: number | null;
+  atr: number | null;
+  direction: string;
+  entry: number | null;
+  stop: number | null;
+  targets: (number | null)[];
+  reward_risk: number | null;
+  size_pct: number | null;
+  invalidation: string | null;
+  psychology: string | null;
+  rationale: string | null;
+  factors: Record<string, number | null>;
+  outcome: {
+    result: string;
+    pnl_frac: number | null;
+    mfe: number | null;
+    mae: number | null;
+    bars_held: number | null;
+    resolved_at: string | null;
+  } | null;
+};
+
+export async function fetchTrade(id: number): Promise<TradeDetail> {
+  const res = await fetch(`${API_BASE}/trade?id=${id}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
 
 export type SymbolPnl = { symbol: string; trades: number; wins: number; pnl_usd: number };
 export type RegimePnl = { regime: string; trades: number; wins: number; pnl_usd: number; hit_rate: number | null };

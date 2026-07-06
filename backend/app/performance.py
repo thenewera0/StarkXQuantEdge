@@ -107,7 +107,7 @@ def performance(trade_size: float | None = None) -> dict:
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                select s.symbol, coalesce(s.market,'crypto') as market, s.interval, s.label,
+                select s.id, s.symbol, coalesce(s.market,'crypto') as market, s.interval, s.label,
                        coalesce(s.regime,'unknown') as regime,
                        o.result, o.pnl, o.bars_held, o.resolved_at
                 from outcomes o join signals s on s.id = o.signal_id
@@ -147,7 +147,7 @@ def performance(trade_size: float | None = None) -> dict:
 
         equity_curve.append({"i": i, "cum_pnl_usd": round(realized_usd, 2), "time": str(c["resolved_at"])})
         trades.append({
-            "symbol": sym, "interval": c["interval"], "direction": _direction(c["label"]),
+            "id": c["id"], "symbol": sym, "interval": c["interval"], "direction": _direction(c["label"]),
             "regime": reg, "result": c["result"], "pnl_pct": round(pnl_frac * 100, 2),
             "pnl_usd": round(pnl_usd, 2), "bars_held": c["bars_held"], "resolved_at": str(c["resolved_at"]),
         })

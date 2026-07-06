@@ -181,6 +181,15 @@ def signals_recent(limit: int = Query(20, ge=1, le=200)) -> dict:
     return {"signals": persistence.recent_signals(limit)}
 
 
+@app.get("/trade")
+def trade_detail(id: int = Query(..., ge=1)) -> dict:
+    """Full detail for one signal/trade: levels, factors, thesis, and outcome."""
+    t = persistence.get_trade(id)
+    if t is None:
+        raise HTTPException(status_code=404, detail="trade not found")
+    return t
+
+
 @app.get("/stats")
 def stats() -> dict:
     """Learning-loop scoreboard: hit-rate + avg P&L over resolved outcomes."""

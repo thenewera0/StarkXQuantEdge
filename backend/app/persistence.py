@@ -19,6 +19,9 @@ def log_decision(sig: dict) -> int | None:
     explanation = sig.get("explanation") or {}
     final = sig.get("final") or {}
     debate = sig.get("debate") or {}
+    targets = sig.get("targets") or []
+    t2 = targets[1] if len(targets) > 1 else None
+    t3 = targets[2] if len(targets) > 2 else None
 
     try:
         with db.get_conn() as conn, conn.cursor() as cur:
@@ -27,8 +30,9 @@ def log_decision(sig: dict) -> int | None:
                 insert into signals
                   (symbol, market, interval, as_of, label, composite, confidence, regime,
                    price, atr, rationale, entry, stop, target,
-                   agreement, conviction, final_confidence, debate_source)
-                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   agreement, conviction, final_confidence, debate_source,
+                   tier, reward_risk, size_pct, invalidation, target2, target3, psychology)
+                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 returning id
                 """,
                 (
@@ -38,6 +42,8 @@ def log_decision(sig: dict) -> int | None:
                     levels.get("entry"), levels.get("stop"), levels.get("target"),
                     final.get("agreement"), final.get("conviction"), final.get("final_confidence"),
                     debate.get("source"),
+                    sig.get("tier"), sig.get("reward_risk"), sig.get("size_pct"),
+                    sig.get("invalidation"), t2, t3, sig.get("psychology"),
                 ),
             )
             signal_id = cur.fetchone()[0]
@@ -79,6 +85,66 @@ def record_outcome(
             return True
     except Exception:
         return False
+
+
+def get_trade(signal_id: int) -> dict | None:
+    """Full stored detail for one signal: the signal + its 8 factor scores + resolved outcome."""
+    if not db.enabled():
+        return None
+    try:
+        with db.get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                select s.id, s.symbol, s.market, s.interval, s.as_of, s.label, s.composite,
+                       s.confidence, s.regime, s.price, s.atr, s.rationale, s.entry, s.stop, s.target,
+                       s.agreement, s.conviction, s.final_confidence, s.tier, s.reward_risk,
+                       s.size_pct, s.invalidation, s.target2, s.target3, s.psychology, s.created_at,
+                       f.trend, f.momentum, f.volatility, f.structure, f.flow, f.sentiment, f.macro, f.consensus,
+                       o.result, o.pnl, o.mfe, o.mae, o.bars_held, o.resolved_at
+                from signals s
+                left join factor_logs f on f.signal_id = s.id
+                left join outcomes o on o.signal_id = s.id
+                where s.id = %s
+                """,
+                (signal_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            cols = [c.name for c in cur.description]
+            d = dict(zip(cols, row))
+
+        factors = {k: d.pop(k) for k in ("trend", "momentum", "volatility", "structure",
+                                          "flow", "sentiment", "macro", "consensus")}
+        outcome = {k: d.pop(k) for k in ("result", "pnl", "mfe", "mae", "bars_held", "resolved_at")}
+
+        def num(v):
+            return float(v) if v is not None else None
+
+        return {
+            "id": d["id"], "symbol": d["symbol"], "market": d["market"], "interval": d["interval"],
+            "as_of": str(d["as_of"]), "created_at": str(d["created_at"]), "label": d["label"],
+            "regime": d["regime"], "tier": d["tier"],
+            "composite": num(d["composite"]), "confidence": num(d["confidence"]),
+            "agreement": num(d["agreement"]), "conviction": num(d["conviction"]),
+            "final_confidence": num(d["final_confidence"]),
+            "price": num(d["price"]), "atr": num(d["atr"]),
+            "direction": "long" if d["label"] in ("Buy", "Strong Buy") else
+                         ("short" if d["label"] in ("Sell", "Strong Sell") else "flat"),
+            "entry": num(d["entry"]), "stop": num(d["stop"]),
+            "targets": [num(d["target"]), num(d["target2"]), num(d["target3"])],
+            "reward_risk": num(d["reward_risk"]), "size_pct": num(d["size_pct"]),
+            "invalidation": d["invalidation"], "psychology": d["psychology"], "rationale": d["rationale"],
+            "factors": {k: (num(v)) for k, v in factors.items()},
+            "outcome": {
+                "result": outcome["result"], "pnl_frac": num(outcome["pnl"]),
+                "mfe": num(outcome["mfe"]), "mae": num(outcome["mae"]),
+                "bars_held": outcome["bars_held"],
+                "resolved_at": str(outcome["resolved_at"]) if outcome["resolved_at"] else None,
+            } if outcome["result"] else None,
+        }
+    except Exception:
+        return None
 
 
 def signal_exists(symbol: str, interval: str, as_of: str) -> bool:
