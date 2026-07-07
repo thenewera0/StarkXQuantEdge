@@ -181,6 +181,17 @@ def signals_recent(limit: int = Query(20, ge=1, le=200)) -> dict:
     return {"signals": persistence.recent_signals(limit)}
 
 
+@app.get("/trades")
+def trades_history(
+    result: str = Query("all"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    trade_size: float = Query(1000.0, ge=1.0, le=1_000_000.0),
+) -> dict:
+    """Paginated closed-trade history, filterable by result (all|wins|losses), with counts."""
+    return persistence.trade_history(result, limit, offset, trade_size)
+
+
 @app.get("/trade")
 def trade_detail(id: int = Query(..., ge=1)) -> dict:
     """Full detail for one signal/trade: levels, factors, thesis, and outcome."""

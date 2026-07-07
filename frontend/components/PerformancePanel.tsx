@@ -4,8 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchPerformance, type Performance } from "@/lib/api";
 import { Card } from "./ui";
 import { EquityCurve } from "./EquityCurve";
-import { TradeDetailModal } from "./TradeDetailModal";
-import { Wallet, TrendingUp, TrendingDown, RefreshCw, Layers, LineChart, Gauge, Search } from "lucide-react";
+import { Wallet, TrendingUp, TrendingDown, RefreshCw, Layers, LineChart, Gauge } from "lucide-react";
 
 const REGIME_LABEL: Record<string, string> = {
   strong_trend: "Strong trend", weak_trend: "Weak trend", range: "Range",
@@ -30,7 +29,6 @@ export function PerformancePanel({ refreshKey }: { refreshKey: number }) {
   const [size, setSize] = useState(1000);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [openTradeId, setOpenTradeId] = useState<number | null>(null);
 
   const load = useCallback(async (s: number) => {
     setLoading(true);
@@ -155,48 +153,7 @@ export function PerformancePanel({ refreshKey }: { refreshKey: number }) {
         </div>
       )}
 
-      {/* Trade log */}
-      {perf?.trades && perf.trades.length > 0 && (
-        <div className="mt-5">
-          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Closed trades <span className="normal-case text-slate-400">· click a row for full details</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
-                  <th className="py-1.5 pr-3 font-medium">Asset</th>
-                  <th className="py-1.5 pr-3 font-medium">Dir</th>
-                  <th className="py-1.5 pr-3 font-medium">Result</th>
-                  <th className="py-1.5 pr-3 font-medium text-right">P&amp;L %</th>
-                  <th className="py-1.5 pr-3 font-medium text-right">P&amp;L $</th>
-                  <th className="py-1.5 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {perf.trades.map((t, i) => (
-                  <tr
-                    key={t.id ?? i}
-                    onClick={() => t.id && setOpenTradeId(t.id)}
-                    className={`group border-t border-slate-100 ${t.id ? "cursor-pointer hover:bg-indigo-50/40" : ""}`}
-                  >
-                    <td className="py-2 pr-3 font-medium text-slate-800">{t.symbol} <span className="text-[11px] text-slate-400">{t.interval}</span></td>
-                    <td className="py-2 pr-3 capitalize text-slate-500">{t.direction}</td>
-                    <td className="py-2 pr-3">
-                      <span className={t.result === "target" ? "text-emerald-600" : t.result === "stop" ? "text-rose-600" : "text-slate-500"}>{t.result}</span>
-                    </td>
-                    <td className={`py-2 pr-3 text-right tabular-nums ${tone(t.pnl_pct)}`}>{t.pnl_pct > 0 ? "+" : ""}{t.pnl_pct}%</td>
-                    <td className={`py-2 pr-3 text-right font-medium tabular-nums ${tone(t.pnl_usd)}`}>{usd(t.pnl_usd)}</td>
-                    <td className="py-2 text-right">{t.id && <Search size={13} className="ml-auto text-slate-300 group-hover:text-indigo-500" />}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {openTradeId != null && <TradeDetailModal id={openTradeId} onClose={() => setOpenTradeId(null)} />}
+      {/* Full closed-trade list with Wins/Losses filter lives in the Trade History panel below. */}
 
       {(!c || c.closed_trades === 0) && !loading && (
         <div className="py-4 text-center text-sm text-slate-400">No closed trades yet. Open signals are being tracked; P&amp;L fills in as targets/stops hit.</div>

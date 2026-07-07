@@ -87,6 +87,52 @@ def record_outcome(
         return False
 
 
+def trade_history(result_filter: str = "all", limit: int = 50, offset: int = 0,
+                  trade_size: float = 1000.0) -> dict:
+    """Paginated closed-trade history with wins/losses/all counts. Newest first."""
+    if not db.enabled():
+        return {"trades": [], "counts": {"all": 0, "wins": 0, "losses": 0}, "limit": limit, "offset": offset}
+    where = "o.pnl is not null"
+    if result_filter == "wins":
+        where += " and o.pnl > 0"
+    elif result_filter == "losses":
+        where += " and o.pnl <= 0"
+    try:
+        with db.get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                """select count(*) filter (where o.pnl is not null),
+                          count(*) filter (where o.pnl > 0),
+                          count(*) filter (where o.pnl <= 0)
+                   from outcomes o"""
+            )
+            all_c, wins, losses = cur.fetchone()
+            cur.execute(
+                f"""select s.id, s.symbol, s.interval, s.label, coalesce(s.regime,'unknown') regime,
+                          o.result, o.pnl, o.bars_held, o.resolved_at
+                    from outcomes o join signals s on s.id = o.signal_id
+                    where {where}
+                    order by o.resolved_at desc
+                    limit %s offset %s""",
+                (limit, offset),
+            )
+            cols = [c.name for c in cur.description]
+            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+    except Exception:
+        return {"trades": [], "counts": {"all": 0, "wins": 0, "losses": 0}, "limit": limit, "offset": offset}
+
+    trades = [{
+        "id": r["id"], "symbol": r["symbol"], "interval": r["interval"], "regime": r["regime"],
+        "direction": "long" if r["label"] in ("Buy", "Strong Buy") else "short", "result": r["result"],
+        "pnl_pct": round(float(r["pnl"]) * 100, 2), "pnl_usd": round(float(r["pnl"]) * trade_size, 2),
+        "bars_held": r["bars_held"], "resolved_at": str(r["resolved_at"]),
+    } for r in rows]
+    return {
+        "trades": trades,
+        "counts": {"all": int(all_c or 0), "wins": int(wins or 0), "losses": int(losses or 0)},
+        "limit": limit, "offset": offset,
+    }
+
+
 def get_trade(signal_id: int) -> dict | None:
     """Full stored detail for one signal: the signal + its 8 factor scores + resolved outcome."""
     if not db.enabled():

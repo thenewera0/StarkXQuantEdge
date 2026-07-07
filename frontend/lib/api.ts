@@ -210,6 +210,7 @@ export type PnlTrade = {
   id?: number;
   symbol: string;
   interval: string;
+  regime?: string;
   direction: string;
   result?: string;
   entry?: number;
@@ -259,6 +260,20 @@ export type TradeDetail = {
 
 export async function fetchTrade(id: number): Promise<TradeDetail> {
   const res = await fetch(`${API_BASE}/trade?id=${id}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
+export type TradeHistory = {
+  trades: PnlTrade[];
+  counts: { all: number; wins: number; losses: number };
+  limit: number;
+  offset: number;
+};
+
+export async function fetchTrades(result: "all" | "wins" | "losses", limit = 50, offset = 0): Promise<TradeHistory> {
+  const params = new URLSearchParams({ result, limit: String(limit), offset: String(offset) });
+  const res = await fetch(`${API_BASE}/trades?${params.toString()}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Backend ${res.status}`);
   return res.json();
 }

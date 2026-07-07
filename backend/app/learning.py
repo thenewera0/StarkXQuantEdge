@@ -232,26 +232,26 @@ def train_and_gate(min_samples: int = MIN_SAMPLES) -> dict:
 
 _TREND_REGIMES = {"strong_trend", "weak_trend"}
 _ALL_REGIMES = ("strong_trend", "weak_trend", "range", "high_vol", "squeeze")
-_regime_perf_cache: tuple[float, dict] | None = None
-_REGIME_TTL = 300
+_regime_perf_cache: tuple[float, int, dict] | None = None
+_REGIME_TTL = 120  # short cache so the gates react quickly to new outcomes
 
 
-def regime_performance() -> dict[str, dict]:
-    """Per-regime realized stats from live outcomes: {regime: {trades, wins, pnl_frac}}. Cached."""
+def regime_performance(window_days: int = 4) -> dict[str, dict]:
+    """Per-regime realized stats over a rolling window: {regime: {trades, wins, pnl_frac}}. Cached."""
     global _regime_perf_cache
     now = time.time()
-    if _regime_perf_cache and now - _regime_perf_cache[0] < _REGIME_TTL:
-        return _regime_perf_cache[1]
+    if _regime_perf_cache and _regime_perf_cache[1] == window_days and now - _regime_perf_cache[0] < _REGIME_TTL:
+        return _regime_perf_cache[2]
     result: dict[str, dict] = {}
     if db.enabled():
         try:
             with db.get_conn() as conn, conn.cursor() as cur:
                 cur.execute(
-                    """
+                    f"""
                     select coalesce(s.regime,'unknown') r, count(*),
                            count(*) filter (where o.pnl > 0), coalesce(sum(o.pnl), 0)
                     from outcomes o join signals s on s.id = o.signal_id
-                    where o.pnl is not null
+                    where o.pnl is not null and o.resolved_at > now() - interval '{int(window_days)} days'
                     group by r
                     """
                 )
@@ -259,18 +259,18 @@ def regime_performance() -> dict[str, dict]:
                     result[r] = {"trades": int(n), "wins": int(w), "pnl_frac": float(pnl)}
         except Exception:
             pass
-    _regime_perf_cache = (now, result)
+    _regime_perf_cache = (now, window_days, result)
     return result
 
 
-def tradeable_regimes(min_sample: int = 12) -> set[str]:
+def tradeable_regimes(min_sample: int = 12, window_days: int = 4) -> set[str]:
     """Regimes we're allowed to trade: proven-positive (enough sample) or thin trend regimes.
 
     Data-driven loss-cutting: a regime with >= min_sample resolved trades and NEGATIVE net P&L is
     dropped. A regime with too little data is only allowed if it's a trend regime (benefit of the
     doubt). This is what stops the engine from repeating the range/strong_trend bleed.
     """
-    perf = regime_performance()
+    perf = regime_performance(window_days)
     out: set[str] = set()
     for r in _ALL_REGIMES:
         p = perf.get(r)

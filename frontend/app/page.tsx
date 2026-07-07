@@ -9,6 +9,7 @@ import { HistoryPanel } from "@/components/HistoryPanel";
 import { ScannerPanel } from "@/components/ScannerPanel";
 import { PerformancePanel } from "@/components/PerformancePanel";
 import { SummaryPanel } from "@/components/SummaryPanel";
+import { TradeHistoryPanel } from "@/components/TradeHistoryPanel";
 import { Card } from "@/components/ui";
 import type { EmittedSignal } from "@/lib/api";
 import { Activity, Bitcoin, DollarSign, Sparkles, Gauge, RefreshCw } from "lucide-react";
@@ -187,6 +188,10 @@ export default function Home() {
 
         <div className="mb-6">
           <SummaryPanel refreshKey={historyKey} />
+        </div>
+
+        <div className="mb-6">
+          <TradeHistoryPanel refreshKey={historyKey} />
         </div>
 
         <div className="mb-6">

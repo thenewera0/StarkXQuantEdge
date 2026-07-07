@@ -44,7 +44,7 @@ _TRADEABLE_REGIMES = {"strong_trend", "weak_trend"}
 
 def _allowed_regimes() -> set[str]:
     if settings.regime_perf_gate_enabled:
-        return learning.tradeable_regimes(settings.regime_perf_min_sample)
+        return learning.tradeable_regimes(settings.regime_perf_min_sample, settings.regime_perf_window_days)
     return _TRADEABLE_REGIMES
 
 

@@ -49,12 +49,14 @@ class Settings(BaseSettings):
     # dropped automatically. This is the self-improving loss-cutting gate.
     regime_perf_gate_enabled: bool = True
     regime_perf_min_sample: int = 12
+    regime_perf_window_days: int = 4   # short rolling window -> reacts to the current market fast
 
     # Per-direction performance gate: stop trading a direction (long/short) with proven negative
-    # expectancy over a rolling window; re-enables automatically if it turns profitable again.
+    # expectancy over a SHORT rolling window; re-enables automatically as the losing trades age out
+    # of the window (auto re-exploration) or it turns profitable again.
     direction_perf_gate_enabled: bool = True
-    direction_perf_min_sample: int = 12
-    direction_perf_window_days: int = 21
+    direction_perf_min_sample: int = 10
+    direction_perf_window_days: int = 2
 
     # Performance / P&L (fixed notional per trade for the paper track record)
     standard_trade_size_usd: float = 1000.0
