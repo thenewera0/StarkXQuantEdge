@@ -217,11 +217,16 @@ def compute_signal(
     geo = _risk_geometry(last, candidate_dir, interval, regime)
 
     # --- L6 hard filters / silence ("silence is a position") ---
+    sig_symbol = symbol.upper() if is_crypto else symbol
     silence_reason = None
     if crowd_veto:
         silence_reason = "crowd_veto"
     elif settings.regime_filter_enabled and regime not in _allowed_regimes():
         silence_reason = "regime_filter"  # only trade regimes with proven positive expectancy
+    elif settings.symbol_perf_gate_enabled and not learning.is_symbol_tradeable(
+        sig_symbol, settings.symbol_perf_min_sample, settings.symbol_perf_window_days
+    ):
+        silence_reason = "symbol_filter"  # this symbol has proven negative expectancy
     elif candidate_dir != "flat" and candidate_dir not in _allowed_directions():
         silence_reason = "direction_filter"  # this direction has proven negative expectancy
     elif abs(composite) < settings.conviction_floor:

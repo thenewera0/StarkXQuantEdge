@@ -58,6 +58,12 @@ class Settings(BaseSettings):
     direction_perf_min_sample: int = 10
     direction_perf_window_days: int = 2
 
+    # Per-symbol performance gate: pause any symbol with proven negative expectancy (e.g. forex
+    # pairs that lack derivatives/on-chain data and lose). Re-tests as losing trades age out.
+    symbol_perf_gate_enabled: bool = True
+    symbol_perf_min_sample: int = 12
+    symbol_perf_window_days: int = 5
+
     # Performance / P&L (fixed notional per trade for the paper track record)
     standard_trade_size_usd: float = 1000.0
 

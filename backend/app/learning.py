@@ -284,6 +284,41 @@ def tradeable_regimes(min_sample: int = 12, window_days: int = 4) -> set[str]:
 
 _LONG_LABELS = ("Buy", "Strong Buy")
 _dir_perf_cache: tuple[float, dict] | None = None
+_sym_perf_cache: tuple[float, dict] | None = None
+
+
+def symbol_performance(window_days: int = 5) -> dict[str, dict]:
+    """Per-symbol realized stats over a rolling window: {symbol: {trades, wins, pnl_frac}}. Cached."""
+    global _sym_perf_cache
+    now = time.time()
+    if _sym_perf_cache and now - _sym_perf_cache[0] < _REGIME_TTL:
+        return _sym_perf_cache[1]
+    result: dict[str, dict] = {}
+    if db.enabled():
+        try:
+            with db.get_conn() as conn, conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    select s.symbol, count(*), count(*) filter (where o.pnl > 0), coalesce(sum(o.pnl), 0)
+                    from outcomes o join signals s on s.id = o.signal_id
+                    where o.pnl is not null and o.resolved_at > now() - interval '{int(window_days)} days'
+                    group by s.symbol
+                    """
+                )
+                for sym, n, w, pnl in cur.fetchall():
+                    result[sym] = {"trades": int(n), "wins": int(w), "pnl_frac": float(pnl)}
+        except Exception:
+            pass
+    _sym_perf_cache = (now, result)
+    return result
+
+
+def is_symbol_tradeable(symbol: str, min_sample: int = 12, window_days: int = 5) -> bool:
+    """A symbol is paused only if it has >= min_sample recent trades AND negative net P&L."""
+    p = symbol_performance(window_days).get(symbol)
+    if p is None or p["trades"] < min_sample:
+        return True  # thin -> benefit of the doubt (also lets a paused symbol re-explore)
+    return p["pnl_frac"] > 0
 
 
 def direction_performance(window_days: int = 21) -> dict[str, dict]:

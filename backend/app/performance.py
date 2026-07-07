@@ -77,6 +77,14 @@ def summary(trade_size: float | None = None) -> dict:
             "tradeable": r in tradeable}
         for r, p in sorted(perf.items(), key=lambda x: -x[1]["pnl_frac"])
     }
+    sym_perf = learning.symbol_performance()
+    symbol_gate = {
+        s: {"trades": p["trades"], "pnl_usd": round(p["pnl_frac"] * size, 2),
+            "hit_rate": round(p["wins"] / p["trades"], 3) if p["trades"] else None,
+            "tradeable": learning.is_symbol_tradeable(s)}
+        for s, p in sorted(sym_perf.items(), key=lambda x: x[1]["pnl_frac"])
+    }
+    paused_symbols = [s for s, v in symbol_gate.items() if not v["tradeable"]]
     champions = learning.learning_status().get("champions", {}) if db.enabled() else {}
 
     return {
@@ -91,6 +99,8 @@ def summary(trade_size: float | None = None) -> dict:
             "regime_performance": regime_perf,
             "tradeable_directions": tradeable_dirs,
             "direction_performance": direction_performance,
+            "paused_symbols": paused_symbols,
+            "symbol_gate": symbol_gate,
             "champion_weight_profiles": len(champions),
         },
     }

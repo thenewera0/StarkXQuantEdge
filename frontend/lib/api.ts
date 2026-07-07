@@ -333,6 +333,8 @@ export type Summary = {
     regime_performance: Record<string, RegimePerf>;
     tradeable_directions?: string[];
     direction_performance?: Record<string, RegimePerf>;
+    paused_symbols?: string[];
+    symbol_gate?: Record<string, RegimePerf>;
     champion_weight_profiles: number;
   };
 };

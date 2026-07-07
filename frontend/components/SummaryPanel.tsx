@@ -96,6 +96,15 @@ export function SummaryPanel({ refreshKey }: { refreshKey: number }) {
             </div>
           )}
 
+          {L.paused_symbols && L.paused_symbols.length > 0 && (
+            <div className="mt-3 rounded-xl border border-rose-100 bg-rose-50/40 p-3 text-sm text-slate-700">
+              <span className="font-medium text-rose-600">Paused symbols</span> (proven-losing, auto-re-tested):{" "}
+              {L.paused_symbols.map((s) => (
+                <span key={s} className="mr-1 inline-block rounded bg-rose-100 px-1.5 py-0.5 text-xs font-medium text-rose-700">{s}</span>
+              ))}
+            </div>
+          )}
+
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {Object.entries(L.regime_performance).map(([r, p]) => (
               <div key={r} className={`flex items-center justify-between rounded-lg border p-2.5 text-sm ${p.tradeable ? "border-emerald-100 bg-white" : "border-slate-100 bg-slate-50/60"}`}>
