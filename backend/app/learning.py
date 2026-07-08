@@ -279,7 +279,11 @@ def tradeable_regimes(min_sample: int = 12, window_days: int = 4) -> set[str]:
                 out.add(r)
         elif p["pnl_frac"] > 0:
             out.add(r)
-    return out or set(_TREND_REGIMES)  # never fully halt on a transient empty set
+    # NO fallback: if every regime (trend ones included) has proven negative expectancy, stand
+    # down entirely rather than forcing trades into a losing market. Thin regimes still get
+    # benefit-of-doubt above, so this only empties when trend regimes are *proven* losers -> the
+    # losing trades then age out of the window and the regime auto-re-tests later.
+    return out
 
 
 _LONG_LABELS = ("Buy", "Strong Buy")
@@ -363,7 +367,9 @@ def tradeable_directions(min_sample: int = 12, window_days: int = 21) -> set[str
             out.add(d)
         elif p["pnl_frac"] > 0:
             out.add(d)
-    return out or {"long", "short"}  # never fully halt
+    # NO fallback: if BOTH directions have proven negative expectancy, stand down entirely
+    # ("silence is a position"). Losing trades age out of the window -> auto re-test later.
+    return out
 
 
 def learning_status() -> dict:
