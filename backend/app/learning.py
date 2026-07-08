@@ -213,9 +213,9 @@ def train_and_gate(min_samples: int = MIN_SAMPLES) -> dict:
             continue
 
         champion = active_weights(bucket_interval, regime)
-        champ_ret = _basket_holdout_return(bucket_interval, champion)
-        chal_ret = _basket_holdout_return(bucket_interval, challenger)
-        promoted = chal_ret > champ_ret
+        champ_ret = float(_basket_holdout_return(bucket_interval, champion))
+        chal_ret = float(_basket_holdout_return(bucket_interval, challenger))
+        promoted = bool(chal_ret > champ_ret)  # native bool (backtest returns are numpy floats)
         if promoted:
             _promote(regime, bucket, challenger)
 
