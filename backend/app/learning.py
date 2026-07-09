@@ -298,19 +298,21 @@ def regime_performance(window_days: int = 4) -> dict[str, dict]:
 
 
 def tradeable_regimes(min_sample: int = 12, window_days: int = 4) -> set[str]:
-    """Regimes we're allowed to trade: proven-positive (enough sample) or thin trend regimes.
+    """Regimes we're allowed to trade: proven-positive, or thin (benefit-of-doubt re-exploration).
 
     Data-driven loss-cutting: a regime with >= min_sample resolved trades and NEGATIVE net P&L is
-    dropped. A regime with too little data is only allowed if it's a trend regime (benefit of the
-    doubt). This is what stops the engine from repeating the range/strong_trend bleed.
+    dropped until its losing trades age out of the window. A regime with too little data gets the
+    benefit of the doubt so it can re-prove itself (this is what lets the range-fade family re-open
+    once the old continuation-era range losses age out — otherwise range would deadlock, unable to
+    take the new trades it needs to re-qualify). The EV gate is the per-trade backstop that still
+    blocks negative-EV setups even in a re-opened regime.
     """
     perf = regime_performance(window_days)
     out: set[str] = set()
     for r in _ALL_REGIMES:
         p = perf.get(r)
         if p is None or p["trades"] < min_sample:
-            if r in _TREND_REGIMES:
-                out.add(r)
+            out.add(r)  # thin -> benefit of the doubt / auto re-exploration
         elif p["pnl_frac"] > 0:
             out.add(r)
     # NO fallback: if every regime (trend ones included) has proven negative expectancy, stand
