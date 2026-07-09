@@ -24,11 +24,13 @@ from .data import (
     fear_greed,
     fetch_depth,
     fetch_funding_basis,
+    fetch_funding_history,
     fetch_klines,
     fetch_klines_td,
     fetch_long_short_ratio,
     fetch_oi_trend,
     fng_score,
+    fng_zscore,
     news_sentiment,
     onchain_score,
 )
@@ -89,6 +91,17 @@ def _num(row: pd.Series, key: str) -> float | None:
     return float(v)
 
 
+def _zscore(current: float, history: list[float]) -> float:
+    """Z-score of `current` vs a history sample (§2.5). 0.0 if degenerate."""
+    n = len(history)
+    if n < 2:
+        return 0.0
+    mu = sum(history) / n
+    var = sum((x - mu) ** 2 for x in history) / n
+    sd = var ** 0.5
+    return round((current - mu) / sd, 4) if sd > 1e-12 else 0.0
+
+
 def _fetch_ohlcv(symbol: str, interval: str, limit: int, market: str):
     if market in _CRYPTO_MARKETS:
         df = fetch_klines(symbol, interval, limit)
@@ -143,7 +156,12 @@ def compute_signal(
         try:
             fb = fetch_funding_basis(symbol)
             flow_extras["funding_rate"], flow_extras["basis"] = fb["funding_rate"], fb["basis"]
-        except RuntimeError:
+            # §2.5: z-score the current funding against this asset's own ~40d distribution so
+            # "extreme" is asset-specific, and feed it through the (learnable) flow family.
+            hist = fetch_funding_history(symbol)
+            if hist and len(hist) >= 20 and fb.get("funding_rate") is not None:
+                flow_extras["funding_z"] = _zscore(float(fb["funding_rate"]), hist)
+        except Exception:
             pass
         try:
             oi_period = interval if interval in _OI_PERIODS else "4h"
@@ -152,17 +170,23 @@ def compute_signal(
             pass
         deriv_meta = {k: flow_extras.get(k) for k in ("funding_rate", "basis", "oi_change", "long_short_ratio")}
 
-    # F7 sentiment: news + Fear&Greed (crypto)
+    # F7 sentiment: news + Fear&Greed (crypto). §2.5: use the F&G Z-SCORE (greedier/more-fearful
+    # than usual) rather than the raw index level, and feed it through the learnable sentiment family.
     sentiment = None
     news_meta = fng_meta = None
+    fng_z = None
     if with_news:
         news_meta = news_sentiment(symbol)
         parts = [p for p in [news_meta.get("score")] if p is not None]
         if is_crypto:
             fng_meta = fear_greed()
-            fs = fng_score()
-            if fs is not None:
-                parts.append(fs)
+            fng_z = fng_zscore()
+            if fng_z is not None:
+                parts.append(max(-100.0, min(100.0, -fng_z * 40.0)))  # +z greedy -> contrarian bearish
+            else:
+                fs = fng_score()
+                if fs is not None:
+                    parts.append(fs)  # fallback: raw contrarian score if history is thin
         if parts:
             sentiment = round(sum(parts) / len(parts), 1)
 
@@ -212,6 +236,7 @@ def compute_signal(
         "is_long": candidate_dir == "long", "regime": regime, "factors": result.categories,
         "hurst": _num(last, "hurst"), "variance_ratio": _num(last, "variance_ratio"),
         "entropy": _num(last, "entropy"), "kalman_slope": _num(last, "kalman_slope"),
+        "funding_z": flow_extras.get("funding_z") if flow_extras else None, "fng_z": fng_z,
     }
     feature_vec = meta_features.build(raw_features)
     meta_p = meta_model.predict(raw_features)

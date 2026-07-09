@@ -44,3 +44,41 @@ def fng_score() -> float | None:
         return None
     # 50 neutral; invert so fear is bullish. Scale so 0->+100, 100->-100.
     return round((50 - v) / 50 * 100, 1)
+
+
+_hist_cache: tuple[float, list[float]] | None = None
+_HIST_TTL = 3600
+
+
+def fng_history(limit: int = 90) -> list[float]:
+    """Recent Fear & Greed values (newest first) for z-scoring. Cached, best-effort ([] on failure)."""
+    global _hist_cache
+    now = time.time()
+    if _hist_cache and now - _hist_cache[0] < _HIST_TTL:
+        return _hist_cache[1]
+    try:
+        resp = httpx.get(_URL, params={"limit": limit}, timeout=12.0)
+        resp.raise_for_status()
+        data = resp.json().get("data", [])
+        vals = [float(d["value"]) for d in data]
+    except (httpx.HTTPError, ValueError, KeyError):
+        return []
+    if vals:
+        _hist_cache = (now, vals)
+    return vals
+
+
+def fng_zscore() -> float | None:
+    """Z-score of the CURRENT F&G vs its ~90d distribution (§2.5). None if data is thin.
+
+    Positive z = greedier than usual (contrarian bearish); negative = more fearful (bullish)."""
+    hist = fng_history(90)
+    if len(hist) < 20:
+        return None
+    cur = hist[0]
+    mu = sum(hist) / len(hist)
+    var = sum((x - mu) ** 2 for x in hist) / len(hist)
+    sd = var ** 0.5
+    if sd <= 1e-9:
+        return 0.0
+    return round((cur - mu) / sd, 4)

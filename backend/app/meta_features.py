@@ -16,8 +16,9 @@ import math
 FACTOR_KEYS = ("trend", "momentum", "volatility", "structure", "flow", "sentiment", "macro", "consensus")
 REGIMES = ("strong_trend", "weak_trend", "range", "high_vol", "squeeze")
 
-# Advanced statistical inputs (§3) with NEUTRAL defaults (no-info point) for missing values.
-STAT_DEFAULTS = {"hurst": 0.5, "variance_ratio": 1.0, "entropy": 1.0, "kalman_slope": 0.0}
+# Advanced statistical inputs (§3) + contrarian z-scores (§2.5), NEUTRAL defaults (no-info point).
+STAT_DEFAULTS = {"hurst": 0.5, "variance_ratio": 1.0, "entropy": 1.0, "kalman_slope": 0.0,
+                 "funding_z": 0.0, "fng_z": 0.0}
 STAT_KEYS = tuple(STAT_DEFAULTS.keys())
 
 # Fixed, ordered feature layout. NEVER reorder — stored vectors index into this.

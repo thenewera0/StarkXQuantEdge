@@ -22,13 +22,20 @@ raw = {"composite": -40.0, "agreement": 0.6, "reward_risk": 1.8, "atr_pct": 0.01
                    "flow": None, "sentiment": None, "macro": None, "consensus": None},
        "hurst": 0.3, "variance_ratio": 0.7, "entropy": None, "kalman_slope": -0.02}
 v = build(raw)
-check("vector length == FEATURE_KEYS", len(v) == len(FEATURE_KEYS) == 27)
+check("vector length == FEATURE_KEYS", len(v) == len(FEATURE_KEYS) == 29)
 check("None factor -> 0.0", v[FEATURE_KEYS.index("momentum")] == 0.0)
 check("abs_composite correct", v[FEATURE_KEYS.index("abs_composite")] == 40.0)
 check("regime one-hot: range=1, others=0", v[FEATURE_KEYS.index("regime_range")] == 1.0 and v[FEATURE_KEYS.index("regime_weak_trend")] == 0.0)
 check("is_long false -> 0", v[FEATURE_KEYS.index("is_long")] == 0.0)
 check("stat feature passed through (hurst=0.3)", v[FEATURE_KEYS.index("hurst")] == 0.3)
 check("stat None -> neutral default (entropy=1.0)", v[FEATURE_KEYS.index("entropy")] == 1.0)
+check("funding_z/fng_z default neutral 0.0 when absent", v[FEATURE_KEYS.index("funding_z")] == 0.0 and v[FEATURE_KEYS.index("fng_z")] == 0.0)
+
+print("== z-score (§2.5) ==")
+from app.signal_service import _zscore
+check("z=0 at the mean", _zscore(5.0, [3.0, 5.0, 7.0]) == 0.0)
+check("z>0 above mean, z<0 below", _zscore(9.0, [1.0, 2.0, 3.0]) > 0 and _zscore(0.0, [1.0, 2.0, 3.0]) < 0)
+check("degenerate history -> 0", _zscore(5.0, [2.0, 2.0, 2.0]) == 0.0)
 
 print("== AUC + rank ==")
 r = mm._rankdata(np.array([10.0, 10.0, 20.0, 5.0]))  # sorted 5,10,10,20 -> ties at pos 2,3 = 2.5

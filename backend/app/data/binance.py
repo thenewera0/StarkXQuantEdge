@@ -209,6 +209,25 @@ def fetch_funding_basis(symbol: str = "BTCUSDT") -> dict:
     }
 
 
+def fetch_funding_history(symbol: str = "BTCUSDT", limit: int = 120) -> list[float]:
+    """Recent funding rates (oldest->newest) for per-asset z-scoring (§2.5). [] on failure.
+
+    ~120 8h periods ≈ 40 days. Funding is asset-specific: -0.02% is extreme for BTC but routine
+    for a thin alt, so an absolute threshold is wrong — the caller z-scores this series instead."""
+    url = f"{FUTURES_DATA_BASE}/fapi/v1/fundingRate"
+    try:
+        resp = httpx.get(url, params={"symbol": symbol.upper(), "limit": min(int(limit), 1000)}, timeout=15.0)
+        resp.raise_for_status()
+        rows = resp.json()
+        return [float(r["fundingRate"]) for r in rows]
+    except (httpx.HTTPError, ValueError, KeyError):
+        try:
+            from .bybit import fetch_funding_history as _bb
+            return _bb(symbol, limit)
+        except Exception:
+            return []
+
+
 def fetch_oi_trend(symbol: str = "BTCUSDT", period: str = "4h") -> dict:
     """Open-interest trend vs the prior reading (futures data API). Returns oi_change fraction."""
     url = f"{FUTURES_DATA_BASE}/futures/data/openInterestHist"

@@ -41,6 +41,15 @@ def fetch_funding_basis(symbol: str = "BTCUSDT") -> dict:
     return {"symbol": symbol.upper(), "funding_rate": float(t.get("fundingRate") or 0), "basis": basis}
 
 
+def fetch_funding_history(symbol: str = "BTCUSDT", limit: int = 120) -> list[float]:
+    """Recent funding rates (oldest->newest) from Bybit — fallback for §2.5 z-scoring."""
+    res = _get("/v5/market/funding/history",
+               {"category": "linear", "symbol": symbol.upper(), "limit": min(int(limit), 200)})
+    rows = res.get("list") or []
+    rows = sorted(rows, key=lambda r: int(r["fundingRateTimestamp"]))
+    return [float(r["fundingRate"]) for r in rows]
+
+
 def fetch_oi_trend(symbol: str = "BTCUSDT", period: str = "4h") -> dict:
     """Open-interest change vs the prior reading."""
     res = _get("/v5/market/open-interest",

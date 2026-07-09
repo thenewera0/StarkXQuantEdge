@@ -143,10 +143,15 @@ def _flow(row: pd.Series, extras: dict | None) -> float | None:
         if lsr is not None and lsr > 0:
             parts.append(_tanh100(math.log(lsr)))
             weights.append(0.4)
+        # §2.5: prefer the per-asset funding Z-SCORE (extreme is asset-specific) over an absolute
+        # threshold. Extreme positive funding = longs overcrowded -> contrarian BEARISH for flow.
+        funding_z = extras.get("funding_z")
         funding = extras.get("funding_rate")
-        if funding is not None:
-            # Extreme positive funding = longs overcrowded -> contrarian BEARISH for flow.
-            parts.append(_tanh100(-funding / 0.0005))
+        if funding_z is not None:
+            parts.append(_clip100(max(-20.0, min(20.0, -8.0 * funding_z)) * 5.0))  # z-based, learnable
+            weights.append(0.9)
+        elif funding is not None:
+            parts.append(_tanh100(-funding / 0.0005))  # fallback: absolute (no history available)
             weights.append(0.9)
         basis = extras.get("basis")
         if basis is not None:
