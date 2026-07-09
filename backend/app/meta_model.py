@@ -86,7 +86,7 @@ def _training() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         cur.execute(
             """
             select s.composite, s.agreement, s.reward_risk, s.atr, s.price, s.regime, s.label,
-                   s.win_prob, s.as_of,
+                   s.win_prob, s.as_of, s.features,
                    f.trend, f.momentum, f.volatility, f.structure, f.flow, f.sentiment, f.macro, f.consensus,
                    o.pnl, extract(epoch from (now() - o.resolved_at)) / 86400.0 as age_days,
                    extract(dow from s.as_of) * 24 + extract(hour from s.as_of) as how
@@ -102,17 +102,25 @@ def _training() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 
     X, y, sw, base = [], [], [], []
     lam = np.log(2.0) / _DECAY_HALFLIFE_DAYS
+    n_feat = len(FEATURE_KEYS)
     for r in rows:
-        price = float(r["price"]) if r["price"] else 0.0
-        atr_pct = (abs(float(r["atr"])) / price) if (r["atr"] and price) else 0.0
-        raw = {
-            "composite": r["composite"], "agreement": r["agreement"], "reward_risk": r["reward_risk"],
-            "atr_pct": atr_pct, "win_prob": r["win_prob"], "hour_of_week": r["how"],
-            "htf_trend": 0, "is_long": r["label"] in ("Buy", "Strong Buy"), "regime": r["regime"],
-            "factors": {k: r[k] for k in ("trend", "momentum", "volatility", "structure",
-                                          "flow", "sentiment", "macro", "consensus")},
-        }
-        X.append(build(raw))
+        # §11 replay: use the persisted feature vector verbatim when it matches the current layout
+        # (so richer features like the §3 stats train once they've been logged); else reconstruct
+        # from base columns (new features fall back to their neutral defaults via build()).
+        feats = r.get("features")
+        if isinstance(feats, list) and len(feats) == n_feat:
+            X.append([float(v) for v in feats])
+        else:
+            price = float(r["price"]) if r["price"] else 0.0
+            atr_pct = (abs(float(r["atr"])) / price) if (r["atr"] and price) else 0.0
+            raw = {
+                "composite": r["composite"], "agreement": r["agreement"], "reward_risk": r["reward_risk"],
+                "atr_pct": atr_pct, "win_prob": r["win_prob"], "hour_of_week": r["how"],
+                "htf_trend": 0, "is_long": r["label"] in ("Buy", "Strong Buy"), "regime": r["regime"],
+                "factors": {k: r[k] for k in ("trend", "momentum", "volatility", "structure",
+                                              "flow", "sentiment", "macro", "consensus")},
+            }
+            X.append(build(raw))
         pnl = float(r["pnl"])
         y.append(1.0 if pnl > 0 else 0.0)
         sw.append(max(abs(pnl), 1e-4) * float(np.exp(-lam * max(0.0, float(r["age_days"] or 0.0)))))

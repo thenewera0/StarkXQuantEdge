@@ -210,6 +210,8 @@ def compute_signal(
         "atr_pct": atr_pct, "win_prob": win_prob,
         "hour_of_week": _ts.dayofweek * 24 + _ts.hour, "htf_trend": htf_trend(df, interval),
         "is_long": candidate_dir == "long", "regime": regime, "factors": result.categories,
+        "hurst": _num(last, "hurst"), "variance_ratio": _num(last, "variance_ratio"),
+        "entropy": _num(last, "entropy"), "kalman_slope": _num(last, "kalman_slope"),
     }
     feature_vec = meta_features.build(raw_features)
     meta_p = meta_model.predict(raw_features)

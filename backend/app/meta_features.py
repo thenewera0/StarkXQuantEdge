@@ -16,12 +16,17 @@ import math
 FACTOR_KEYS = ("trend", "momentum", "volatility", "structure", "flow", "sentiment", "macro", "consensus")
 REGIMES = ("strong_trend", "weak_trend", "range", "high_vol", "squeeze")
 
+# Advanced statistical inputs (§3) with NEUTRAL defaults (no-info point) for missing values.
+STAT_DEFAULTS = {"hurst": 0.5, "variance_ratio": 1.0, "entropy": 1.0, "kalman_slope": 0.0}
+STAT_KEYS = tuple(STAT_DEFAULTS.keys())
+
 # Fixed, ordered feature layout. NEVER reorder — stored vectors index into this.
 FEATURE_KEYS: list[str] = [
     "composite", "abs_composite", "agreement", "reward_risk", "atr_pct", "win_prob",
     "hour_sin", "hour_cos", "htf_trend", "is_long",
     *FACTOR_KEYS,
     *[f"regime_{r}" for r in REGIMES],
+    *STAT_KEYS,
 ]
 
 
@@ -57,4 +62,16 @@ def build(raw: dict) -> list[float]:
     ]
     vec += [_f(factors.get(k)) for k in FACTOR_KEYS]
     vec += [1.0 if regime == r else 0.0 for r in REGIMES]
+    vec += [_stat(raw, k) for k in STAT_KEYS]
     return vec
+
+
+def _stat(raw: dict, key: str) -> float:
+    v = raw.get(key)
+    if v is None:
+        return STAT_DEFAULTS[key]
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return STAT_DEFAULTS[key]
+    return STAT_DEFAULTS[key] if math.isnan(x) else x

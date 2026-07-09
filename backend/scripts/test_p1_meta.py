@@ -19,13 +19,16 @@ print("== feature vector ==")
 raw = {"composite": -40.0, "agreement": 0.6, "reward_risk": 1.8, "atr_pct": 0.012, "win_prob": 0.42,
        "hour_of_week": 50, "htf_trend": -1, "is_long": False, "regime": "range",
        "factors": {"trend": 20, "momentum": None, "volatility": -30, "structure": 10,
-                   "flow": None, "sentiment": None, "macro": None, "consensus": None}}
+                   "flow": None, "sentiment": None, "macro": None, "consensus": None},
+       "hurst": 0.3, "variance_ratio": 0.7, "entropy": None, "kalman_slope": -0.02}
 v = build(raw)
-check("vector length == FEATURE_KEYS", len(v) == len(FEATURE_KEYS) == 23)
+check("vector length == FEATURE_KEYS", len(v) == len(FEATURE_KEYS) == 27)
 check("None factor -> 0.0", v[FEATURE_KEYS.index("momentum")] == 0.0)
 check("abs_composite correct", v[FEATURE_KEYS.index("abs_composite")] == 40.0)
 check("regime one-hot: range=1, others=0", v[FEATURE_KEYS.index("regime_range")] == 1.0 and v[FEATURE_KEYS.index("regime_weak_trend")] == 0.0)
 check("is_long false -> 0", v[FEATURE_KEYS.index("is_long")] == 0.0)
+check("stat feature passed through (hurst=0.3)", v[FEATURE_KEYS.index("hurst")] == 0.3)
+check("stat None -> neutral default (entropy=1.0)", v[FEATURE_KEYS.index("entropy")] == 1.0)
 
 print("== AUC + rank ==")
 r = mm._rankdata(np.array([10.0, 10.0, 20.0, 5.0]))  # sorted 5,10,10,20 -> ties at pos 2,3 = 2.5
@@ -51,7 +54,8 @@ check("ts-cv returns a finite AUC in [0,1]", auc_cv is not None and 0.0 <= auc_c
 check("ts-cv AUC is strong for a learnable signal", auc_cv is not None and auc_cv > 0.8)
 
 print("== predict from a stored model (shadow) ==")
-model = {"features": FEATURE_KEYS, "mu": [0.0]*23, "sd": [1.0]*23, "w": [0.0]*24,
+nf = len(FEATURE_KEYS)
+model = {"features": FEATURE_KEYS, "mu": [0.0]*nf, "sd": [1.0]*nf, "w": [0.0]*(nf+1),
          "knots_x": [0.0, 1.0], "knots_y": [0.3, 0.6], "is_active": False, "metrics": {}}
 mm._cache = (time.time(), model)
 p = mm.predict(raw)

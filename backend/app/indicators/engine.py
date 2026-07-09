@@ -197,6 +197,91 @@ def ma_sabres(close: pd.Series, length: int = 50, count: int = 20) -> pd.Series:
     return up.astype(int) - dn.astype(int)
 
 
+def variance_ratio(close: pd.Series, q: int = 4, window: int = 100) -> pd.Series:
+    """Lo-MacKinlay Variance Ratio VR(q) = Var(q-bar returns) / (q * Var(1-bar returns)) (§3.5).
+
+    VR > 1 => momentum/persistence present; VR < 1 => mean reversion; ~1 => random walk. Causal,
+    rolling. Centered at 1.0 (a natural 'no info' point) so the meta-model reads deviations."""
+    logp = np.log(close.replace(0.0, np.nan))
+    r1 = logp.diff()
+    rq = logp.diff(q)
+    var1 = r1.rolling(window, min_periods=window // 2).var()
+    varq = rq.rolling(window, min_periods=window // 2).var()
+    vr = varq / (q * var1.replace(0.0, np.nan))
+    return vr.replace([np.inf, -np.inf], np.nan)
+
+
+def return_entropy(close: pd.Series, window: int = 32) -> pd.Series:
+    """Shannon entropy (bits) of the up/down return-sign sequence over `window` (§3.6).
+
+    ~1.0 = coin-flip (nothing to predict); ~0.0 = strongly one-directional. Causal, rolling."""
+    up = (close.diff() > 0).astype(float)
+    p = up.rolling(window, min_periods=window).mean().clip(1e-6, 1 - 1e-6)
+    return -(p * np.log2(p) + (1 - p) * np.log2(1 - p))
+
+
+def _hurst_rs(r: np.ndarray) -> float:
+    """Rescaled-range (R/S) Hurst estimate for one window of returns. NaN if undersized."""
+    n = len(r)
+    scales = [s for s in (n // 4, n // 2, n) if s >= 8]
+    if len(scales) < 2:
+        return np.nan
+    logs, logrs = [], []
+    for s in scales:
+        chunks = n // s
+        vals = []
+        for c in range(chunks):
+            seg = r[c * s:(c + 1) * s]
+            sd = seg.std()
+            if sd <= 0:
+                continue
+            dev = np.cumsum(seg - seg.mean())
+            vals.append((dev.max() - dev.min()) / sd)
+        if vals:
+            logs.append(np.log(s)); logrs.append(np.log(np.mean(vals)))
+    if len(logs) < 2:
+        return np.nan
+    return float(np.polyfit(logs, logrs, 1)[0])
+
+
+def hurst_exponent(close: pd.Series, window: int = 100) -> pd.Series:
+    """Rolling Hurst exponent (§3.2). H>0.55 trending/persistent, H<0.45 mean-reverting, ~0.5 random."""
+    r = np.log(close.replace(0.0, np.nan)).diff()
+    return r.rolling(window, min_periods=window).apply(_hurst_rs, raw=True)
+
+
+def kalman_slope(close: pd.Series, atr_series: pd.Series,
+                 q_level: float = 1e-3, q_slope: float = 1e-4, r_obs: float = 1.0) -> pd.Series:
+    """Local-linear-trend Kalman filter slope, in ATR units (§3.1) — adaptive, near lag-free.
+
+    State = [level, slope]; observation = close. The filtered slope divided by ATR is a scale-free,
+    self-tuning trend-strength/direction estimate. Sequential (each bar depends on the previous)."""
+    x = close.to_numpy(dtype=float)
+    n = len(x)
+    out = np.full(n, np.nan)
+    level, slope = x[0], 0.0
+    P = np.array([[1.0, 0.0], [0.0, 1.0]])
+    Q = np.array([[q_level, 0.0], [0.0, q_slope]])
+    for t in range(n):
+        # Predict
+        level = level + slope
+        P = np.array([[P[0, 0] + P[0, 1] + P[1, 0] + P[1, 1] + Q[0, 0], P[0, 1] + P[1, 1]],
+                      [P[1, 0] + P[1, 1], P[1, 1] + Q[1, 1]]])
+        # Update with observation of level
+        S = P[0, 0] + r_obs
+        k0, k1 = P[0, 0] / S, P[1, 0] / S
+        innov = x[t] - level
+        level += k0 * innov
+        slope += k1 * innov
+        P = np.array([[(1 - k0) * P[0, 0], (1 - k0) * P[0, 1]],
+                      [P[1, 0] - k1 * P[0, 0], P[1, 1] - k1 * P[0, 1]]])
+        out[t] = slope
+    atr = atr_series.to_numpy(dtype=float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratio = np.where(atr > 0, out / atr, np.nan)
+    return pd.Series(ratio, index=close.index)
+
+
 def ou_halflife(close: pd.Series, window: int = 50) -> pd.Series:
     """Rolling Ornstein-Uhlenbeck / AR(1) half-life of mean reversion (Blueprint v2 §3.3).
 
@@ -313,6 +398,12 @@ def compute_indicators(df: pd.DataFrame) -> pd.DataFrame:
     out["pivot_s1"] = s1
     out["fib_pos"] = fib_position(c, 50)
     out["ou_halflife"] = ou_halflife(c, 50)  # mean-reversion speed (range-fade gate, §3.3)
+
+    # Advanced statistical machinery (Blueprint v2 §3) — fed to the meta-model as features.
+    out["hurst"] = hurst_exponent(c, 100)
+    out["variance_ratio"] = variance_ratio(c, 4, 100)
+    out["entropy"] = return_entropy(c, 32)
+    out["kalman_slope"] = kalman_slope(c, out["atr"])
 
     # External algos ported from Pine (deterministic, causal)
     atr10 = atr(h, l, c, 10)  # UT Bot uses ATR(10)
