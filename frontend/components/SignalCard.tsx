@@ -28,6 +28,9 @@ export function SignalCard({ s, livePrice }: { s: Signal; livePrice?: number | n
             <span className="text-xl font-semibold tracking-tight">{s.symbol}</span>
             <RegimeBadge regime={s.regime} />
             <TierBadge tier={s.tier} />
+            {s.strategy === "range-fade" && (
+              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-600">FADE</span>
+            )}
           </div>
           <div className="mt-0.5 text-xs text-slate-500">
             {s.interval} · {new Date(s.as_of).toLocaleString()}

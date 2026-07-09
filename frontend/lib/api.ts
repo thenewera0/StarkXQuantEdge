@@ -55,6 +55,7 @@ export type Signal = {
   composite: number;
   confidence: number;
   tier?: string;
+  strategy?: string;
   agreement?: number;
   win_prob?: number | null;
   ev_r?: number | null;

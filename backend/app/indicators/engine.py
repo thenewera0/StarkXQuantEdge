@@ -197,6 +197,24 @@ def ma_sabres(close: pd.Series, length: int = 50, count: int = 20) -> pd.Series:
     return up.astype(int) - dn.astype(int)
 
 
+def ou_halflife(close: pd.Series, window: int = 50) -> pd.Series:
+    """Rolling Ornstein-Uhlenbeck / AR(1) half-life of mean reversion (Blueprint v2 §3.3).
+
+    Fit x_t = phi*x_{t-1} on deviations x = close - rolling_mean over `window` bars; the half-life
+    of reversion is HL = -ln(2)/ln(phi) for 0<phi<1. Small HL = price snaps back fast (fade-able);
+    large/NaN = slow or non-mean-reverting (don't fade). Causal: uses only past bars. Returned in
+    BARS. NaN where phi is outside (0,1) (i.e. trending / random walk — not mean reverting).
+    """
+    dev = close - close.rolling(window, min_periods=window).mean()
+    dev1 = dev.shift(1)
+    cov = dev.rolling(window, min_periods=window).cov(dev1)
+    var = dev1.rolling(window, min_periods=window).var()
+    phi = cov / var.replace(0.0, np.nan)
+    phi = phi.where((phi > 0.0) & (phi < 1.0))          # only genuine mean reversion
+    hl = -np.log(2.0) / np.log(phi)
+    return hl.where(np.isfinite(hl))
+
+
 def fib_position(close: pd.Series, lookback: int = 50) -> pd.Series:
     """Where price sits within the rolling [low, high] range, 0..1.
 
@@ -260,6 +278,7 @@ def compute_indicators(df: pd.DataFrame) -> pd.DataFrame:
     out["pivot_r1"] = r1
     out["pivot_s1"] = s1
     out["fib_pos"] = fib_position(c, 50)
+    out["ou_halflife"] = ou_halflife(c, 50)  # mean-reversion speed (range-fade gate, §3.3)
 
     # External algos ported from Pine (deterministic, causal)
     atr10 = atr(h, l, c, 10)  # UT Bot uses ATR(10)

@@ -95,19 +95,27 @@ def _trend(row: pd.Series) -> float | None:
     return _clip100(base)
 
 
-def _momentum(row: pd.Series) -> float | None:
+def _momentum(row: pd.Series, regime: str | None = None) -> float | None:
     if pd.isna(row.get("rsi")) or pd.isna(row.get("stoch_k")):
         return None
     rsi_score = (row["rsi"] - 50.0) / 50.0 * 100.0
     stoch_score = (row["stoch_k"] - 50.0) / 50.0 * 100.0
-    return _clip100(0.6 * rsi_score + 0.4 * stoch_score)
+    score = 0.6 * rsi_score + 0.4 * stoch_score
+    # §2.2: momentum is CONTINUATION in trends but MEAN-REVERSION in ranges. Overbought in a range
+    # is bearish (fade), not bullish. Flip the sign so the range family fades extremes.
+    if regime == "range":
+        score = -score
+    return _clip100(score)
 
 
-def _volatility(row: pd.Series) -> float | None:
+def _volatility(row: pd.Series, regime: str | None = None) -> float | None:
     if pd.isna(row.get("bb_pctb")):
         return None
-    # %B position within the band: above mid = bullish pressure, below = bearish.
-    return _clip100((row["bb_pctb"] - 0.5) * 200.0)
+    # %B position within the band: above mid = bullish pressure (trend) / overextended (range).
+    score = (row["bb_pctb"] - 0.5) * 200.0
+    if regime == "range":
+        score = -score  # fade the band edges in a range
+    return _clip100(score)
 
 
 def _structure(row: pd.Series) -> float | None:
@@ -161,6 +169,7 @@ def score_row(
     row: pd.Series,
     interval: str,
     *,
+    regime: str | None = None,
     flow_extras: dict | None = None,
     sentiment: float | None = None,
     macro: float | None = None,
@@ -169,13 +178,14 @@ def score_row(
 ) -> SignalResult:
     """Score a single indicator row. External categories default to None (unavailable).
 
+    `regime` makes momentum/volatility regime-conditional (continuation in trends, fade in ranges).
     `weights` overrides the fixed per-timeframe profile (used by the adaptive learning loop and
     the champion/challenger backtest). When None, the fixed profile for the interval is used.
     """
     cats: dict[str, float | None] = {
         "trend": _trend(row),
-        "momentum": _momentum(row),
-        "volatility": _volatility(row),
+        "momentum": _momentum(row, regime),
+        "volatility": _volatility(row, regime),
         "structure": _structure(row),
         "flow": _flow(row, flow_extras),
         "sentiment": sentiment,

@@ -16,11 +16,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import math
+
 import numpy as np
 import pandas as pd
 
 from ..costs import round_trip_cost
 from ..factors import score_row
+from ..geometry import trade_levels
+from ..regime import detect_regime
 
 _LONG_LABELS = {"Buy", "Strong Buy"}
 _SHORT_LABELS = {"Sell", "Strong Sell"}
@@ -29,6 +33,13 @@ _SHORT_LABELS = {"Sell", "Strong Sell"}
 def _market_of(symbol: str) -> str:
     s = (symbol or "").upper()
     return "crypto" if (s.endswith("USDT") or s.endswith("USDC") or s.endswith("BUSD")) else "forex"
+
+
+def _g(row: pd.Series, key: str) -> float | None:
+    v = row.get(key)
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        return None
+    return float(v)
 
 
 @dataclass
@@ -140,7 +151,8 @@ def backtest(
     i = max(warmup, 1, start_idx or 0)
     while i < entry_limit:
         prev = rows.iloc[i - 1]
-        sig = score_row(prev, interval, weights=weights_override)
+        regime = detect_regime(prev)                       # same regime-conditional path as live
+        sig = score_row(prev, interval, regime=regime, weights=weights_override)
 
         direction = None
         if sig.label in _LONG_LABELS:
@@ -152,17 +164,25 @@ def backtest(
             i += 1
             continue
 
-        # Enter at this bar's open. Slippage is charged once as part of round_trip_cost below,
-        # not baked into the fill price, so live (resolver) and backtest costing stay identical.
+        # Enter at this bar's open (causal: decided on bar i-1's closed indicators). Slippage is
+        # charged once as part of round_trip_cost below, not baked into the fill price.
         entry = opens[i]
+        # Plan with the SHARED geometry anchored to the actual entry price, using bar i-1's
+        # structure levels (all that's known at decision time). Same module the live scorer uses,
+        # so the champion/challenger gate measures exactly the strategy that trades.
+        plan = trade_levels(
+            entry, sig.atr, direction, interval, regime,
+            swing_high=_g(prev, "swing_high"), swing_low=_g(prev, "swing_low"),
+            pivot_r1=_g(prev, "pivot_r1"), pivot_s1=_g(prev, "pivot_s1"),
+            bb_mid=_g(prev, "bb_mid"), bb_upper=_g(prev, "bb_upper"), bb_lower=_g(prev, "bb_lower"),
+        )
+        if plan["direction"] == "flat" or plan["stop"] is None or plan["target"] is None:
+            i += 1
+            continue
+
         atr_pct = sig.atr / entry if entry else 0.0
         cost = round_trip_cost(market, symbol, atr_pct)
-        if direction == "long":
-            stop = entry - atr_mult * sig.atr
-            target = entry + reward_risk * atr_mult * sig.atr
-        else:
-            stop = entry + atr_mult * sig.atr
-            target = entry - reward_risk * atr_mult * sig.atr
+        stop, target = plan["stop"], plan["target"]
 
         exit_price = None
         exit_reason = "end"
@@ -195,7 +215,8 @@ def backtest(
 
             # Opposite-signal flip, evaluated on the bar we just closed (j), acted next bar's open.
             if flip_on_opposite and j > i and j + 1 < n:
-                jsig = score_row(rows.iloc[j], interval, weights=weights_override)
+                jrow = rows.iloc[j]
+                jsig = score_row(jrow, interval, regime=detect_regime(jrow), weights=weights_override)
                 opp = (direction == "long" and jsig.label in _SHORT_LABELS) or (
                     direction == "short" and jsig.label in _LONG_LABELS
                 )

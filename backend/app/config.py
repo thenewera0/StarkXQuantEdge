@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     ev_gate_enabled: bool = True
     min_ev_r: float = 0.0
 
+    # Range-fade family (Blueprint v2 §2.2 / §3.3). In a range regime the engine fades extremes
+    # (targets the mean), so it uses a looser RR floor (fades win often but small) and only fires
+    # when the measured Ornstein-Uhlenbeck reversion half-life is short enough that the range is
+    # genuinely mean-reverting (not drifting/breaking out).
+    min_reward_risk_range: float = 1.0
+    range_max_halflife_bars: float = 24.0
+
     # Regime filter (Confluence Engine L1 gate): only trade trend regimes; stand down in
     # range / high_vol / squeeze where the live per-regime P&L is negative.
     regime_filter_enabled: bool = True

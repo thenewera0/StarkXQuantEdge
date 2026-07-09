@@ -17,6 +17,7 @@ import pandas as pd
 from . import calibration, learning
 from .config import settings
 from .costs import cost_in_r
+from .geometry import trade_levels
 from .data import (
     crypto_macro_score,
     fear_greed,
@@ -59,6 +60,20 @@ def _allowed_directions() -> set[str]:
 _OI_PERIODS = {"5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d"}
 
 
+def _rr_floor(regime: str | None) -> float:
+    """Range fades win often but small, so they clear a looser reward:risk floor than trends."""
+    return settings.min_reward_risk_range if regime == "range" else settings.min_reward_risk
+
+
+def _range_reversion_ok(row: pd.Series) -> bool:
+    """§3.3: only fade a range when the OU half-life is finite and short (fast mean reversion).
+    Missing/NaN half-life (not mean-reverting) or a long half-life (slow/drifting) -> stand down."""
+    hl = row.get("ou_halflife")
+    if hl is None or pd.isna(hl):
+        return False
+    return 0.0 < float(hl) <= settings.range_max_halflife_bars
+
+
 def _round_price(x: float | None) -> float | None:
     if x is None or (isinstance(x, float) and math.isnan(x)):
         return None
@@ -83,55 +98,15 @@ def _fetch_ohlcv(symbol: str, interval: str, limit: int, market: str):
 
 
 def _risk_geometry(row: pd.Series, direction: str, interval: str, regime: str) -> dict:
-    """L5 — structure-based stop, laddered targets T1/T2/T3, RR, size. None levels if flat."""
-    flat = {"direction": "flat", "entry": None, "stop": None, "target": None,
-            "targets": None, "reward_risk": None, "size_pct": None, "invalidation": None}
-    price = _num(row, "close")
-    atr = _num(row, "atr")
-    if direction == "flat" or price is None or atr is None or atr <= 0:
-        return flat
-
-    # Volatility-based stop (tight, consistent risk); a nearby swing tightens it further if closer.
-    atr_k = 1.2
-    size_pct = settings.risk_per_trade_pct
-    if regime == "high_vol":          # widen stops, cut size in stressed vol
-        atr_k, size_pct = 1.8, size_pct * 0.5
-
-    swing_low = _num(row, "swing_low") or price
-    swing_high = _num(row, "swing_high") or price
-    pivot_r1 = _num(row, "pivot_r1")
-    pivot_s1 = _num(row, "pivot_s1")
-
-    # Laddered targets are R-multiple based; T1 extends to a structure level if one sits FURTHER
-    # out (better reward), but never collapses to a nearby swing that would wreck the R:R.
-    if direction == "long":
-        stop = price - atr_k * atr
-        risk = price - stop
-        t1 = price + 1.8 * risk
-        resistances = [v for v in (swing_high, pivot_r1) if v is not None and t1 < v < price + 3.0 * risk]
-        if resistances:
-            t1 = min(resistances)
-        t2, t3 = price + 2.8 * risk, price + 4.5 * risk
-        rr = (t1 - price) / risk if risk > 0 else None
-        invalidation = f"{interval} close below {_round_price(stop)}"
-    else:  # short
-        stop = price + atr_k * atr
-        risk = stop - price
-        t1 = price - 1.8 * risk
-        supports = [v for v in (swing_low, pivot_s1) if v is not None and price - 3.0 * risk < v < t1]
-        if supports:
-            t1 = max(supports)
-        t2, t3 = price - 2.8 * risk, price - 4.5 * risk
-        rr = (price - t1) / risk if risk > 0 else None
-        invalidation = f"{interval} close above {_round_price(stop)}"
-
-    targets = [_round_price(t1), _round_price(t2), _round_price(t3)]
-    return {
-        "direction": direction, "entry": _round_price(price), "stop": _round_price(stop),
-        "target": targets[0], "targets": targets,
-        "reward_risk": round(rr, 2) if rr is not None else None,
-        "size_pct": round(size_pct, 2), "invalidation": invalidation,
-    }
+    """L5 — delegate to the shared geometry module (same plan live + backtest). Range uses fade
+    geometry (target the mean/opposite band); trends use ATR stop + laddered R targets."""
+    return trade_levels(
+        _num(row, "close"), _num(row, "atr"), direction, interval, regime,
+        swing_high=_num(row, "swing_high"), swing_low=_num(row, "swing_low"),
+        pivot_r1=_num(row, "pivot_r1"), pivot_s1=_num(row, "pivot_s1"),
+        bb_mid=_num(row, "bb_mid"), bb_upper=_num(row, "bb_upper"), bb_lower=_num(row, "bb_lower"),
+        risk_per_trade_pct=settings.risk_per_trade_pct,
+    )
 
 
 def compute_signal(
@@ -203,7 +178,7 @@ def compute_signal(
     # --- L3 confluence (regime-weighted + agreement multiplier) ---
     weights = learning.active_weights(interval, regime)
     result = score_row(
-        last, interval, flow_extras=flow_extras, sentiment=sentiment,
+        last, interval, regime=regime, flow_extras=flow_extras, sentiment=sentiment,
         macro=macro, consensus=onchain, weights=weights,
     )
 
@@ -249,8 +224,10 @@ def compute_signal(
     elif abs(composite) < settings.conviction_floor:
         silence_reason = "below_conviction_floor"
     elif geo["direction"] == "flat":
-        silence_reason = "neutral"
-    elif geo["reward_risk"] is not None and geo["reward_risk"] < settings.min_reward_risk:
+        silence_reason = "neutral"  # incl. a range signal with no valid fade geometry
+    elif regime == "range" and not _range_reversion_ok(last):
+        silence_reason = "reversion_too_slow"  # §3.3: range isn't mean-reverting fast enough to fade
+    elif geo["reward_risk"] is not None and geo["reward_risk"] < _rr_floor(regime):
         silence_reason = "reward_risk_below_gate"
     elif settings.ev_gate_enabled and ev_r is not None and ev_r < settings.min_ev_r:
         silence_reason = "ev_below_gate"  # calibrated expected value doesn't clear cost
@@ -271,6 +248,7 @@ def compute_signal(
         "confidence": result.confidence,
         "tier": tier,
         "agreement": result.agreement,
+        "strategy": "range-fade" if geo.get("is_fade") else "trend",
         "win_prob": round(win_prob, 4),
         "ev_r": ev_r,
         "actionable": actionable,
