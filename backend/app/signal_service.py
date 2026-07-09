@@ -29,6 +29,7 @@ from .data import (
     news_sentiment,
     onchain_score,
 )
+from .data.validate import validate_ohlcv
 from .factors import label_for, score_row, tier_for
 from .indicators import compute_indicators
 from .psychology import positioning_engine
@@ -73,8 +74,11 @@ def _num(row: pd.Series, key: str) -> float | None:
 
 def _fetch_ohlcv(symbol: str, interval: str, limit: int, market: str):
     if market in _CRYPTO_MARKETS:
-        return fetch_klines(symbol, interval, limit)
-    return fetch_klines_td(symbol, interval, outputsize=limit)
+        df = fetch_klines(symbol, interval, limit)
+    else:
+        df = fetch_klines_td(symbol, interval, outputsize=limit)
+    df, _ = validate_ohlcv(df, interval)  # drop dupes/NaN/inconsistent bars before scoring
+    return df
 
 
 def _risk_geometry(row: pd.Series, direction: str, interval: str, regime: str) -> dict:

@@ -19,10 +19,16 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from ..costs import round_trip_cost
 from ..factors import score_row
 
 _LONG_LABELS = {"Buy", "Strong Buy"}
 _SHORT_LABELS = {"Sell", "Strong Sell"}
+
+
+def _market_of(symbol: str) -> str:
+    s = (symbol or "").upper()
+    return "crypto" if (s.endswith("USDT") or s.endswith("USDC") or s.endswith("BUSD")) else "forex"
 
 
 @dataclass
@@ -104,8 +110,8 @@ def backtest(
     symbol: str,
     interval: str,
     *,
-    fee_rate: float = 0.0004,      # 0.04% per side (futures taker); use 0.001 for spot
-    slippage: float = 0.0002,      # 0.02% per fill
+    fee_rate: float = 0.0004,      # DEPRECATED: superseded by costs.round_trip_cost (kept for API compat)
+    slippage: float = 0.0002,      # DEPRECATED: superseded by costs.round_trip_cost (kept for API compat)
     atr_mult: float = 1.5,         # stop distance = atr_mult * ATR
     reward_risk: float = 2.0,      # target distance = reward_risk * stop distance
     max_hold_bars: int = 48,       # force exit after this many bars
@@ -128,6 +134,7 @@ def backtest(
     highs = rows["high"].to_numpy()
     lows = rows["low"].to_numpy()
     times = rows.index
+    market = _market_of(symbol)
 
     entry_limit = n if end_idx is None else min(end_idx, n)
     i = max(warmup, 1, start_idx or 0)
@@ -145,13 +152,15 @@ def backtest(
             i += 1
             continue
 
-        # Enter at this bar's open, with slippage against us.
+        # Enter at this bar's open. Slippage is charged once as part of round_trip_cost below,
+        # not baked into the fill price, so live (resolver) and backtest costing stay identical.
+        entry = opens[i]
+        atr_pct = sig.atr / entry if entry else 0.0
+        cost = round_trip_cost(market, symbol, atr_pct)
         if direction == "long":
-            entry = opens[i] * (1 + slippage)
             stop = entry - atr_mult * sig.atr
             target = entry + reward_risk * atr_mult * sig.atr
         else:
-            entry = opens[i] * (1 - slippage)
             stop = entry + atr_mult * sig.atr
             target = entry - reward_risk * atr_mult * sig.atr
 
@@ -175,12 +184,12 @@ def backtest(
                 hit_stop = hi >= stop
                 hit_target = lo <= target
 
-            if hit_stop:  # conservative: stop wins ties
-                exit_price = stop * (1 - slippage) if direction == "long" else stop * (1 + slippage)
+            if hit_stop:  # conservative: stop wins ties (sub-bar precision handled live by resolver)
+                exit_price = stop
                 exit_reason, exit_idx = "stop", j
                 break
             if hit_target:
-                exit_price = target * (1 - slippage) if direction == "long" else target * (1 + slippage)
+                exit_price = target
                 exit_reason, exit_idx = "target", j
                 break
 
@@ -191,28 +200,25 @@ def backtest(
                     direction == "short" and jsig.label in _LONG_LABELS
                 )
                 if opp:
-                    px = opens[j + 1]
-                    exit_price = px * (1 - slippage) if direction == "long" else px * (1 + slippage)
+                    exit_price = opens[j + 1]
                     exit_reason, exit_idx = "flip", j + 1
                     break
 
             if j - i >= max_hold_bars:
-                px = opens[min(j + 1, n - 1)]
-                exit_price = px * (1 - slippage) if direction == "long" else px * (1 + slippage)
+                exit_price = opens[min(j + 1, n - 1)]
                 exit_reason, exit_idx = "max_hold", min(j + 1, n - 1)
                 break
             j += 1
 
         if exit_price is None:  # ran off the end while in position
-            px = opens[n - 1]
-            exit_price = px * (1 - slippage) if direction == "long" else px * (1 + slippage)
+            exit_price = opens[n - 1]
             exit_idx = n - 1
 
         if direction == "long":
             gross = (exit_price - entry) / entry
         else:
             gross = (entry - exit_price) / entry
-        net = gross - 2 * fee_rate
+        net = gross - cost  # per-market round-trip cost (fees + ATR/liquidity-scaled slippage)
 
         result.trades.append(
             Trade(

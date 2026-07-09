@@ -21,12 +21,13 @@ import pandas as pd
 
 from . import db, persistence
 from .config import settings
-from .data import fetch_klines, fetch_klines_td
+from .costs import round_trip_cost
+from .data import INTERVAL_SECONDS, fetch_klines, fetch_klines_range, fetch_klines_td
+from .data.validate import validate_ohlcv
 
-_FEE = 0.0004
-_SLIP = 0.0002
 _LONG = {"Buy", "Strong Buy"}
 _SHORT = {"Sell", "Strong Sell"}
+_CRYPTO = {"crypto"}
 
 
 def _direction(label: str) -> str | None:
@@ -44,14 +45,46 @@ def _future_candles(symbol: str, market: str, interval: str, after: datetime) ->
             df = fetch_klines(symbol, interval, 1000)
         else:
             df = fetch_klines_td(symbol, interval, outputsize=1000)
+        df, _ = validate_ohlcv(df, interval)  # clean before resolving outcomes
     except Exception:
         return pd.DataFrame()
     return df[df.index > after]
 
 
-def _resolve_one(direction: str, entry: float, stop: float, target: float,
+def _subbar_first(symbol: str, market: str, interval: str, bar_close: datetime,
+                  direction: str, stop: float, target: float) -> str:
+    """When one bar's range spans BOTH stop and target, replay 1m candles inside that bar to
+    decide which was hit FIRST. Crypto only (1m mirror available); best-effort. Falls back to
+    the conservative 'stop' (never flatters) on any failure or for non-crypto markets."""
+    if (market or "crypto").lower() not in _CRYPTO:
+        return "stop"
+    try:
+        secs = INTERVAL_SECONDS.get(interval, 3600)
+        end_ms = int(pd.Timestamp(bar_close).timestamp() * 1000)
+        start_ms = end_ms - secs * 1000
+        sub = fetch_klines_range(symbol, "1m", start_ms, end_ms)
+        for _, r in sub.iterrows():
+            hi, lo = float(r["high"]), float(r["low"])
+            if direction == "long":
+                if lo <= stop:
+                    return "stop"
+                if hi >= target:
+                    return "target"
+            else:
+                if hi >= stop:
+                    return "stop"
+                if lo <= target:
+                    return "target"
+    except Exception:
+        return "stop"
+    return "stop"
+
+
+def _resolve_one(symbol: str, market: str, interval: str, direction: str,
+                 entry: float, stop: float, target: float, atr_pct: float,
                  future: pd.DataFrame, max_hold: int) -> dict | None:
     """Return an outcome dict, or None if the trade is still open (not enough data yet)."""
+    cost = round_trip_cost(market, symbol, atr_pct)  # round-trip fees + slippage, fraction
     mfe = mae = 0.0
     highs, lows, closes = future["high"], future["low"], future["close"]
     n = len(future)
@@ -67,25 +100,27 @@ def _resolve_one(direction: str, entry: float, stop: float, target: float,
             mae = min(mae, (entry - hi) / entry)
             hit_stop, hit_target = hi >= stop, lo <= target
 
+        if hit_stop and hit_target:
+            # Ambiguous bar: resolve intra-bar with 1m candles instead of always assuming stop.
+            if _subbar_first(symbol, market, interval, future.index[i], direction, stop, target) == "target":
+                return _finalize(direction, entry, target, "target", i + 1, mfe, mae, cost)
+            return _finalize(direction, entry, stop, "stop", i + 1, mfe, mae, cost)
         if hit_stop:
-            exit_px = stop * (1 - _SLIP) if direction == "long" else stop * (1 + _SLIP)
-            return _finalize(direction, entry, exit_px, "stop", i + 1, mfe, mae)
+            return _finalize(direction, entry, stop, "stop", i + 1, mfe, mae, cost)
         if hit_target:
-            exit_px = target * (1 - _SLIP) if direction == "long" else target * (1 + _SLIP)
-            return _finalize(direction, entry, exit_px, "target", i + 1, mfe, mae)
+            return _finalize(direction, entry, target, "target", i + 1, mfe, mae, cost)
         if i + 1 >= max_hold:
-            exit_px = cl * (1 - _SLIP) if direction == "long" else cl * (1 + _SLIP)
-            return _finalize(direction, entry, exit_px, "timeout", i + 1, mfe, mae)
+            return _finalize(direction, entry, cl, "timeout", i + 1, mfe, mae, cost)
 
     return None  # still open — fewer than max_hold bars and no level hit
 
 
 def _finalize(direction: str, entry: float, exit_px: float, result: str,
-              bars: int, mfe: float, mae: float) -> dict:
+              bars: int, mfe: float, mae: float, cost: float) -> dict:
     gross = (exit_px - entry) / entry if direction == "long" else (entry - exit_px) / entry
     return {
         "result": result,
-        "pnl": round(gross - 2 * _FEE, 6),
+        "pnl": round(gross - cost, 6),   # net of modelled round-trip cost (fees + slippage)
         "mfe": round(mfe, 6),
         "mae": round(mae, 6),
         "bars_held": bars,
@@ -97,7 +132,7 @@ def _open_signals(limit: int) -> list[dict]:
         cur.execute(
             """
             select id, symbol, coalesce(market,'crypto') as market, interval, as_of,
-                   label, entry, stop, target
+                   label, entry, stop, target, atr, price
             from signals s
             where not exists (select 1 from outcomes o where o.signal_id = s.id)
               and entry is not null and stop is not null and target is not null
@@ -138,8 +173,17 @@ def resolve_open_signals(max_signals: int = 50) -> dict:
             still_open += 1
             continue
 
+        entry = float(s["entry"])
+        # ATR% drives crypto slippage; fall back to the stop distance if atr/price are absent.
+        atr = s.get("atr")
+        price = s.get("price") or entry
+        if atr is not None and price:
+            atr_pct = abs(float(atr)) / float(price)
+        else:
+            atr_pct = abs(entry - float(s["stop"])) / entry
         outcome = _resolve_one(
-            direction, float(s["entry"]), float(s["stop"]), float(s["target"]),
+            s["symbol"], s["market"], s["interval"], direction,
+            entry, float(s["stop"]), float(s["target"]), atr_pct,
             future_after, max_hold,
         )
         if outcome is None:

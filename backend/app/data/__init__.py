@@ -3,10 +3,12 @@
 from .binance import (
     fetch_klines,
     fetch_klines_history,
+    fetch_klines_range,
     fetch_depth,
     fetch_long_short_ratio,
     fetch_funding_basis,
     fetch_oi_trend,
+    INTERVAL_SECONDS,
 )
 from .twelvedata import fetch_klines as fetch_klines_td
 from .news import news_sentiment
@@ -17,6 +19,8 @@ from .cryptoquant import onchain_score
 __all__ = [
     "fetch_klines",
     "fetch_klines_history",
+    "fetch_klines_range",
+    "INTERVAL_SECONDS",
     "fetch_depth",
     "fetch_long_short_ratio",
     "fetch_funding_basis",

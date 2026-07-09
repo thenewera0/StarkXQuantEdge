@@ -33,6 +33,7 @@ def log_decision(sig: dict) -> int | None:
                    agreement, conviction, final_confidence, debate_source,
                    tier, reward_risk, size_pct, invalidation, target2, target3, psychology)
                 values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                on conflict (symbol, interval, as_of) do nothing
                 returning id
                 """,
                 (
@@ -46,7 +47,11 @@ def log_decision(sig: dict) -> int | None:
                     sig.get("invalidation"), t2, t3, sig.get("psychology"),
                 ),
             )
-            signal_id = cur.fetchone()[0]
+            row = cur.fetchone()
+            if row is None:  # duplicate (symbol, interval, as_of) — already logged, skip cleanly
+                conn.commit()
+                return None
+            signal_id = row[0]
             cur.execute(
                 """
                 insert into factor_logs

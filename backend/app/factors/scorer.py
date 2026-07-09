@@ -185,7 +185,10 @@ def score_row(
 
     weights = weights or weights_for_interval(interval)
     available = {k: v for k, v in cats.items() if v is not None}
-    wsum = sum(weights[k] for k in available)
+    # Normalize by sum(|w|): identical to sum(w) for the fixed all-positive profiles, but correct
+    # when the learning loop promotes a SIGNED weight (a factor learned to be contrarian). Without
+    # this, a negative weight would distort the denominator and blow up the composite scale.
+    wsum = sum(abs(weights[k]) for k in available)
     raw = sum(weights[k] * v for k, v in available.items()) / wsum if wsum > 0 else 0.0
     raw = _clip100(raw)
 

@@ -31,7 +31,12 @@ from .regime import REGIMES
 BACKTESTABLE = ("trend", "momentum", "volatility", "structure")
 _BASKET = ("BTCUSDT", "ETHUSDT")
 _BUCKET_INTERVAL = {"intraday": "15m", "short": "4h", "swing": "1d", "long": "1w"}
-MIN_SAMPLES = 40
+# Blueprint v2 §2.3.3: 40 is too few for d=4 with overlapping trades. Raised, and paired with
+# shrinkage toward the global profile (below) so low-N regimes can't overfit to noise.
+MIN_SAMPLES = 60
+_SHRINKAGE_K = 100.0          # §2.3.3 shrink weight: w = (n*w_local + k*w_global)/(n+k)
+_DECAY_HALFLIFE_DAYS = 90.0   # §4.1 time-decay: recent outcomes weigh more
+_PROMOTE_MARGIN = 0.002       # §2.4 challenger must beat champion OOS by a margin, not just tie
 
 _champions: dict[tuple[str, str], dict] | None = None
 
@@ -82,11 +87,12 @@ def _training_rows() -> list[dict]:
             """
             select s.regime, s.interval,
                    f.trend, f.momentum, f.volatility, f.structure,
-                   o.result, o.pnl
+                   o.result, o.pnl,
+                   extract(epoch from (now() - o.resolved_at)) / 86400.0 as age_days
             from outcomes o
             join signals s on s.id = o.signal_id
             join factor_logs f on f.signal_id = s.id
-            where o.result is not null and s.regime is not null
+            where o.result is not null and o.pnl is not null and s.regime is not null
             """
         )
         cols = [c.name for c in cur.description]
@@ -117,35 +123,61 @@ def resolved_counts() -> dict[str, int]:
 # --- Challenger training ----------------------------------------------------
 
 
-def _fit_logreg(X: np.ndarray, y: np.ndarray, l2: float = 2.0, iters: int = 400, lr: float = 0.2) -> np.ndarray:
+def _fit_logreg(X: np.ndarray, y: np.ndarray, sw: np.ndarray,
+                l2: float = 2.0, iters: int = 400, lr: float = 0.2) -> np.ndarray:
+    """Sample-weighted L2 logistic regression (weighted by payoff x recency x uniqueness)."""
     Xs = (X - X.mean(axis=0)) / (X.std(axis=0) + 1e-9)
     n, d = Xs.shape
+    swn = sw / (sw.mean() + 1e-12)          # normalize weights to mean 1
     w = np.zeros(d)
     for _ in range(iters):
         p = 1.0 / (1.0 + np.exp(-(Xs @ w)))
-        grad = Xs.T @ (p - y) / n + l2 * w / n
+        grad = Xs.T @ (swn * (p - y)) / n + l2 * w / n
         w -= lr * grad
     return w
 
 
+def _sample_weights(rows: list[dict]) -> np.ndarray:
+    """§2.3.1/§4.1: weight each sample by |pnl| (payoff-aware) x exp(-age/halflife) (recency).
+
+    Payoff weighting stops the model preferring high-hit-rate/low-payoff setups over the reverse;
+    time-decay lets recent market behaviour dominate so old regimes fade instead of polluting.
+    """
+    pnl = np.array([abs(float(r["pnl"] or 0.0)) for r in rows], dtype=float)
+    payoff = np.clip(pnl, 1e-4, None)       # floor so a ~breakeven trade still counts a little
+    age = np.array([max(0.0, float(r.get("age_days") or 0.0)) for r in rows], dtype=float)
+    lam = np.log(2.0) / _DECAY_HALFLIFE_DAYS
+    recency = np.exp(-lam * age)
+    return payoff * recency
+
+
 def _challenger_weights(rows: list[dict], bucket_interval: str) -> dict | None:
     X = np.array([[float(r[c] or 0.0) for c in BACKTESTABLE] for r in rows], dtype=float)
-    y = np.array([1.0 if r["result"] == "target" else 0.0 for r in rows], dtype=float)
+    # §2.3.2: label on realized P&L (includes timeouts), NOT result=='target' (which drops the
+    # non-random chop timeouts and biases the model).
+    y = np.array([1.0 if float(r["pnl"] or 0.0) > 0 else 0.0 for r in rows], dtype=float)
     if len(set(y.tolist())) < 2:
         return None  # all wins or all losses — nothing to learn
 
-    coef = _fit_logreg(X, y)
-    importance = np.clip(coef, 0.0, None)
-    if importance.sum() <= 0:
-        return None  # no factor is positively predictive — keep the champion
+    sw = _sample_weights(rows)
+    coef = _fit_logreg(X, y, sw)
+    # §2.3.4: DO NOT clip to positives — a reliably negative factor is a working contrarian
+    # signal. Keep the sign, renormalize by sum(|coef|) so the backtestable block keeps its mass.
+    denom = np.abs(coef).sum()
+    if denom <= 1e-9:
+        return None  # no factor carries information — keep the champion
 
     fixed = weights_for_interval(bucket_interval)
     indicator_total = sum(fixed[c] for c in BACKTESTABLE)
-    scaled = importance / importance.sum() * indicator_total
+    learned = coef / denom * indicator_total   # signed weights, |sum| == indicator_total
 
+    # §2.3.3: shrink learned weights toward the global profile by k (guards low-N overfitting).
+    n = len(rows)
     challenger = dict(fixed)
-    for cat, w in zip(BACKTESTABLE, scaled):
-        challenger[cat] = round(float(w), 4)
+    for cat, w_local in zip(BACKTESTABLE, learned):
+        w_global = fixed[cat]
+        w = (n * float(w_local) + _SHRINKAGE_K * w_global) / (n + _SHRINKAGE_K)
+        challenger[cat] = round(w, 4)
     return challenger
 
 
@@ -215,7 +247,9 @@ def train_and_gate(min_samples: int = MIN_SAMPLES) -> dict:
         champion = active_weights(bucket_interval, regime)
         champ_ret = float(_basket_holdout_return(bucket_interval, champion))
         chal_ret = float(_basket_holdout_return(bucket_interval, challenger))
-        promoted = bool(chal_ret > champ_ret)  # native bool (backtest returns are numpy floats)
+        # §2.4: require the challenger to CLEAR the champion by a margin (not merely tie/edge past
+        # it), a pragmatic multiple-testing haircut against promoting noise.
+        promoted = bool(chal_ret > champ_ret + _PROMOTE_MARGIN)
         if promoted:
             _promote(regime, bucket, challenger)
 
