@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     ev_gate_enabled: bool = True
     min_ev_r: float = 0.0
 
+    # Meta-labeling model (Blueprint v2 §5). Runs in SHADOW by default: its P(win) is computed and
+    # logged on every signal, but only feeds the EV gate once the model is PROMOTED (beats the
+    # primary calibrated prob out-of-sample AND has enough samples). Flip enables gating on it.
+    meta_gate_enabled: bool = True   # allow a PROMOTED model to drive EV; shadow-only until promoted
+
     # Range-fade family (Blueprint v2 §2.2 / §3.3). In a range regime the engine fades extremes
     # (targets the mean), so it uses a looser RR floor (fades win often but small) and only fires
     # when the measured Ornstein-Uhlenbeck reversion half-life is short enough that the range is

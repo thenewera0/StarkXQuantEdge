@@ -227,6 +227,40 @@ def fib_position(close: pd.Series, lookback: int = 50) -> pd.Series:
     return ((close - ll) / rng).clip(0.0, 1.0)
 
 
+# Higher-timeframe resample rule per base interval (for HTF confluence, §5). No extra network:
+# we aggregate the already-fetched OHLCV to a coarser timeframe.
+_HTF_RULE = {
+    "1m": "15min", "3m": "30min", "5m": "1h", "15m": "4h", "30m": "4h",
+    "1h": "4h", "2h": "12h", "4h": "1D", "6h": "1D", "8h": "1D", "12h": "1D",
+    "1d": "1W", "3d": "1W", "1w": "1M",
+}
+
+
+def htf_trend(df: pd.DataFrame, interval: str) -> int:
+    """Higher-timeframe trend state (+1 up / -1 down / 0 flat) by resampling the base OHLCV.
+
+    Aligns a lower-timeframe signal with the bigger picture: price above a rising HTF EMA = +1.
+    Returns 0 when there isn't enough resampled history to judge (safe/neutral)."""
+    rule = _HTF_RULE.get(interval)
+    if rule is None or "close" not in df.columns or len(df) < 20:
+        return 0
+    try:
+        htf = df["close"].resample(rule).last().dropna()
+        if len(htf) < 12:
+            return 0
+        span = min(20, max(5, len(htf) // 3))
+        e = htf.ewm(span=span, adjust=False).mean()
+        price = float(htf.iloc[-1])
+        ema_now, ema_prev = float(e.iloc[-1]), float(e.iloc[-min(3, len(e))])
+        if price > ema_now and ema_now >= ema_prev:
+            return 1
+        if price < ema_now and ema_now <= ema_prev:
+            return -1
+    except Exception:
+        return 0
+    return 0
+
+
 # --- Aggregator ------------------------------------------------------------
 
 

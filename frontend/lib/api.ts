@@ -58,6 +58,8 @@ export type Signal = {
   strategy?: string;
   agreement?: number;
   win_prob?: number | null;
+  meta_p?: number | null;
+  htf_trend?: number | null;
   ev_r?: number | null;
   actionable?: boolean;
   silence_reason?: string | null;

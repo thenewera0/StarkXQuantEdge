@@ -14,10 +14,11 @@ import math
 
 import pandas as pd
 
-from . import calibration, learning
+from . import calibration, learning, meta_features, meta_model
 from .config import settings
 from .costs import cost_in_r
 from .geometry import trade_levels
+from .indicators import htf_trend
 from .data import (
     crypto_macro_score,
     fear_greed,
@@ -201,12 +202,26 @@ def compute_signal(
     price_v = _num(last, "close")
     atr_v = _num(last, "atr")
     atr_pct = (atr_v / price_v) if (atr_v and price_v) else 0.0
+
+    # --- L5c meta-labeling (§5): richer secondary P(win). Shadow-logged; drives EV only if promoted.
+    _ts = ind.index[-1]
+    raw_features = {
+        "composite": composite, "agreement": result.agreement, "reward_risk": geo["reward_risk"],
+        "atr_pct": atr_pct, "win_prob": win_prob,
+        "hour_of_week": _ts.dayofweek * 24 + _ts.hour, "htf_trend": htf_trend(df, interval),
+        "is_long": candidate_dir == "long", "regime": regime, "factors": result.categories,
+    }
+    feature_vec = meta_features.build(raw_features)
+    meta_p = meta_model.predict(raw_features)
+    use_meta = meta_p is not None and settings.meta_gate_enabled and meta_model.is_active()
+    p_eff = meta_p if use_meta else win_prob   # promoted meta prob replaces the primary in the EV
+
     ev_r = None
     if geo["direction"] != "flat" and geo["entry"] and geo["stop"] and geo["reward_risk"]:
         stop_frac = abs(geo["entry"] - geo["stop"]) / geo["entry"]
         cost_r = cost_in_r(market, symbol.upper() if is_crypto else symbol, atr_pct, stop_frac)
         rr = geo["reward_risk"]
-        ev_r = round(win_prob * rr - (1.0 - win_prob) - cost_r, 4)
+        ev_r = round(p_eff * rr - (1.0 - p_eff) - cost_r, 4)
 
     # --- L6 hard filters / silence ("silence is a position") ---
     sig_symbol = symbol.upper() if is_crypto else symbol
@@ -250,6 +265,9 @@ def compute_signal(
         "agreement": result.agreement,
         "strategy": "range-fade" if geo.get("is_fade") else "trend",
         "win_prob": round(win_prob, 4),
+        "meta_p": round(meta_p, 4) if meta_p is not None else None,
+        "htf_trend": raw_features["htf_trend"],
+        "features": feature_vec,
         "ev_r": ev_r,
         "actionable": actionable,
         "silence_reason": silence_reason,

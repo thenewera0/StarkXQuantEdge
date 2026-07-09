@@ -6,6 +6,8 @@ False) when persistence is disabled or errors, and logs nothing sensitive.
 
 from __future__ import annotations
 
+import json
+
 from . import db
 
 
@@ -32,8 +34,8 @@ def log_decision(sig: dict) -> int | None:
                    price, atr, rationale, entry, stop, target,
                    agreement, conviction, final_confidence, debate_source,
                    tier, reward_risk, size_pct, invalidation, target2, target3, psychology,
-                   win_prob, ev_r)
-                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   win_prob, ev_r, features, meta_p)
+                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s)
                 on conflict (symbol, interval, as_of) do nothing
                 returning id
                 """,
@@ -47,6 +49,8 @@ def log_decision(sig: dict) -> int | None:
                     sig.get("tier"), sig.get("reward_risk"), sig.get("size_pct"),
                     sig.get("invalidation"), t2, t3, sig.get("psychology"),
                     sig.get("win_prob"), sig.get("ev_r"),
+                    json.dumps(sig.get("features")) if sig.get("features") is not None else None,
+                    sig.get("meta_p"),
                 ),
             )
             row = cur.fetchone()

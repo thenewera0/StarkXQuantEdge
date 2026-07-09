@@ -54,9 +54,13 @@ async def lifespan(app: FastAPI):
             _resolver_job, "interval", minutes=settings.resolver_interval_minutes,
             id="resolver", replace_existing=True, max_instances=1,
         )
-        # Weekly champion/challenger retrain (no-ops safely until enough outcomes exist).
+        # Weekly champion/challenger + meta-model retrain (no-op safely until enough outcomes exist).
+        def _weekly_retrain() -> None:
+            from . import meta_model
+            learning.train_and_gate()
+            meta_model.train_and_gate()
         _scheduler.add_job(
-            lambda: learning.train_and_gate(), "interval", weeks=1,
+            _weekly_retrain, "interval", weeks=1,
             id="retrain", replace_existing=True, max_instances=1,
         )
         # Autonomous scanner: find + give signals across popular pairs.
@@ -233,10 +237,11 @@ def scan_now(min_confidence: float | None = Query(None, ge=0, le=100)) -> dict:
 
 @app.get("/learning/status")
 def learning_status() -> dict:
-    """Champion weight profiles + resolved-outcome counts per regime + calibration."""
-    from . import calibration
+    """Champion weight profiles + resolved-outcome counts per regime + calibration + meta-model."""
+    from . import calibration, meta_model
     status = learning.learning_status()
     status["calibration"] = calibration.calibration_status()
+    status["meta_model"] = meta_model.status()
     return status
 
 
@@ -244,6 +249,13 @@ def learning_status() -> dict:
 def learning_train() -> dict:
     """Train challenger weights per regime and promote any that beat the champion (gated)."""
     return learning.train_and_gate()
+
+
+@app.post("/meta/train")
+def meta_train() -> dict:
+    """Train the meta-labeling model + evaluate the shadow->gating promotion gate (Blueprint §5)."""
+    from . import meta_model
+    return meta_model.train_and_gate()
 
 
 class OutcomeIn(BaseModel):
