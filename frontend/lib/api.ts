@@ -56,6 +56,8 @@ export type Signal = {
   confidence: number;
   tier?: string;
   agreement?: number;
+  win_prob?: number | null;
+  ev_r?: number | null;
   actionable?: boolean;
   silence_reason?: string | null;
   categories: Categories;

@@ -233,8 +233,11 @@ def scan_now(min_confidence: float | None = Query(None, ge=0, le=100)) -> dict:
 
 @app.get("/learning/status")
 def learning_status() -> dict:
-    """Champion weight profiles + resolved-outcome counts per regime."""
-    return learning.learning_status()
+    """Champion weight profiles + resolved-outcome counts per regime + calibration."""
+    from . import calibration
+    status = learning.learning_status()
+    status["calibration"] = calibration.calibration_status()
+    return status
 
 
 @app.post("/learning/train")

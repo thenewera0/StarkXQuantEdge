@@ -74,6 +74,23 @@ export function SignalCard({ s, livePrice }: { s: Signal; livePrice?: number | n
             <div className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow"
               style={{ left: `${((Math.max(-100, Math.min(100, s.composite)) + 100) / 200) * 100}%`, background: signalTone(s.label).includes("emerald") ? "#10b981" : signalTone(s.label).includes("rose") ? "#f43f5e" : "#64748b" }} />
           </div>
+          {/* Calibrated edge: honest win probability + expected value net of cost */}
+          {(s.win_prob != null || s.ev_r != null) && (
+            <div className="mt-2 flex items-center gap-4 text-[11px]">
+              {s.win_prob != null && (
+                <span className="text-slate-500">calibrated win prob{" "}
+                  <span className="font-semibold tabular-nums text-slate-800">{Math.round(s.win_prob * 100)}%</span>
+                </span>
+              )}
+              {s.ev_r != null && (
+                <span className="text-slate-500">edge (EV){" "}
+                  <span className={`font-semibold tabular-nums ${s.ev_r > 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                    {s.ev_r > 0 ? "+" : ""}{s.ev_r.toFixed(2)}R
+                  </span>
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

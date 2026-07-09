@@ -14,8 +14,9 @@ import math
 
 import pandas as pd
 
-from . import learning
+from . import calibration, learning
 from .config import settings
+from .costs import cost_in_r
 from .data import (
     crypto_macro_score,
     fear_greed,
@@ -220,6 +221,18 @@ def compute_signal(
     # --- L5 risk geometry ---
     geo = _risk_geometry(last, candidate_dir, interval, regime)
 
+    # --- L5b expected value (Blueprint v2 §2.6): calibrated P(win) x R minus modelled cost ---
+    win_prob = calibration.win_prob(regime, abs(composite))
+    price_v = _num(last, "close")
+    atr_v = _num(last, "atr")
+    atr_pct = (atr_v / price_v) if (atr_v and price_v) else 0.0
+    ev_r = None
+    if geo["direction"] != "flat" and geo["entry"] and geo["stop"] and geo["reward_risk"]:
+        stop_frac = abs(geo["entry"] - geo["stop"]) / geo["entry"]
+        cost_r = cost_in_r(market, symbol.upper() if is_crypto else symbol, atr_pct, stop_frac)
+        rr = geo["reward_risk"]
+        ev_r = round(win_prob * rr - (1.0 - win_prob) - cost_r, 4)
+
     # --- L6 hard filters / silence ("silence is a position") ---
     sig_symbol = symbol.upper() if is_crypto else symbol
     silence_reason = None
@@ -239,6 +252,8 @@ def compute_signal(
         silence_reason = "neutral"
     elif geo["reward_risk"] is not None and geo["reward_risk"] < settings.min_reward_risk:
         silence_reason = "reward_risk_below_gate"
+    elif settings.ev_gate_enabled and ev_r is not None and ev_r < settings.min_ev_r:
+        silence_reason = "ev_below_gate"  # calibrated expected value doesn't clear cost
     actionable = silence_reason is None
 
     if not actionable:
@@ -256,6 +271,8 @@ def compute_signal(
         "confidence": result.confidence,
         "tier": tier,
         "agreement": result.agreement,
+        "win_prob": round(win_prob, 4),
+        "ev_r": ev_r,
         "actionable": actionable,
         "silence_reason": silence_reason,
         "categories": result.categories,

@@ -41,6 +41,13 @@ class Settings(BaseSettings):
     min_reward_risk: float = 1.5          # hard RR gate; below this, no actionable signal
     conviction_floor: float = 25.0        # |composite| below this = no trade (silence)
 
+    # EV gate (Blueprint v2 §2.6): a setup trades only if its calibrated expected value clears a
+    # threshold AFTER modelled costs. EV = p*R - (1-p) - cost_in_R, where p is the isotonic-
+    # calibrated P(win) and R the reward:risk. min_ev_r=0.0 = "don't take negative-EV bets"
+    # (tighter per-tier thresholds arrive with the capital engine in P2).
+    ev_gate_enabled: bool = True
+    min_ev_r: float = 0.0
+
     # Regime filter (Confluence Engine L1 gate): only trade trend regimes; stand down in
     # range / high_vol / squeeze where the live per-regime P&L is negative.
     regime_filter_enabled: bool = True

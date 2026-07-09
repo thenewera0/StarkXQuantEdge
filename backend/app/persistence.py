@@ -31,8 +31,9 @@ def log_decision(sig: dict) -> int | None:
                   (symbol, market, interval, as_of, label, composite, confidence, regime,
                    price, atr, rationale, entry, stop, target,
                    agreement, conviction, final_confidence, debate_source,
-                   tier, reward_risk, size_pct, invalidation, target2, target3, psychology)
-                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                   tier, reward_risk, size_pct, invalidation, target2, target3, psychology,
+                   win_prob, ev_r)
+                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 on conflict (symbol, interval, as_of) do nothing
                 returning id
                 """,
@@ -45,6 +46,7 @@ def log_decision(sig: dict) -> int | None:
                     debate.get("source"),
                     sig.get("tier"), sig.get("reward_risk"), sig.get("size_pct"),
                     sig.get("invalidation"), t2, t3, sig.get("psychology"),
+                    sig.get("win_prob"), sig.get("ev_r"),
                 ),
             )
             row = cur.fetchone()
