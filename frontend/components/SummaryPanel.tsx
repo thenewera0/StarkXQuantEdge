@@ -66,6 +66,26 @@ export function SummaryPanel({ refreshKey }: { refreshKey: number }) {
         {s?.all_time && <WindowCard title="All time" w={s.all_time} />}
       </div>
 
+      {s?.allocator && Object.keys(s.allocator.weights).length > 0 && (
+        <div className="mt-3 rounded-xl border border-slate-100 bg-white p-3">
+          <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Strategy allocator (capital by family)</div>
+          <div className="space-y-1.5">
+            {Object.entries(s.allocator.weights).map(([fam, w]) => (
+              <div key={fam} className="flex items-center gap-2 text-sm">
+                <span className="w-24 shrink-0 capitalize text-slate-600">{fam}</span>
+                <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                  <div className="absolute inset-y-0 left-0 rounded-full bg-indigo-400" style={{ width: `${Math.round(w * 100)}%` }} />
+                </div>
+                <span className="w-10 shrink-0 text-right font-semibold tabular-nums text-slate-700">{Math.round(w * 100)}%</span>
+                <span className="w-24 shrink-0 text-right text-[11px] text-slate-400">
+                  {s.allocator!.stats[fam]?.n ?? 0}t · {(s.allocator!.stats[fam]?.r_mean ?? 0).toFixed(2)}R
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Self-learning */}
       {L && (
         <div className="mt-5">

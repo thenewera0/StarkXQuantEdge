@@ -14,7 +14,7 @@ import math
 
 import pandas as pd
 
-from . import calibration, drift, learning, meta_features, meta_model, sizing
+from . import allocator, calibration, drift, learning, meta_features, meta_model, sizing
 from .config import settings
 from .costs import cost_in_r
 from .geometry import trade_levels
@@ -251,11 +251,16 @@ def compute_signal(
         cost_r = cost_in_r(market, symbol.upper() if is_crypto else symbol, atr_pct, stop_frac)
         rr = geo["reward_risk"]
         ev_r = round(p_eff * rr - (1.0 - p_eff) - cost_r, 4)
-        # --- §7 capital-adaptive sizing: quarter-Kelly capped by the ruin constraint + tier ---
+        # --- §7 capital-adaptive sizing (quarter-Kelly + ruin + tier), x §4.3 allocator tilt ---
+        family = "range-fade" if geo.get("is_fade") else "trend"
+        alloc_mult = allocator.family_multiplier(family)
         position_sizing = sizing.position_size(
             settings.account_equity_usd, p_eff, rr, stop_frac,
-            drift_mult=risk_state["size_mult"], min_notional=settings.min_notional_usd,
+            drift_mult=risk_state["size_mult"], alloc_mult=alloc_mult,
+            min_notional=settings.min_notional_usd,
         )
+        position_sizing["family"] = family
+        position_sizing["alloc_mult"] = round(alloc_mult, 3)
 
     # --- L5d autonomy: drift de-risk + circuit breaker (§4.2 / §4 safety rails) ---
     # EV floor = per-tier threshold (small accounts stricter) + drift de-risk margin.

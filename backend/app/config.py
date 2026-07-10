@@ -111,6 +111,16 @@ class Settings(BaseSettings):
     min_notional_usd: float = 5.0
     tier_ev_gate_enabled: bool = True   # use the tier's EV threshold as the EV floor
 
+    # Multiplicative-weights (Hedge) strategy allocator (Blueprint v2 §4.3): shift capital toward
+    # whichever strategy family (trend / range-fade) is currently paying, with a floor so none dies.
+    allocator_enabled: bool = True
+    allocator_window_days: int = 14
+    allocator_halflife_days: float = 7.0
+    allocator_eta: float = 1.5          # Hedge learning rate on decayed mean R
+    allocator_min_trades: int = 8       # a family needs this many trades before it can tilt
+    allocator_floor: float = 0.05       # min weight per family (never fully starve one)
+    allocator_max_mult: float = 1.8     # cap on a family's size multiplier
+
     # Supabase / Postgres (Phase 3 persistence)
     supabase_url: str = ""
     supabase_publishable_key: str = ""

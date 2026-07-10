@@ -354,6 +354,10 @@ export type Summary = {
   month?: WindowStats;
   all_time?: WindowStats;
   risk_state?: RiskState;
+  allocator?: {
+    weights: Record<string, number>;
+    stats: Record<string, { n: number; r_mean: number }>;
+  };
   learning?: {
     tradeable_regimes: string[];
     excluded_regimes: string[];

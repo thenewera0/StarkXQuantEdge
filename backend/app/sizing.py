@@ -85,13 +85,15 @@ def ruin_fraction(p: float, b: float, cap: float, ruin_limit: float = 0.05) -> f
 
 
 def position_size(equity: float, p: float, b: float, stop_frac: float,
-                  drift_mult: float = 1.0, min_notional: float = 5.0) -> dict:
-    """Recommended size for a setup. Returns the risk fraction, $ risk, $ notional, and what bound it."""
+                  drift_mult: float = 1.0, alloc_mult: float = 1.0, min_notional: float = 5.0) -> dict:
+    """Recommended size for a setup. Returns the risk fraction, $ risk, $ notional, and what bound it.
+
+    drift_mult: de-risk multiplier (§4.2). alloc_mult: strategy-allocator multiplier (§4.3)."""
     tier = tier_for_equity(equity)
     kf = quarter_kelly(p, b)
     rf = ruin_fraction(p, b, tier["risk_cap"])
     raw = min(kf, rf, tier["risk_cap"])
-    f = raw * max(0.0, min(1.0, drift_mult))
+    f = raw * max(0.0, min(1.0, drift_mult)) * max(0.0, alloc_mult)
 
     risk_usd = equity * f
     notional = (risk_usd / stop_frac) if stop_frac and stop_frac > 0 else 0.0
@@ -100,6 +102,8 @@ def position_size(equity: float, p: float, b: float, stop_frac: float,
     which = "kelly" if kf <= rf and kf <= tier["risk_cap"] else ("ruin" if rf <= tier["risk_cap"] else "tier_cap")
     if drift_mult < 1.0:
         which += "+drift"
+    if alloc_mult != 1.0:
+        which += "+alloc"
 
     return {
         "tier": tier["tier"],
