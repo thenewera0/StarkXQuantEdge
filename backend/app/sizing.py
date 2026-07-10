@@ -62,6 +62,12 @@ def ruin_prob(f: float, p: float, b: float, target_dd: float = 0.5) -> float:
     if var < 1e-12:
         return 0.0 if mu > 0 else 1.0
     z = 2.0 * mu * a / var
+    # Asymptotic clamps: as f->0, z -> +/-inf (mu ~ f, var ~ f^2). Overwhelming positive drift ->
+    # ~no ruin; overwhelming negative drift -> ~certain 50% drawdown. Avoids math.exp overflow.
+    if z > 700.0:
+        return 0.0
+    if z < -700.0:
+        return 1.0
     if abs(z) < 1e-9:
         return 0.5
     ez, enz = math.exp(z), math.exp(-z)

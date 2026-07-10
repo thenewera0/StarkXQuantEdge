@@ -39,6 +39,17 @@ for (f, p, b) in [(0.1, 0.55, 2.0), (0.2, 0.55, 2.0), (0.15, 0.5, 1.8), (0.05, 0
     print(f"    f={f} p={p} b={b}: closed-form={cf:.3f} MC={mc:.3f} {'ok' if ok else 'MISMATCH'}")
     check(f"ruin closed-form ~ MC (f={f},p={p})", ok)
 
+print("== no overflow at tiny f / marginal edge (audit regression) ==")
+# tiny f drives z -> +/-inf; must not raise math range error.
+for (f, p, b) in [(1e-5, 0.62, 2.0), (1e-5, 0.40, 1.5), (1e-4, 0.5, 1.0), (1e-6, 0.55, 1.8)]:
+    try:
+        r = sizing.ruin_prob(f, p, b)
+        check(f"ruin_prob(f={f},p={p}) finite in [0,1]", 0.0 <= r <= 1.0)
+    except Exception as e:
+        check(f"ruin_prob(f={f},p={p}) no exception", False)
+# ruin_fraction over a negative edge must not raise and returns ~0.
+check("ruin_fraction(neg edge) no crash -> ~0", sizing.ruin_fraction(0.45, 1.2, cap=0.02) < 1e-3)
+
 print("== ruin monotonic + negative-edge ==")
 check("ruin_prob increases with f", sizing.ruin_prob(0.05, 0.55, 2) < sizing.ruin_prob(0.3, 0.55, 2))
 check("negative edge -> high ruin prob", sizing.ruin_prob(0.1, 0.4, 1.5) > 0.5)
