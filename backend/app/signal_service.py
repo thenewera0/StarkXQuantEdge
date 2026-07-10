@@ -252,11 +252,13 @@ def compute_signal(
         rr = geo["reward_risk"]
         ev_r = round(p_eff * rr - (1.0 - p_eff) - cost_r, 4)
         # --- §7 capital-adaptive sizing (quarter-Kelly + ruin + tier), x §4.3 allocator tilt ---
+        # De-risk multiplier stacks drift (§4.2) and calibration-error (§4.6) shrink.
         family = "range-fade" if geo.get("is_fade") else "trend"
         alloc_mult = allocator.family_multiplier(family)
+        derisk_mult = risk_state["size_mult"] * calibration.size_multiplier()
         position_sizing = sizing.position_size(
             settings.account_equity_usd, p_eff, rr, stop_frac,
-            drift_mult=risk_state["size_mult"], alloc_mult=alloc_mult,
+            drift_mult=derisk_mult, alloc_mult=alloc_mult,
             min_notional=settings.min_notional_usd,
         )
         position_sizing["family"] = family

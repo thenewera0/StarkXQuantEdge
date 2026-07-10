@@ -87,7 +87,7 @@ def summary(trade_size: float | None = None) -> dict:
     paused_symbols = [s for s, v in symbol_gate.items() if not v["tradeable"]]
     champions = learning.learning_status().get("champions", {}) if db.enabled() else {}
 
-    from . import allocator, drift
+    from . import allocator, calibration as _cal, drift
 
     return {
         "enabled": True,
@@ -97,6 +97,7 @@ def summary(trade_size: float | None = None) -> dict:
         "all_time": window(None),
         "risk_state": drift.state(),
         "allocator": allocator.state(),
+        "calibration_health": _cal.calibration_health(),
         "learning": {
             "tradeable_regimes": tradeable,
             "excluded_regimes": [r for r in regime_perf if r not in tradeable],

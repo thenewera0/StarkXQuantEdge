@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     # primary calibrated prob out-of-sample AND has enough samples). Flip enables gating on it.
     meta_gate_enabled: bool = True   # allow a PROMOTED model to drive EV; shadow-only until promoted
 
+    # Self-calibration monitor (Blueprint v2 §4.6): shrink size when the calibrated probabilities
+    # stop matching outcomes (rolling Brier worse than the base rate). "Knows when it doesn't know."
+    calibration_monitor_enabled: bool = True
+    calibration_min_trades: int = 20
+    calibration_size_floor: float = 0.4
+
     # Drift detection -> automatic de-risk (Blueprint v2 §4.2). Page-Hinkley on the per-trade R
     # sequence; on a downward expectancy shift, raise the EV floor and cut size until the bad run
     # ages out of the trailing window (auto-recovery).

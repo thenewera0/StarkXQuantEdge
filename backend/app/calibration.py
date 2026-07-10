@@ -127,6 +127,63 @@ def win_prob(regime: str | None, abs_composite: float) -> float:
     return float(min(0.98, max(0.02, p)))
 
 
+_health_cache: tuple[float, dict] | None = None
+_HEALTH_TTL = 120.0
+
+
+def calibration_health(window: int = 80) -> dict:
+    """Self-calibration monitor (§4.6): rolling Brier score of the stored win_prob vs realized wins.
+
+    Brier = mean((p - y)^2); the reference is the base-rate Brier (predicting the constant win
+    frequency). ratio = brier / base_brier: <1 means the probabilities add skill, >1 means they're
+    worse than a coin weighted by the base rate -> the model is mis-calibrated and we should distrust
+    it. Returns a size multiplier that shrinks as calibration degrades.
+    """
+    global _health_cache
+    now = time.time()
+    if _health_cache and now - _health_cache[0] < _HEALTH_TTL:
+        return _health_cache[1]
+
+    from .config import settings
+    out = {"n": 0, "brier": None, "base_brier": None, "ratio": None, "size_mult": 1.0}
+    if db.enabled():
+        try:
+            with db.get_conn() as conn, conn.cursor() as cur:
+                cur.execute(
+                    """
+                    select s.win_prob, case when o.pnl > 0 then 1.0 else 0.0 end
+                    from outcomes o join signals s on s.id = o.signal_id
+                    where o.pnl is not null and s.win_prob is not null
+                    order by o.resolved_at desc limit %s
+                    """,
+                    (window,),
+                )
+                rows = cur.fetchall()
+        except Exception:
+            rows = []
+        if len(rows) >= settings.calibration_min_trades:
+            ps = np.array([float(p) for p, _ in rows])
+            ys = np.array([float(y) for _, y in rows])
+            brier = float(np.mean((ps - ys) ** 2))
+            base = float(ys.mean())
+            base_brier = float(np.mean((base - ys) ** 2))
+            ratio = (brier / base_brier) if base_brier > 1e-9 else 1.0
+            mult = min(1.0, base_brier / brier) if brier > 1e-9 else 1.0
+            mult = max(settings.calibration_size_floor, mult)
+            out = {"n": len(rows), "brier": round(brier, 4), "base_brier": round(base_brier, 4),
+                   "ratio": round(ratio, 3), "size_mult": round(mult, 3)}
+    _health_cache = (now, out)
+    return out
+
+
+def size_multiplier() -> float:
+    """Calibration-error size multiplier (1.0 healthy, down to the floor when mis-calibrated)."""
+    from .config import settings
+    if not settings.calibration_monitor_enabled:
+        return 1.0
+    return float(calibration_health().get("size_mult", 1.0))
+
+
 def calibration_status() -> dict:
     c = _curves()
     return {
