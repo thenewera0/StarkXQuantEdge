@@ -41,6 +41,22 @@ def fetch_funding_basis(symbol: str = "BTCUSDT") -> dict:
     return {"symbol": symbol.upper(), "funding_rate": float(t.get("fundingRate") or 0), "basis": basis}
 
 
+def fetch_book_tickers() -> dict[str, dict]:
+    """Best bid/ask for every SPOT symbol on Bybit in one call — for cross-exchange arb (§6.3).
+
+    Returns {symbol: {"bid": float, "ask": float}}. Raises on failure (caller degrades gracefully)."""
+    res = _get("/v5/market/tickers", {"category": "spot"})
+    out: dict[str, dict] = {}
+    for r in res.get("list") or []:
+        try:
+            bid, ask = float(r.get("bid1Price") or 0), float(r.get("ask1Price") or 0)
+        except (ValueError, TypeError):
+            continue
+        if bid > 0 and ask > 0:
+            out[r["symbol"]] = {"bid": bid, "ask": ask}
+    return out
+
+
 def fetch_funding_history(symbol: str = "BTCUSDT", limit: int = 120) -> list[float]:
     """Recent funding rates (oldest->newest) from Bybit — fallback for §2.5 z-scoring."""
     res = _get("/v5/market/funding/history",

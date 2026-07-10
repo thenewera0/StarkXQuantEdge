@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { scanFundingCarry, scanTriangular, type FundingScan, type TriangularScan } from "@/lib/api";
+import { scanFundingCarry, scanTriangular, scanCross, type FundingScan, type TriangularScan, type CrossScan } from "@/lib/api";
 import { Card } from "./ui";
-import { Repeat, RefreshCw, CheckCircle2, Triangle } from "lucide-react";
+import { Repeat, RefreshCw, CheckCircle2, Triangle, ArrowLeftRight } from "lucide-react";
 
 function pct(n: number, d = 2): string {
   return `${(n * 100).toFixed(d)}%`;
@@ -12,14 +12,17 @@ function pct(n: number, d = 2): string {
 export function ArbPanel() {
   const [scan, setScan] = useState<FundingScan | null>(null);
   const [tri, setTri] = useState<TriangularScan | null>(null);
+  const [cross, setCross] = useState<CrossScan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [f, t] = await Promise.all([scanFundingCarry(), scanTriangular().catch(() => null)]);
-      setScan(f); setTri(t); setError(null);
+      const [f, t, c] = await Promise.all([
+        scanFundingCarry(), scanTriangular().catch(() => null), scanCross().catch(() => null),
+      ]);
+      setScan(f); setTri(t); setCross(c); setError(null);
     }
     catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
@@ -96,6 +99,23 @@ export function ArbPanel() {
               </span>
             ) : (
               <span className="text-slate-400">no cycle clears fees</span>
+            )}
+          </span>
+        </div>
+      )}
+
+      {cross && cross.enabled && (
+        <div className="mt-2 flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2 text-[12px]">
+          <ArrowLeftRight size={13} className="text-teal-500" />
+          <span className="font-medium text-slate-600">Cross-exchange (Binance↔Bybit)</span>
+          <span className="text-slate-400">{cross.scanned ?? 0} pairs · needs inventory on both (Growth tier)</span>
+          <span className="ml-auto">
+            {(cross.positive ?? 0) > 0 && cross.opportunities?.[0] ? (
+              <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-700">
+                {cross.opportunities[0].symbol} +{(cross.opportunities[0].net * 100).toFixed(3)}%
+              </span>
+            ) : (
+              <span className="text-slate-400">no spread clears fees</span>
             )}
           </span>
         </div>

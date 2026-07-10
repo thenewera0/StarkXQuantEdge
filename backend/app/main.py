@@ -76,6 +76,8 @@ async def lifespan(app: FastAPI):
                 arb.scan_funding_carry()
                 if settings.arb_triangular_enabled:
                     arb.triangular_scan()
+                if settings.arb_cross_enabled:
+                    arb.cross_exchange_scan()
             _scheduler.add_job(
                 _arb_job, "interval", hours=1, id="arb", replace_existing=True, max_instances=1,
             )
@@ -280,6 +282,13 @@ def arb_triangular_scan() -> dict:
     """Scan the currency graph for a profitable triangular cycle after fees (Blueprint §6.2)."""
     from . import arb
     return arb.triangular_scan()
+
+
+@app.post("/arb/cross-scan")
+def arb_cross_scan() -> dict:
+    """Scan Binance vs Bybit for a profitable simultaneous cross-exchange trade (Blueprint §6.3)."""
+    from . import arb
+    return arb.cross_exchange_scan()
 
 
 @app.get("/arb/opportunities")

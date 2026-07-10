@@ -416,6 +416,19 @@ export async function scanTriangular(): Promise<TriangularScan> {
   return res.json();
 }
 
+export type CrossScan = {
+  enabled: boolean;
+  scanned?: number;
+  positive?: number;
+  opportunities?: { symbol: string; direction: string; net: number; positive: boolean }[];
+};
+
+export async function scanCross(): Promise<CrossScan> {
+  const res = await fetch(`${API_BASE}/arb/cross-scan`, { method: "POST", cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
 export async function fetchCandles(symbol: string, interval: string, market: string): Promise<Candles> {
   const params = new URLSearchParams({ symbol, interval, market, limit: "300" });
   const url = `${API_BASE}/candles?${params.toString()}`;

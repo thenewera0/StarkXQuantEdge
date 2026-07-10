@@ -242,6 +242,77 @@ def _log_triangular(o: dict) -> None:
         pass
 
 
+# --- Cross-exchange inventory arbitrage (§6.3) -----------------------------
+
+def cross_exchange_opportunity(symbol: str, a: dict, b: dict, fee_a: float, fee_b: float) -> dict:
+    """Best simultaneous cross-venue trade for a symbol held on both venues (no transfer).
+
+    Direction 1: buy on B (ask_b), sell on A (bid_a) -> net = bid_a/ask_b*(1-fee_a)(1-fee_b) - 1.
+    Direction 2: buy on A (ask_a), sell on B (bid_b). Report the better of the two."""
+    d1 = (a["bid"] / b["ask"]) * (1 - fee_a) * (1 - fee_b) - 1.0   # buy Bybit, sell Binance
+    d2 = (b["bid"] / a["ask"]) * (1 - fee_a) * (1 - fee_b) - 1.0   # buy Binance, sell Bybit
+    if d1 >= d2:
+        net, direction = d1, "buy Bybit -> sell Binance"
+    else:
+        net, direction = d2, "buy Binance -> sell Bybit"
+    return {
+        "type": "cross_exchange", "symbol": symbol.upper(), "direction": direction,
+        "net": round(net, 6), "binance": {"bid": a["bid"], "ask": a["ask"]},
+        "bybit": {"bid": b["bid"], "ask": b["ask"]},
+    }
+
+
+def cross_exchange_scan(symbols: list[str] | None = None) -> dict:
+    """Scan symbols held on Binance + Bybit for a profitable simultaneous cross-venue trade (§6.3).
+
+    Requires pre-positioned inventory on both venues -> unlocks at the Growth capital tier."""
+    if not settings.arb_cross_enabled:
+        return {"enabled": False, "opportunities": []}
+    try:
+        bin_t = fetch_book_tickers()
+    except Exception:
+        return {"enabled": True, "error": "binance tickers failed", "opportunities": []}
+    try:
+        from .data.bybit import fetch_book_tickers as _byb
+        byb_t = _byb()
+    except Exception:
+        return {"enabled": True, "error": "bybit tickers failed", "opportunities": []}
+
+    syms = symbols or list(settings.arb_symbols_list)
+    buf = settings.arb_cross_buffer
+    opps = []
+    for s in syms:
+        a, b = bin_t.get(s), byb_t.get(s)
+        if not a or not b:
+            continue
+        o = cross_exchange_opportunity(s, a, b, settings.arb_cross_fee_binance, settings.arb_cross_fee_bybit)
+        o["positive"] = bool(o["net"] > buf)
+        opps.append(o)
+    opps.sort(key=lambda x: x["net"], reverse=True)
+    _log_cross([o for o in opps if o["positive"]])
+    return {
+        "enabled": True, "scanned": len(opps),
+        "positive": sum(1 for o in opps if o["positive"]),
+        "opportunities": opps,
+        "note": "requires pre-positioned inventory on both venues (Growth tier)",
+    }
+
+
+def _log_cross(opps: list[dict]) -> None:
+    if not opps or not db.enabled():
+        return
+    try:
+        with db.get_conn() as conn, conn.cursor() as cur:
+            for o in opps:
+                cur.execute(
+                    "insert into arb_opportunities (type, symbol, ev, positive) values (%s,%s,%s,%s)",
+                    (o["type"], f"{o['symbol']} ({o['direction']})", o["net"], o["positive"]),
+                )
+            conn.commit()
+    except Exception:
+        pass
+
+
 def recent_opportunities(limit: int = 20) -> list[dict]:
     if not db.enabled():
         return []

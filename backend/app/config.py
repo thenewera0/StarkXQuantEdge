@@ -159,6 +159,12 @@ class Settings(BaseSettings):
     arb_tri_fee: float = 0.001          # taker fee per conversion (0.075% with BNB discount)
     arb_tri_buffer: float = 0.0005      # net must clear this to count as an opportunity
 
+    # Cross-exchange inventory-arb detector (§6.3): Binance vs Bybit spot, simultaneous (no transfer).
+    arb_cross_enabled: bool = True
+    arb_cross_fee_binance: float = 0.001
+    arb_cross_fee_bybit: float = 0.001
+    arb_cross_buffer: float = 0.0005
+
     @property
     def arb_symbols_list(self) -> list[str]:
         return [s.strip().upper() for s in self.arb_symbols.split(",") if s.strip()]
