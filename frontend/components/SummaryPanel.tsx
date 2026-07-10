@@ -48,6 +48,18 @@ export function SummaryPanel({ refreshKey }: { refreshKey: number }) {
 
       {error && <div className="mb-3 text-sm text-rose-600">{error}</div>}
 
+      {s?.risk_state && (s.risk_state.circuit_halted || s.risk_state.drifting) && (
+        <div className={`mb-3 flex items-center gap-2 rounded-xl border p-3 text-sm ${
+          s.risk_state.circuit_halted ? "border-rose-200 bg-rose-50/70 text-rose-700" : "border-amber-200 bg-amber-50/70 text-amber-700"}`}>
+          <span className={`h-2 w-2 rounded-full ${s.risk_state.circuit_halted ? "bg-rose-500" : "bg-amber-500"} animate-pulse`} />
+          {s.risk_state.circuit_halted ? (
+            <span><span className="font-semibold">Circuit breaker engaged</span> — trading halted for 24h after a {s.risk_state.day_r}R day. Auto-clears as the window rolls off.</span>
+          ) : (
+            <span><span className="font-semibold">Drift detected</span> — expectancy shifted down; EV bar raised and size cut to {Math.round((s.risk_state.size_mult ?? 1) * 100)}%. Auto-recovers as the run ages out.</span>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-3">
         {s?.week && <WindowCard title="Last 7 days" w={s.week} />}
         {s?.month && <WindowCard title="Last 30 days" w={s.month} />}

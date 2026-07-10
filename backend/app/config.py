@@ -53,6 +53,24 @@ class Settings(BaseSettings):
     # primary calibrated prob out-of-sample AND has enough samples). Flip enables gating on it.
     meta_gate_enabled: bool = True   # allow a PROMOTED model to drive EV; shadow-only until promoted
 
+    # Drift detection -> automatic de-risk (Blueprint v2 §4.2). Page-Hinkley on the per-trade R
+    # sequence; on a downward expectancy shift, raise the EV floor and cut size until the bad run
+    # ages out of the trailing window (auto-recovery).
+    drift_enabled: bool = True
+    drift_window_trades: int = 80      # trailing window the PH test runs over
+    drift_min_trades: int = 20         # need this many resolved trades before trusting the test
+    drift_delta: float = 0.1           # tolerated drift magnitude (R) before accumulating
+    drift_lambda: float = 3.0          # PH detection threshold (cumulative R of downward deviation)
+    drift_ev_add: float = 0.4          # add this to min_ev_r while drifting (0.0 -> 0.4R)
+    drift_size_mult: float = 0.5       # cut advised size while drifting
+
+    # Global circuit breaker (§4 safety rails): halt new signals for the cooldown window if realized
+    # R over the last N hours falls below the floor. Rolls off automatically.
+    circuit_breaker_enabled: bool = True
+    circuit_breaker_r: float = -3.0
+    circuit_window_hours: int = 24
+    circuit_min_trades: int = 5        # don't trip on a tiny sample
+
     # Range-fade family (Blueprint v2 §2.2 / §3.3). In a range regime the engine fades extremes
     # (targets the mean), so it uses a looser RR floor (fades win often but small) and only fires
     # when the measured Ornstein-Uhlenbeck reversion half-life is short enough that the range is

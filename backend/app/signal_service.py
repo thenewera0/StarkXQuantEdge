@@ -14,7 +14,7 @@ import math
 
 import pandas as pd
 
-from . import calibration, learning, meta_features, meta_model
+from . import calibration, drift, learning, meta_features, meta_model
 from .config import settings
 from .costs import cost_in_r
 from .geometry import trade_levels
@@ -250,10 +250,18 @@ def compute_signal(
         rr = geo["reward_risk"]
         ev_r = round(p_eff * rr - (1.0 - p_eff) - cost_r, 4)
 
+    # --- L5d autonomy: drift de-risk + circuit breaker (§4.2 / §4 safety rails) ---
+    risk_state = drift.state()
+    ev_floor = settings.min_ev_r + risk_state["ev_add"]     # drifting -> stricter EV bar
+    if risk_state["size_mult"] != 1.0 and geo.get("size_pct") is not None:
+        geo["size_pct"] = round(geo["size_pct"] * risk_state["size_mult"], 2)
+
     # --- L6 hard filters / silence ("silence is a position") ---
     sig_symbol = symbol.upper() if is_crypto else symbol
     silence_reason = None
-    if crowd_veto:
+    if risk_state["circuit_halted"]:
+        silence_reason = "circuit_breaker"  # 24h halt after a big down day; auto-clears
+    elif crowd_veto:
         silence_reason = "crowd_veto"
     elif settings.regime_filter_enabled and regime not in _allowed_regimes():
         silence_reason = "regime_filter"  # only trade regimes with proven positive expectancy
@@ -271,8 +279,8 @@ def compute_signal(
         silence_reason = "reversion_too_slow"  # §3.3: range isn't mean-reverting fast enough to fade
     elif geo["reward_risk"] is not None and geo["reward_risk"] < _rr_floor(regime):
         silence_reason = "reward_risk_below_gate"
-    elif settings.ev_gate_enabled and ev_r is not None and ev_r < settings.min_ev_r:
-        silence_reason = "ev_below_gate"  # calibrated expected value doesn't clear cost
+    elif settings.ev_gate_enabled and ev_r is not None and ev_r < ev_floor:
+        silence_reason = "ev_below_gate"  # calibrated EV doesn't clear cost (+ drift de-risk margin)
     actionable = silence_reason is None
 
     if not actionable:
@@ -296,6 +304,8 @@ def compute_signal(
         "htf_trend": raw_features["htf_trend"],
         "features": feature_vec,
         "ev_r": ev_r,
+        "risk_state": {"drifting": risk_state["drifting"], "circuit_halted": risk_state["circuit_halted"],
+                       "size_mult": risk_state["size_mult"], "day_r": risk_state["day_r"]},
         "actionable": actionable,
         "silence_reason": silence_reason,
         "categories": result.categories,

@@ -326,12 +326,24 @@ export type WindowStats = {
 
 export type RegimePerf = { trades: number; pnl_usd: number; hit_rate: number | null; tradeable: boolean };
 
+export type RiskState = {
+  drifting: boolean;
+  circuit_halted: boolean;
+  size_mult: number;
+  day_r: number;
+  ph_stat?: number;
+  recent_mean_r?: number | null;
+  recent_trades?: number;
+  day_trades?: number;
+};
+
 export type Summary = {
   enabled: boolean;
   trade_size_usd?: number;
   week?: WindowStats;
   month?: WindowStats;
   all_time?: WindowStats;
+  risk_state?: RiskState;
   learning?: {
     tradeable_regimes: string[];
     excluded_regimes: string[];
