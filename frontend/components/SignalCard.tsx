@@ -117,6 +117,15 @@ export function SignalCard({ s, livePrice }: { s: Signal; livePrice?: number | n
             <Tile icon={<Target size={13} />} label="Target 3" value={s.targets?.[2] ?? null} tone="reward" />
           </div>
           {s.invalidation && <div className="mt-2 text-[11px] text-slate-500">Invalidation: <span className="font-medium text-slate-600">{s.invalidation}</span></div>}
+          {s.position_sizing && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-1.5 text-[11px]">
+              <span className="font-semibold uppercase tracking-wide text-slate-400">Suggested size</span>
+              <span className="rounded bg-indigo-50 px-1.5 py-0.5 font-medium capitalize text-indigo-600">{s.position_sizing.tier} tier</span>
+              <span className="text-slate-600">risk <span className="font-semibold tabular-nums">{s.position_sizing.risk_pct}%</span> · ${s.position_sizing.risk_usd}</span>
+              <span className="text-slate-600">notional <span className="font-semibold tabular-nums">${s.position_sizing.notional_usd.toLocaleString()}</span></span>
+              <span className="text-slate-400">bound by {s.position_sizing.bound_by}</span>
+            </div>
+          )}
         </div>
       )}
 

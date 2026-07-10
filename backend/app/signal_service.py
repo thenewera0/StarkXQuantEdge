@@ -14,7 +14,7 @@ import math
 
 import pandas as pd
 
-from . import calibration, drift, learning, meta_features, meta_model
+from . import calibration, drift, learning, meta_features, meta_model, sizing
 from .config import settings
 from .costs import cost_in_r
 from .geometry import trade_levels
@@ -244,15 +244,23 @@ def compute_signal(
     p_eff = meta_p if use_meta else win_prob   # promoted meta prob replaces the primary in the EV
 
     ev_r = None
+    position_sizing = None
+    risk_state = drift.state()
     if geo["direction"] != "flat" and geo["entry"] and geo["stop"] and geo["reward_risk"]:
         stop_frac = abs(geo["entry"] - geo["stop"]) / geo["entry"]
         cost_r = cost_in_r(market, symbol.upper() if is_crypto else symbol, atr_pct, stop_frac)
         rr = geo["reward_risk"]
         ev_r = round(p_eff * rr - (1.0 - p_eff) - cost_r, 4)
+        # --- §7 capital-adaptive sizing: quarter-Kelly capped by the ruin constraint + tier ---
+        position_sizing = sizing.position_size(
+            settings.account_equity_usd, p_eff, rr, stop_frac,
+            drift_mult=risk_state["size_mult"], min_notional=settings.min_notional_usd,
+        )
 
     # --- L5d autonomy: drift de-risk + circuit breaker (§4.2 / §4 safety rails) ---
-    risk_state = drift.state()
-    ev_floor = settings.min_ev_r + risk_state["ev_add"]     # drifting -> stricter EV bar
+    # EV floor = per-tier threshold (small accounts stricter) + drift de-risk margin.
+    tier_ev = sizing.tier_for_equity(settings.account_equity_usd)["ev_threshold"] if settings.tier_ev_gate_enabled else 0.0
+    ev_floor = max(settings.min_ev_r, tier_ev) + risk_state["ev_add"]
     if risk_state["size_mult"] != 1.0 and geo.get("size_pct") is not None:
         geo["size_pct"] = round(geo["size_pct"] * risk_state["size_mult"], 2)
 
@@ -304,6 +312,7 @@ def compute_signal(
         "htf_trend": raw_features["htf_trend"],
         "features": feature_vec,
         "ev_r": ev_r,
+        "position_sizing": position_sizing,
         "risk_state": {"drifting": risk_state["drifting"], "circuit_halted": risk_state["circuit_halted"],
                        "size_mult": risk_state["size_mult"], "day_r": risk_state["day_r"]},
         "actionable": actionable,

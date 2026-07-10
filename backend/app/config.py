@@ -104,6 +104,13 @@ class Settings(BaseSettings):
     # Performance / P&L (fixed notional per trade for the paper track record)
     standard_trade_size_usd: float = 1000.0
 
+    # Capital-adaptive sizing (Blueprint v2 §7). The operator's actual equity drives the tier,
+    # Kelly+ruin sizing, and the per-tier EV threshold. The paper track still uses the fixed
+    # notional above for comparability; this only sets the RECOMMENDED size shown per signal.
+    account_equity_usd: float = 1000.0
+    min_notional_usd: float = 5.0
+    tier_ev_gate_enabled: bool = True   # use the tier's EV threshold as the EV floor
+
     # Supabase / Postgres (Phase 3 persistence)
     supabase_url: str = ""
     supabase_publishable_key: str = ""

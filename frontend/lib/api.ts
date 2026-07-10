@@ -61,6 +61,16 @@ export type Signal = {
   meta_p?: number | null;
   htf_trend?: number | null;
   ev_r?: number | null;
+  position_sizing?: {
+    tier: string;
+    risk_pct: number;
+    risk_usd: number;
+    notional_usd: number;
+    kelly_f: number;
+    ruin_f: number;
+    bound_by: string;
+    tradeable: boolean;
+  } | null;
   actionable?: boolean;
   silence_reason?: string | null;
   categories: Categories;
