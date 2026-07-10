@@ -154,6 +154,11 @@ class Settings(BaseSettings):
     arb_min_history: int = 20           # min funding-history points to fit AR(1)
     arb_symbols: str = "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,ADAUSDT,DOGEUSDT,AVAXUSDT"
 
+    # Triangular-arb detector (§6.2): Bellman-Ford negative-cycle over the currency graph.
+    arb_triangular_enabled: bool = True
+    arb_tri_fee: float = 0.001          # taker fee per conversion (0.075% with BNB discount)
+    arb_tri_buffer: float = 0.0005      # net must clear this to count as an opportunity
+
     @property
     def arb_symbols_list(self) -> list[str]:
         return [s.strip().upper() for s in self.arb_symbols.split(",") if s.strip()]

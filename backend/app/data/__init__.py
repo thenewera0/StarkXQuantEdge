@@ -8,6 +8,7 @@ from .binance import (
     fetch_long_short_ratio,
     fetch_funding_basis,
     fetch_funding_history,
+    fetch_book_tickers,
     fetch_oi_trend,
     INTERVAL_SECONDS,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "fetch_long_short_ratio",
     "fetch_funding_basis",
     "fetch_funding_history",
+    "fetch_book_tickers",
     "fetch_oi_trend",
     "fetch_klines_td",
     "news_sentiment",

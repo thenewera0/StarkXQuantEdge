@@ -74,6 +74,8 @@ async def lifespan(app: FastAPI):
             def _arb_job() -> None:
                 from . import arb
                 arb.scan_funding_carry()
+                if settings.arb_triangular_enabled:
+                    arb.triangular_scan()
             _scheduler.add_job(
                 _arb_job, "interval", hours=1, id="arb", replace_existing=True, max_instances=1,
             )
@@ -273,9 +275,16 @@ def arb_funding_scan() -> dict:
     return arb.scan_funding_carry()
 
 
+@app.post("/arb/triangular-scan")
+def arb_triangular_scan() -> dict:
+    """Scan the currency graph for a profitable triangular cycle after fees (Blueprint §6.2)."""
+    from . import arb
+    return arb.triangular_scan()
+
+
 @app.get("/arb/opportunities")
 def arb_opportunities(limit: int = 20) -> dict:
-    """Recently logged positive-EV funding-carry opportunities."""
+    """Recently logged positive-EV funding-carry + triangular opportunities."""
     from . import arb
     return {"opportunities": arb.recent_opportunities(limit)}
 

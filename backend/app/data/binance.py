@@ -153,6 +153,24 @@ def fetch_klines_history(symbol: str = "BTCUSDT", interval: str = "1h", total: i
     return full[["open", "high", "low", "close", "volume"]].dropna()
 
 
+def fetch_book_tickers() -> dict[str, dict]:
+    """Best bid/ask for EVERY spot symbol in one call — for triangular-arb cycle detection (§6.2).
+
+    Returns {symbol: {"bid": float, "ask": float}}. Raises on failure (caller degrades gracefully)."""
+    url = f"{SPOT_BASE}/api/v3/ticker/bookTicker"
+    resp = httpx.get(url, timeout=15.0)
+    resp.raise_for_status()
+    out: dict[str, dict] = {}
+    for r in resp.json():
+        try:
+            bid, ask = float(r["bidPrice"]), float(r["askPrice"])
+        except (KeyError, ValueError, TypeError):
+            continue
+        if bid > 0 and ask > 0:
+            out[r["symbol"]] = {"bid": bid, "ask": ask}
+    return out
+
+
 def fetch_depth(symbol: str = "BTCUSDT", limit: int = 100) -> dict:
     """Return order-book depth and a derived bid/ask imbalance in [-1, 1].
 

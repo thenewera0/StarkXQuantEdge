@@ -21,9 +21,19 @@ import math
 
 from . import db
 from .config import settings
-from .data import fetch_funding_history
+from .data import fetch_book_tickers, fetch_funding_history
 
 _PERIODS_PER_YEAR = 3 * 365  # 8h funding -> 3/day
+
+# Curated currency set + the spot pairs among them (base, quote, binance_symbol) for the triangular
+# cycle graph. A small hub-and-spoke graph keeps the Bellman-Ford cycles meaningful and fast.
+_TRI_PAIRS = [
+    ("BTC", "USDT", "BTCUSDT"), ("ETH", "USDT", "ETHUSDT"), ("BNB", "USDT", "BNBUSDT"),
+    ("SOL", "USDT", "SOLUSDT"), ("XRP", "USDT", "XRPUSDT"), ("ADA", "USDT", "ADAUSDT"),
+    ("ETH", "BTC", "ETHBTC"), ("BNB", "BTC", "BNBBTC"), ("SOL", "BTC", "SOLBTC"),
+    ("XRP", "BTC", "XRPBTC"), ("ADA", "BTC", "ADABTC"),
+    ("BNB", "ETH", "BNBETH"), ("SOL", "ETH", "SOLETH"), ("XRP", "ETH", "XRPETH"),
+]
 
 
 def _ar1_params(hist: list[float]) -> tuple[float, float] | None:
@@ -123,6 +133,110 @@ def _log_opportunities(opps: list[dict]) -> None:
                     (o["type"], o["symbol"], o["expected_collection"], o["cost"], o["ev"],
                      o["annualized_yield"], o["half_life_periods"], o["horizon_periods"], o["positive"]),
                 )
+            conn.commit()
+    except Exception:
+        pass
+
+
+# --- Triangular arbitrage (§6.2): Bellman-Ford negative-cycle detection ----
+
+def _build_edges(tickers: dict[str, dict], fee: float):
+    """Directed edges over currencies with weight = -log(rate * (1-fee)). A negative cycle == arb.
+
+    For pair BASE/QUOTE: selling base gives `bid` quote (base->quote); buying base costs `ask`
+    quote, i.e. 1 quote -> 1/ask base (quote->base). Fees apply on each conversion.
+    """
+    nodes: set[str] = set()
+    edges: list[tuple[str, str, float]] = []
+    rate: dict[tuple[str, str], float] = {}
+    for base, quote, sym in _TRI_PAIRS:
+        t = tickers.get(sym)
+        if not t or t["bid"] <= 0 or t["ask"] <= 0:
+            continue
+        nodes.add(base); nodes.add(quote)
+        r_bq = t["bid"] * (1 - fee)             # base -> quote
+        r_qb = (1.0 / t["ask"]) * (1 - fee)     # quote -> base
+        edges.append((base, quote, -math.log(r_bq))); rate[(base, quote)] = r_bq
+        edges.append((quote, base, -math.log(r_qb))); rate[(quote, base)] = r_qb
+    return list(nodes), edges, rate
+
+
+def bellman_ford_neg_cycle(nodes: list[str], edges: list[tuple[str, str, float]]) -> list[str] | None:
+    """Return one negative cycle (list of nodes, closed) or None. Classic Bellman-Ford."""
+    if not nodes:
+        return None
+    dist = {n: 0.0 for n in nodes}      # 0-init detects any negative cycle in the graph
+    pred: dict[str, str | None] = {n: None for n in nodes}
+    x = None
+    for _ in range(len(nodes)):
+        x = None
+        for u, v, w in edges:
+            if dist[u] + w < dist[v] - 1e-12:
+                dist[v] = dist[u] + w
+                pred[v] = u
+                x = v
+    if x is None:
+        return None
+    for _ in range(len(nodes)):          # step into the cycle
+        x = pred[x]
+    cycle = [x]
+    v = pred[x]
+    while v != x and v is not None:
+        cycle.append(v)
+        v = pred[v]
+    cycle.append(x)
+    cycle.reverse()
+    return cycle
+
+
+def _cycle_net(cycle: list[str], rate: dict[tuple[str, str], float]) -> float | None:
+    """Net profit fraction around a cycle (product of rates - 1), or None if an edge is missing."""
+    prod = 1.0
+    for a, b in zip(cycle, cycle[1:]):
+        r = rate.get((a, b))
+        if r is None:
+            return None
+        prod *= r
+    return prod - 1.0
+
+
+def triangular_scan() -> dict:
+    """Scan for a profitable triangular cycle after fees (paper-mode detection, §6.2)."""
+    if not settings.arb_triangular_enabled:
+        return {"enabled": False, "opportunity": None}
+    try:
+        tickers = fetch_book_tickers()
+    except Exception:
+        return {"enabled": True, "error": "ticker fetch failed", "opportunity": None}
+
+    fee = settings.arb_tri_fee
+    nodes, edges, rate = _build_edges(tickers, fee)
+    cycle = bellman_ford_neg_cycle(nodes, edges)
+    best = None
+    if cycle:
+        net = _cycle_net(cycle, rate)
+        if net is not None:
+            best = {
+                "type": "triangular", "cycle": cycle, "path": " -> ".join(cycle),
+                "net": round(net, 6), "fee": fee, "buffer": settings.arb_tri_buffer,
+                "positive": bool(net > settings.arb_tri_buffer),
+                "legs": len(cycle) - 1,
+            }
+            if best["positive"]:
+                _log_triangular(best)
+    return {"enabled": True, "pairs": len(_TRI_PAIRS), "currencies": len(nodes), "opportunity": best}
+
+
+def _log_triangular(o: dict) -> None:
+    if not db.enabled():
+        return
+    try:
+        with db.get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                """insert into arb_opportunities (type, symbol, ev, positive)
+                   values (%s,%s,%s,%s)""",
+                (o["type"], o["path"], o["net"], o["positive"]),
+            )
             conn.commit()
     except Exception:
         pass

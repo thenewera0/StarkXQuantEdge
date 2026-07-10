@@ -403,6 +403,19 @@ export async function scanFundingCarry(): Promise<FundingScan> {
   return res.json();
 }
 
+export type TriangularScan = {
+  enabled: boolean;
+  pairs?: number;
+  currencies?: number;
+  opportunity?: { path: string; net: number; positive: boolean; legs: number } | null;
+};
+
+export async function scanTriangular(): Promise<TriangularScan> {
+  const res = await fetch(`${API_BASE}/arb/triangular-scan`, { method: "POST", cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
 export async function fetchCandles(symbol: string, interval: string, market: string): Promise<Candles> {
   const params = new URLSearchParams({ symbol, interval, market, limit: "300" });
   const url = `${API_BASE}/candles?${params.toString()}`;

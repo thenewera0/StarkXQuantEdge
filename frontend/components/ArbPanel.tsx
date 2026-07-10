@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { scanFundingCarry, type FundingScan } from "@/lib/api";
+import { scanFundingCarry, scanTriangular, type FundingScan, type TriangularScan } from "@/lib/api";
 import { Card } from "./ui";
-import { Repeat, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Repeat, RefreshCw, CheckCircle2, Triangle } from "lucide-react";
 
 function pct(n: number, d = 2): string {
   return `${(n * 100).toFixed(d)}%`;
@@ -11,12 +11,16 @@ function pct(n: number, d = 2): string {
 
 export function ArbPanel() {
   const [scan, setScan] = useState<FundingScan | null>(null);
+  const [tri, setTri] = useState<TriangularScan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    try { setScan(await scanFundingCarry()); setError(null); }
+    try {
+      const [f, t] = await Promise.all([scanFundingCarry(), scanTriangular().catch(() => null)]);
+      setScan(f); setTri(t); setError(null);
+    }
     catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
   }, []);
@@ -77,6 +81,23 @@ export function ArbPanel() {
       {scan && (
         <div className="mt-2 text-[11px] text-slate-400">
           {scan.scanned} scanned · {scan.positive ?? 0} positive-EV {(scan.positive ?? 0) === 1 ? "carry" : "carries"}
+        </div>
+      )}
+
+      {tri && tri.enabled && (
+        <div className="mt-4 flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2 text-[12px]">
+          <Triangle size={13} className="text-teal-500" />
+          <span className="font-medium text-slate-600">Triangular scan</span>
+          <span className="text-slate-400">Bellman–Ford over {tri.currencies ?? 0} currencies · {tri.pairs ?? 0} pairs</span>
+          <span className="ml-auto">
+            {tri.opportunity && tri.opportunity.positive ? (
+              <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 font-medium text-emerald-700">
+                {tri.opportunity.path} · +{(tri.opportunity.net * 100).toFixed(3)}%
+              </span>
+            ) : (
+              <span className="text-slate-400">no cycle clears fees</span>
+            )}
+          </span>
         </div>
       )}
     </Card>
