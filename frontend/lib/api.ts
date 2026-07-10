@@ -376,6 +376,33 @@ export async function fetchSummary(tradeSize = 1000): Promise<Summary> {
   return res.json();
 }
 
+export type FundingCarry = {
+  type: string;
+  symbol: string;
+  current_funding: number;
+  half_life_periods: number | null;
+  horizon_periods: number;
+  expected_collection: number;
+  cost: number;
+  ev: number;
+  annualized_yield: number;
+  positive: boolean;
+  legs: string;
+};
+
+export type FundingScan = {
+  enabled: boolean;
+  scanned?: number;
+  positive?: number;
+  opportunities?: FundingCarry[];
+};
+
+export async function scanFundingCarry(): Promise<FundingScan> {
+  const res = await fetch(`${API_BASE}/arb/funding-scan`, { method: "POST", cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
 export async function fetchCandles(symbol: string, interval: string, market: string): Promise<Candles> {
   const params = new URLSearchParams({ symbol, interval, market, limit: "300" });
   const url = `${API_BASE}/candles?${params.toString()}`;

@@ -144,5 +144,19 @@ class Settings(BaseSettings):
     scanner_interval_minutes: int = 30
     scanner_min_confidence: float = 55.0
 
+    # Funding-carry arbitrage detector (Blueprint v2 §6.1). Delta-neutral funding harvest, gated on
+    # expected funding (AR(1) forecast) minus round-trip cost of both legs. Detection only.
+    arb_funding_enabled: bool = True
+    arb_horizon_periods: int = 9        # 8h funding periods to hold (~3 days)
+    arb_spot_taker: float = 0.001       # spot taker fee per fill
+    arb_perp_taker: float = 0.0004      # perp taker fee per fill
+    arb_buffer: float = 0.0005          # safety buffer above breakeven
+    arb_min_history: int = 20           # min funding-history points to fit AR(1)
+    arb_symbols: str = "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,ADAUSDT,DOGEUSDT,AVAXUSDT"
+
+    @property
+    def arb_symbols_list(self) -> list[str]:
+        return [s.strip().upper() for s in self.arb_symbols.split(",") if s.strip()]
+
 
 settings = Settings()

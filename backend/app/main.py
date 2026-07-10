@@ -69,6 +69,14 @@ async def lifespan(app: FastAPI):
                 _scanner_job, "interval", minutes=settings.scanner_interval_minutes,
                 id="scanner", replace_existing=True, max_instances=1,
             )
+        # Funding-carry arbitrage detector (hourly; funding updates slowly).
+        if settings.arb_funding_enabled:
+            def _arb_job() -> None:
+                from . import arb
+                arb.scan_funding_carry()
+            _scheduler.add_job(
+                _arb_job, "interval", hours=1, id="arb", replace_existing=True, max_instances=1,
+            )
         learning.refresh()
         _scheduler.start()
         logger.info(
@@ -256,6 +264,20 @@ def meta_train() -> dict:
     """Train the meta-labeling model + evaluate the shadow->gating promotion gate (Blueprint §5)."""
     from . import meta_model
     return meta_model.train_and_gate()
+
+
+@app.post("/arb/funding-scan")
+def arb_funding_scan() -> dict:
+    """Scan for delta-neutral funding-carry opportunities, EV-gated after costs (Blueprint §6.1)."""
+    from . import arb
+    return arb.scan_funding_carry()
+
+
+@app.get("/arb/opportunities")
+def arb_opportunities(limit: int = 20) -> dict:
+    """Recently logged positive-EV funding-carry opportunities."""
+    from . import arb
+    return {"opportunities": arb.recent_opportunities(limit)}
 
 
 class OutcomeIn(BaseModel):

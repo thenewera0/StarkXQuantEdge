@@ -10,6 +10,7 @@ import { ScannerPanel } from "@/components/ScannerPanel";
 import { PerformancePanel } from "@/components/PerformancePanel";
 import { SummaryPanel } from "@/components/SummaryPanel";
 import { TradeHistoryPanel } from "@/components/TradeHistoryPanel";
+import { ArbPanel } from "@/components/ArbPanel";
 import { Card } from "@/components/ui";
 import type { EmittedSignal } from "@/lib/api";
 import { Activity, Bitcoin, DollarSign, Sparkles, Gauge, RefreshCw } from "lucide-react";
@@ -196,6 +197,10 @@ export default function Home() {
 
         <div className="mb-6">
           <ScannerPanel onPick={pickSignal} onScanned={() => setHistoryKey((k) => k + 1)} />
+        </div>
+
+        <div className="mb-6">
+          <ArbPanel />
         </div>
 
         {!loading && !error && signal && (
