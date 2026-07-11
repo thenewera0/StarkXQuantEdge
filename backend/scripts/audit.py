@@ -70,7 +70,7 @@ for d in sigs:
     # actionable requires EV clear the floor
     if actionable and d.get("ev_r") is not None:
         tier_ev = sizing.tier_for_equity(settings.account_equity_usd)["ev_threshold"] if settings.tier_ev_gate_enabled else 0.0
-        floor = max(settings.min_ev_r, tier_ev) + drift.state()["ev_add"]
+        floor = max(settings.min_ev_r, tier_ev, drift.state()["ev_floor"])
         if d["ev_r"] < floor - 1e-9:
             bad(f"{tag}: actionable but ev_r {d['ev_r']} < floor {floor}")
 ok("silence chain consistent")

@@ -114,7 +114,7 @@ def state() -> dict:
         "ph_stat": round(ph, 3),
         "recent_trades": len(rs),
         "recent_mean_r": round(sum(rs) / len(rs), 4) if rs else None,
-        "ev_add": settings.drift_ev_add if drifting else 0.0,     # raise the EV floor while drifting
+        "ev_floor": settings.drift_ev_floor if drifting else 0.0,  # RAISE the EV floor TO this while drifting
         "size_mult": settings.drift_size_mult if drifting else 1.0,
         "circuit_halted": halted,
         "day_r": round(day_r, 3),

@@ -34,7 +34,7 @@ drift.refresh()
 with m.patch.object(drift, "_recent_r", return_value=broke), m.patch.object(drift, "_daily_r", return_value=(0.5, 3)):
     st = drift.state()
 check("drifting flag set", st["drifting"] is True)
-check("ev_add applied while drifting", st["ev_add"] == settings.drift_ev_add)
+check("ev_floor raised while drifting", st["ev_floor"] == settings.drift_ev_floor)
 check("size cut while drifting", st["size_mult"] == settings.drift_size_mult)
 check("not halted (day_r ok)", st["circuit_halted"] is False)
 

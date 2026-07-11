@@ -265,9 +265,10 @@ def compute_signal(
         position_sizing["alloc_mult"] = round(alloc_mult, 3)
 
     # --- L5d autonomy: drift de-risk + circuit breaker (§4.2 / §4 safety rails) ---
-    # EV floor = per-tier threshold (small accounts stricter) + drift de-risk margin.
+    # EV floor = per-tier threshold (small accounts stricter), RAISED to the drift floor while
+    # drifting (not stacked additively — a drifting standard account uses 0.4R, not 0.15+0.4).
     tier_ev = sizing.tier_for_equity(settings.account_equity_usd)["ev_threshold"] if settings.tier_ev_gate_enabled else 0.0
-    ev_floor = max(settings.min_ev_r, tier_ev) + risk_state["ev_add"]
+    ev_floor = max(settings.min_ev_r, tier_ev, risk_state["ev_floor"])
     if risk_state["size_mult"] != 1.0 and geo.get("size_pct") is not None:
         geo["size_pct"] = round(geo["size_pct"] * risk_state["size_mult"], 2)
 

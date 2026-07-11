@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     drift_min_trades: int = 20         # need this many resolved trades before trusting the test
     drift_delta: float = 0.1           # tolerated drift magnitude (R) before accumulating
     drift_lambda: float = 3.0          # PH detection threshold (cumulative R of downward deviation)
-    drift_ev_add: float = 0.4          # add this to min_ev_r while drifting (0.0 -> 0.4R)
+    drift_ev_floor: float = 0.4        # §4.2: RAISE the EV floor TO this level while drifting (not additive)
     drift_size_mult: float = 0.5       # cut advised size while drifting
 
     # Global circuit breaker (§4 safety rails): halt new signals for the cooldown window if realized
