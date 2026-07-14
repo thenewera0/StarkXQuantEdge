@@ -429,6 +429,14 @@ export async function scanCross(): Promise<CrossScan> {
   return res.json();
 }
 
+export type ArbAlert = { ts: string; type: string; symbol: string; ev: number; annualized_yield: number | null };
+
+export async function fetchArbAlerts(hours = 12): Promise<ArbAlert[]> {
+  const res = await fetch(`${API_BASE}/arb/alerts?hours=${hours}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return (await res.json()).alerts ?? [];
+}
+
 export async function fetchCandles(symbol: string, interval: string, market: string): Promise<Candles> {
   const params = new URLSearchParams({ symbol, interval, market, limit: "300" });
   const url = `${API_BASE}/candles?${params.toString()}`;

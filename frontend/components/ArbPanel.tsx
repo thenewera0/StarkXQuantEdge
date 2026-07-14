@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { scanFundingCarry, scanTriangular, scanCross, type FundingScan, type TriangularScan, type CrossScan } from "@/lib/api";
+import { scanFundingCarry, scanTriangular, scanCross, fetchArbAlerts, type FundingScan, type TriangularScan, type CrossScan, type ArbAlert } from "@/lib/api";
 import { Card } from "./ui";
-import { Repeat, RefreshCw, CheckCircle2, Triangle, ArrowLeftRight } from "lucide-react";
+import { Repeat, RefreshCw, CheckCircle2, Triangle, ArrowLeftRight, Zap } from "lucide-react";
 
 function pct(n: number, d = 2): string {
   return `${(n * 100).toFixed(d)}%`;
@@ -13,16 +13,18 @@ export function ArbPanel() {
   const [scan, setScan] = useState<FundingScan | null>(null);
   const [tri, setTri] = useState<TriangularScan | null>(null);
   const [cross, setCross] = useState<CrossScan | null>(null);
+  const [alerts, setAlerts] = useState<ArbAlert[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [f, t, c] = await Promise.all([
+      const [f, t, c, a] = await Promise.all([
         scanFundingCarry(), scanTriangular().catch(() => null), scanCross().catch(() => null),
+        fetchArbAlerts(24).catch(() => []),
       ]);
-      setScan(f); setTri(t); setCross(c); setError(null);
+      setScan(f); setTri(t); setCross(c); setAlerts(a); setError(null);
     }
     catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
@@ -31,22 +33,37 @@ export function ArbPanel() {
 
   if (scan && !scan.enabled) return null;
   const opps = scan?.opportunities ?? [];
+  const livePositive = (scan?.positive ?? 0) + (cross?.positive ?? 0) + (tri?.opportunity?.positive ? 1 : 0);
 
   return (
     <Card className="card-pad">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Repeat size={16} className="text-teal-500" />
-          <span className="text-sm font-semibold tracking-tight">Funding-carry scan (delta-neutral arbitrage)</span>
+          <span className="text-sm font-semibold tracking-tight">Arbitrage scanner — funding · triangular · cross-exchange</span>
         </div>
         <button onClick={load} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800">
           <RefreshCw size={12} className={loading ? "shimmer" : ""} /> Rescan
         </button>
       </div>
 
+      {livePositive > 0 ? (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50/80 p-3 text-sm text-emerald-800">
+          <Zap size={16} className="text-emerald-600" />
+          <span><span className="font-semibold">{livePositive} live opportunit{livePositive === 1 ? "y" : "ies"} clearing costs right now</span> — see the highlighted rows below.</span>
+        </div>
+      ) : (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/60 p-2.5 text-[12px] text-slate-500">
+          <Zap size={14} className="text-slate-400" />
+          <span>Watching {scan?.scanned ?? 0} funding · {tri?.pairs ?? 0} triangular · {cross?.scanned ?? 0} cross-exchange pairs. No positive-EV arb right now.
+            {alerts.length > 0 && <span className="text-slate-600"> · <b>{alerts.length}</b> caught in last 24h.</span>}
+          </span>
+        </div>
+      )}
+
       <p className="mb-3 text-[11px] leading-snug text-slate-500">
-        Long spot + short perp, harvesting funding. Enters only when forecast funding (AR-1) clears the
-        round-trip cost of both legs. Usually silent — it pays mainly during funding spikes.
+        Funding carry = long spot + short perp, harvesting funding. Each detector fires only when the
+        edge clears its round-trip cost — usually silent, paying mainly during funding spikes.
       </p>
 
       {error && <div className="mb-2 text-sm text-rose-600">{error}</div>}
@@ -64,8 +81,8 @@ export function ArbPanel() {
             </tr>
           </thead>
           <tbody>
-            {opps.map((o) => (
-              <tr key={o.symbol} className="border-t border-slate-100">
+            {opps.slice(0, 12).map((o) => (
+              <tr key={o.symbol} className={`border-t border-slate-100 ${o.positive ? "bg-emerald-50/60" : ""}`}>
                 <td className="py-1.5 font-medium text-slate-700">{o.symbol}</td>
                 <td className="py-1.5 tabular-nums text-slate-600">{pct(o.current_funding, 4)}</td>
                 <td className={`py-1.5 tabular-nums ${o.annualized_yield >= 0 ? "text-slate-600" : "text-rose-500"}`}>{pct(o.annualized_yield, 1)}</td>

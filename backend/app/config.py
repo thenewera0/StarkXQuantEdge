@@ -152,7 +152,10 @@ class Settings(BaseSettings):
     arb_perp_taker: float = 0.0004      # perp taker fee per fill
     arb_buffer: float = 0.0005          # safety buffer above breakeven
     arb_min_history: int = 20           # min funding-history points to fit AR(1)
-    arb_symbols: str = "BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,ADAUSDT,DOGEUSDT,AVAXUSDT"
+    # Widened universe — thinner alts spike harder, so more chances to catch a real funding window.
+    arb_symbols: str = ("BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT,ADAUSDT,DOGEUSDT,AVAXUSDT,"
+                        "LINKUSDT,LTCUSDT,DOTUSDT,TRXUSDT,ATOMUSDT,UNIUSDT,NEARUSDT,APTUSDT,"
+                        "ARBUSDT,OPUSDT,FILUSDT,INJUSDT,SUIUSDT,SEIUSDT,TIAUSDT,AAVEUSDT")
 
     # Triangular-arb detector (§6.2): Bellman-Ford negative-cycle over the currency graph.
     arb_triangular_enabled: bool = True

@@ -298,6 +298,13 @@ def arb_opportunities(limit: int = 20) -> dict:
     return {"opportunities": arb.recent_opportunities(limit)}
 
 
+@app.get("/arb/alerts")
+def arb_alerts(hours: int = 12) -> dict:
+    """Positive-EV arbitrage opportunities caught in the last `hours` — the alert feed."""
+    from . import arb
+    return {"alerts": arb.active_alerts(hours)}
+
+
 class OutcomeIn(BaseModel):
     signal_id: int
     result: str  # 'target' | 'stop' | 'timeout' | 'manual'

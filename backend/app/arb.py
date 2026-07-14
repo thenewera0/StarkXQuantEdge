@@ -17,23 +17,37 @@ tracking + allocator integration is a follow-up.
 
 from __future__ import annotations
 
+import logging
 import math
 
 from . import db
 from .config import settings
 from .data import fetch_book_tickers, fetch_funding_history
 
+logger = logging.getLogger("arb")
 _PERIODS_PER_YEAR = 3 * 365  # 8h funding -> 3/day
 
-# Curated currency set + the spot pairs among them (base, quote, binance_symbol) for the triangular
-# cycle graph. A small hub-and-spoke graph keeps the Bellman-Ford cycles meaningful and fast.
-_TRI_PAIRS = [
-    ("BTC", "USDT", "BTCUSDT"), ("ETH", "USDT", "ETHUSDT"), ("BNB", "USDT", "BNBUSDT"),
-    ("SOL", "USDT", "SOLUSDT"), ("XRP", "USDT", "XRPUSDT"), ("ADA", "USDT", "ADAUSDT"),
-    ("ETH", "BTC", "ETHBTC"), ("BNB", "BTC", "BNBBTC"), ("SOL", "BTC", "SOLBTC"),
-    ("XRP", "BTC", "XRPBTC"), ("ADA", "BTC", "ADABTC"),
-    ("BNB", "ETH", "BNBETH"), ("SOL", "ETH", "SOLETH"), ("XRP", "ETH", "XRPETH"),
-]
+# Currency universe for the triangular graph. The graph is built DYNAMICALLY from live book tickers
+# by parsing every symbol into (base, quote) against this set — so it scans every cycle among these
+# ~40 currencies, not a hand-picked pair list. Bases + quote/hub currencies together.
+_ARB_QUOTES = ("FDUSD", "USDC", "USDT", "TUSD", "BTC", "ETH", "BNB")
+_SORTED_QUOTES = tuple(sorted(_ARB_QUOTES, key=len, reverse=True))  # match longest suffix first
+_ARB_UNIVERSE = frozenset({
+    "USDT", "USDC", "FDUSD", "TUSD", "BTC", "ETH", "BNB",
+    "SOL", "XRP", "ADA", "DOGE", "AVAX", "LINK", "LTC", "DOT", "TRX", "ATOM",
+    "UNI", "NEAR", "APT", "ARB", "OP", "FIL", "INJ", "SUI", "SEI", "TIA", "ETC", "XLM",
+    "ALGO", "VET", "ICP", "AAVE", "MKR", "RUNE", "GRT", "SAND", "FTM", "MATIC", "POL",
+})
+
+
+def _parse_pair(sym: str) -> tuple[str, str] | None:
+    """Split a Binance symbol into (base, quote) against the universe. None if unrecognized."""
+    for q in _SORTED_QUOTES:
+        if sym.endswith(q) and len(sym) > len(q):
+            base = sym[: -len(q)]
+            if base in _ARB_UNIVERSE and q in _ARB_UNIVERSE:
+                return base, q
+    return None
 
 
 def _ar1_params(hist: list[float]) -> tuple[float, float] | None:
@@ -110,11 +124,15 @@ def scan_funding_carry(symbols: list[str] | None = None) -> dict:
         if o is not None:
             opps.append(o)
     opps.sort(key=lambda x: x["ev"], reverse=True)
-    _log_opportunities([o for o in opps if o["positive"]])
+    positives = [o for o in opps if o["positive"]]
+    _log_opportunities(positives)
+    for o in positives:
+        logger.warning("ARB ALERT · funding carry %s EV %+.3f%% (annual %+.1f%%)",
+                       o["symbol"], o["ev"] * 100, o["annualized_yield"] * 100)
     return {
         "enabled": True,
         "scanned": len(syms),
-        "positive": sum(1 for o in opps if o["positive"]),
+        "positive": len(positives),
         "opportunities": opps,
     }
 
@@ -149,10 +167,11 @@ def _build_edges(tickers: dict[str, dict], fee: float):
     nodes: set[str] = set()
     edges: list[tuple[str, str, float]] = []
     rate: dict[tuple[str, str], float] = {}
-    for base, quote, sym in _TRI_PAIRS:
-        t = tickers.get(sym)
-        if not t or t["bid"] <= 0 or t["ask"] <= 0:
+    for sym, t in tickers.items():
+        parsed = _parse_pair(sym)
+        if parsed is None or t["bid"] <= 0 or t["ask"] <= 0:
             continue
+        base, quote = parsed
         nodes.add(base); nodes.add(quote)
         r_bq = t["bid"] * (1 - fee)             # base -> quote
         r_qb = (1.0 / t["ask"]) * (1 - fee)     # quote -> base
@@ -224,7 +243,8 @@ def triangular_scan() -> dict:
             }
             if best["positive"]:
                 _log_triangular(best)
-    return {"enabled": True, "pairs": len(_TRI_PAIRS), "currencies": len(nodes), "opportunity": best}
+                logger.warning("ARB ALERT · triangular %s net %+.3f%%", best["path"], best["net"] * 100)
+    return {"enabled": True, "pairs": len(edges) // 2, "currencies": len(nodes), "opportunity": best}
 
 
 def _log_triangular(o: dict) -> None:
@@ -289,10 +309,13 @@ def cross_exchange_scan(symbols: list[str] | None = None) -> dict:
         o["positive"] = bool(o["net"] > buf)
         opps.append(o)
     opps.sort(key=lambda x: x["net"], reverse=True)
-    _log_cross([o for o in opps if o["positive"]])
+    positives = [o for o in opps if o["positive"]]
+    _log_cross(positives)
+    for o in positives:
+        logger.warning("ARB ALERT · cross-exchange %s net %+.3f%% (%s)", o["symbol"], o["net"] * 100, o["direction"])
     return {
         "enabled": True, "scanned": len(opps),
-        "positive": sum(1 for o in opps if o["positive"]),
+        "positive": len(positives),
         "opportunities": opps,
         "note": "requires pre-positioned inventory on both venues (Growth tier)",
     }
@@ -311,6 +334,24 @@ def _log_cross(opps: list[dict]) -> None:
             conn.commit()
     except Exception:
         pass
+
+
+def active_alerts(hours: int = 12) -> list[dict]:
+    """Positive-EV arb opportunities caught in the last `hours` — the alert feed for the dashboard."""
+    if not db.enabled():
+        return []
+    try:
+        with db.get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                f"""select ts, type, symbol, ev, annualized_yield
+                    from arb_opportunities
+                    where positive = true and ts > now() - interval '{int(hours)} hours'
+                    order by ts desc limit 20"""
+            )
+            cols = [c.name for c in cur.description]
+            return [dict(zip(cols, r)) for r in cur.fetchall()]
+    except Exception:
+        return []
 
 
 def recent_opportunities(limit: int = 20) -> list[dict]:
