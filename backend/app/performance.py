@@ -42,14 +42,14 @@ def summary(trade_size: float | None = None) -> dict:
     from . import learning
 
     def window(days: int | None) -> dict:
-        clause = "o.pnl is not null"
+        clause = "o.pnl is not null and s.shadow = false"  # P&L = live trades only (exclude shadow)
         if days:
             clause += f" and o.resolved_at >= now() - interval '{int(days)} days'"
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
                 f"""select count(*), count(*) filter (where o.pnl>0),
                         coalesce(sum(o.pnl),0), coalesce(max(o.pnl),0), coalesce(min(o.pnl),0)
-                    from outcomes o where {clause}"""
+                    from outcomes o join signals s on s.id = o.signal_id where {clause}"""
             )
             n, w, s, mx, mn = cur.fetchone()
         n = int(n)
@@ -126,7 +126,7 @@ def performance(trade_size: float | None = None) -> dict:
                        coalesce(s.regime,'unknown') as regime,
                        o.result, o.pnl, o.bars_held, o.resolved_at
                 from outcomes o join signals s on s.id = o.signal_id
-                where o.result is not null and o.pnl is not null
+                where o.result is not null and o.pnl is not null and s.shadow = false
                 order by o.resolved_at asc
                 """
             )
@@ -188,7 +188,7 @@ def performance(trade_size: float | None = None) -> dict:
                 select s.id, s.symbol, coalesce(s.market,'crypto') as market, s.interval, s.label, s.entry
                 from signals s
                 where not exists (select 1 from outcomes o where o.signal_id = s.id)
-                  and s.entry is not null and s.label <> 'Neutral'
+                  and s.entry is not null and s.label <> 'Neutral' and s.shadow = false
                 order by s.created_at desc
                 """
             )

@@ -299,6 +299,15 @@ def compute_signal(
         silence_reason = "ev_below_gate"  # calibrated EV doesn't clear cost (+ drift de-risk margin)
     actionable = silence_reason is None
 
+    # Capture the CANDIDATE (what we would have traded) BEFORE flattening — the scanner logs this as
+    # a shadow signal when silenced, so the learning layer keeps getting data even while we stand down.
+    candidate = {
+        "label": label, "direction": candidate_dir,
+        "entry": geo["entry"], "stop": geo["stop"], "target": geo["target"],
+        "targets": geo["targets"], "reward_risk": geo["reward_risk"], "size_pct": geo["size_pct"],
+        "win_prob": round(win_prob, 4), "ev_r": ev_r,
+    }
+
     if not actionable:
         label, tier = "Neutral", "no_trade"
         geo = _risk_geometry(last, "flat", interval, regime)
@@ -325,6 +334,7 @@ def compute_signal(
                        "size_mult": risk_state["size_mult"], "day_r": risk_state["day_r"]},
         "actionable": actionable,
         "silence_reason": silence_reason,
+        "candidate": candidate,
         "categories": result.categories,
         "price": _round_price(result.price),
         "atr": _round_price(result.atr),

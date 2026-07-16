@@ -17,11 +17,18 @@ def log_decision(sig: dict) -> int | None:
         return None
 
     cats = sig.get("categories", {})
-    levels = sig.get("levels", {})
     explanation = sig.get("explanation") or {}
     final = sig.get("final") or {}
     debate = sig.get("debate") or {}
-    targets = sig.get("targets") or []
+
+    # SHADOW: a candidate the live gates silenced. Persist it as a paper trade (its would-be label +
+    # levels) so the learning layer keeps getting outcomes, but flag it so the P&L excludes it.
+    shadow = bool(sig.get("shadow"))
+    cand = sig.get("candidate") or {}
+    src = cand if shadow else sig
+    lv = cand if shadow else sig.get("levels", {})
+    label = cand.get("label") if shadow else sig.get("label")
+    targets = (cand.get("targets") if shadow else sig.get("targets")) or []
     t2 = targets[1] if len(targets) > 1 else None
     t3 = targets[2] if len(targets) > 2 else None
 
@@ -34,23 +41,23 @@ def log_decision(sig: dict) -> int | None:
                    price, atr, rationale, entry, stop, target,
                    agreement, conviction, final_confidence, debate_source,
                    tier, reward_risk, size_pct, invalidation, target2, target3, psychology,
-                   win_prob, ev_r, features, meta_p)
-                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s)
+                   win_prob, ev_r, features, meta_p, shadow)
+                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s)
                 on conflict (symbol, interval, as_of) do nothing
                 returning id
                 """,
                 (
                     sig.get("symbol"), sig.get("market"), sig.get("interval"), sig.get("as_of"),
-                    sig.get("label"), sig.get("composite"), sig.get("confidence"), sig.get("regime"),
+                    label, sig.get("composite"), sig.get("confidence"), sig.get("regime"),
                     sig.get("price"), sig.get("atr"), explanation.get("rationale"),
-                    levels.get("entry"), levels.get("stop"), levels.get("target"),
+                    lv.get("entry"), lv.get("stop"), lv.get("target"),
                     final.get("agreement"), final.get("conviction"), final.get("final_confidence"),
                     debate.get("source"),
-                    sig.get("tier"), sig.get("reward_risk"), sig.get("size_pct"),
+                    sig.get("tier"), src.get("reward_risk"), src.get("size_pct"),
                     sig.get("invalidation"), t2, t3, sig.get("psychology"),
-                    sig.get("win_prob"), sig.get("ev_r"),
+                    src.get("win_prob"), src.get("ev_r"),
                     json.dumps(sig.get("features")) if sig.get("features") is not None else None,
-                    sig.get("meta_p"),
+                    sig.get("meta_p"), shadow,
                 ),
             )
             row = cur.fetchone()
@@ -103,7 +110,7 @@ def trade_history(result_filter: str = "all", limit: int = 50, offset: int = 0,
     """Paginated closed-trade history with wins/losses/all counts. Newest first."""
     if not db.enabled():
         return {"trades": [], "counts": {"all": 0, "wins": 0, "losses": 0}, "limit": limit, "offset": offset}
-    where = "o.pnl is not null"
+    where = "o.pnl is not null and s.shadow = false"  # live trades only (shadow = paper-learning)
     if result_filter == "wins":
         where += " and o.pnl > 0"
     elif result_filter == "losses":
@@ -114,7 +121,7 @@ def trade_history(result_filter: str = "all", limit: int = 50, offset: int = 0,
                 """select count(*) filter (where o.pnl is not null),
                           count(*) filter (where o.pnl > 0),
                           count(*) filter (where o.pnl <= 0)
-                   from outcomes o"""
+                   from outcomes o join signals s on s.id = o.signal_id where s.shadow = false"""
             )
             all_c, wins, losses = cur.fetchone()
             cur.execute(
@@ -231,6 +238,7 @@ def recent_signals(limit: int = 20) -> list[dict]:
                        s.confidence, s.final_confidence, s.agreement, o.result, o.pnl
                 from signals s
                 left join outcomes o on o.signal_id = s.id
+                where s.shadow = false
                 order by s.created_at desc
                 limit %s
                 """,
@@ -251,10 +259,10 @@ def accuracy_stats() -> dict:
             cur.execute(
                 """
                 select count(*) as resolved,
-                       count(*) filter (where result = 'target') as wins,
-                       avg(pnl) as avg_pnl
-                from outcomes
-                where result is not null
+                       count(*) filter (where o.result = 'target') as wins,
+                       avg(o.pnl) as avg_pnl
+                from outcomes o join signals s on s.id = o.signal_id
+                where o.result is not null and s.shadow = false
                 """
             )
             resolved, wins, avg_pnl = cur.fetchone()

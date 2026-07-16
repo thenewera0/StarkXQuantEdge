@@ -83,7 +83,7 @@ def _daily_r(hours: float) -> tuple[float, int]:
                 select coalesce(sum(o.pnl / (abs(s.entry - s.stop) / abs(s.entry))), 0), count(*)
                 from outcomes o join signals s on s.id = o.signal_id
                 where o.pnl is not null and s.entry is not null and s.stop is not null
-                  and s.entry <> 0 and s.stop <> s.entry
+                  and s.entry <> 0 and s.stop <> s.entry and s.shadow = false
                   and o.resolved_at > now() - interval '{int(hours)} hours'
                 """
             )

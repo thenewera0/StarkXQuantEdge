@@ -52,6 +52,10 @@ for d in sigs:
     # position_sizing present iff ev_r present (computed together)
     if (d.get("ev_r") is None) != (d.get("position_sizing") is None):
         bad(f"{tag}: ev_r / position_sizing presence mismatch")
+    # candidate (for shadow-learning) must always be present with its keys
+    cand = d.get("candidate")
+    if not isinstance(cand, dict) or not all(k in cand for k in ("label", "direction", "entry", "stop", "target")):
+        bad(f"{tag}: missing/incomplete candidate for shadow-learning")
 ok("payload shape checks done")
 
 print("=== 2. Silence chain ordering + actionability ===")

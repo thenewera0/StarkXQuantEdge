@@ -35,6 +35,7 @@ def scan_once(min_confidence: float | None = None) -> dict:
     threshold = settings.scanner_min_confidence if min_confidence is None else min_confidence
     scanned = 0
     errors = 0
+    shadow = 0
     emitted: list[dict] = []
 
     for market, symbols in POPULAR.items():
@@ -46,21 +47,26 @@ def scan_once(min_confidence: float | None = None) -> dict:
                 except Exception:
                     errors += 1
                     continue
-
-                if sig["label"] not in _ACTIONABLE or sig["confidence"] < threshold:
-                    continue
                 if persistence.signal_exists(sig["symbol"], interval, sig["as_of"]):
-                    continue  # already logged this bar
+                    continue  # already logged this bar (live or shadow)
 
-                sid = persistence.log_decision(sig)
-                lv = sig["levels"]
-                emitted.append({
-                    "id": sid, "symbol": sig["symbol"], "market": market, "interval": interval,
-                    "label": sig["label"], "confidence": sig["confidence"], "regime": sig.get("regime"),
-                    "entry": lv["entry"], "stop": lv["stop"], "target": lv["target"],
-                })
+                actionable = sig["label"] in _ACTIONABLE and sig["confidence"] >= threshold
+                if actionable:
+                    sid = persistence.log_decision(sig)
+                    lv = sig["levels"]
+                    emitted.append({
+                        "id": sid, "symbol": sig["symbol"], "market": market, "interval": interval,
+                        "label": sig["label"], "confidence": sig["confidence"], "regime": sig.get("regime"),
+                        "entry": lv["entry"], "stop": lv["stop"], "target": lv["target"],
+                    })
+                else:
+                    # SILENCED candidate -> log as SHADOW (paper) so learning keeps getting outcomes.
+                    cand = sig.get("candidate") or {}
+                    if cand.get("direction") in ("long", "short") and cand.get("entry") and cand.get("stop") and cand.get("target"):
+                        if persistence.log_decision({**sig, "shadow": True}) is not None:
+                            shadow += 1
 
     return {
-        "scanned": scanned, "errors": errors, "emitted": len(emitted),
+        "scanned": scanned, "errors": errors, "emitted": len(emitted), "shadow": shadow,
         "min_confidence": threshold, "signals": emitted,
     }
