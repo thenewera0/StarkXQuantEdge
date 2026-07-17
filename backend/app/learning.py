@@ -29,7 +29,9 @@ from .indicators import compute_indicators
 from .regime import REGIMES
 
 BACKTESTABLE = ("trend", "momentum", "volatility", "structure")
-_BASKET = ("BTCUSDT", "ETHUSDT")
+# Validate challenger weights on a decorrelated basket (not just BTC/ETH ~0.8 corr) so a promoted
+# change reflects a market-wide structural edge, not a BTC quirk.
+_BASKET = ("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT")
 _BUCKET_INTERVAL = {"intraday": "15m", "short": "4h", "swing": "1d", "long": "1w"}
 # Blueprint v2 §2.3.3: 40 is too few for d=4 with overlapping trades. Raised, and paired with
 # shrinkage toward the global profile (below) so low-N regimes can't overfit to noise.
@@ -144,7 +146,10 @@ def _sample_weights(rows: list[dict]) -> np.ndarray:
     time-decay lets recent market behaviour dominate so old regimes fade instead of polluting.
     """
     pnl = np.array([abs(float(r["pnl"] or 0.0)) for r in rows], dtype=float)
-    payoff = np.clip(pnl, 1e-4, None)       # floor so a ~breakeven trade still counts a little
+    # WINSORIZE at the 95th percentile so a single outlier (e.g. a +8% alt moonshot) can't dominate
+    # the fit. log(|pnl|+1) is a no-op on our fractional returns; capping is the correct control.
+    cap = float(np.percentile(pnl, 95)) if len(pnl) >= 20 else float(pnl.max() if len(pnl) else 1e-4)
+    payoff = np.clip(pnl, 1e-4, max(cap, 1e-4))
     age = np.array([max(0.0, float(r.get("age_days") or 0.0)) for r in rows], dtype=float)
     lam = np.log(2.0) / _DECAY_HALFLIFE_DAYS
     recency = np.exp(-lam * age)

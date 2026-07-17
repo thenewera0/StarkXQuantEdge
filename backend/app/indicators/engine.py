@@ -220,34 +220,31 @@ def return_entropy(close: pd.Series, window: int = 32) -> pd.Series:
     return -(p * np.log2(p) + (1 - p) * np.log2(1 - p))
 
 
-def _hurst_rs(r: np.ndarray) -> float:
-    """Rescaled-range (R/S) Hurst estimate for one window of returns. NaN if undersized."""
+def _hurst_var(r: np.ndarray) -> float:
+    """Hurst via VARIANCE-SCALING: Var(sum of s consecutive returns) ~ s^(2H), so the slope of
+    log(var) vs log(s) is 2H. Lighter and far more stable on small windows than R/S chunking."""
     n = len(r)
-    scales = [s for s in (n // 4, n // 2, n) if s >= 8]
-    if len(scales) < 2:
+    scales = [s for s in (1, 2, 4, 8, 16, 32) if s <= n // 4]
+    if len(scales) < 3:
         return np.nan
-    logs, logrs = [], []
+    logs, logv = [], []
     for s in scales:
-        chunks = n // s
-        vals = []
-        for c in range(chunks):
-            seg = r[c * s:(c + 1) * s]
-            sd = seg.std()
-            if sd <= 0:
-                continue
-            dev = np.cumsum(seg - seg.mean())
-            vals.append((dev.max() - dev.min()) / sd)
-        if vals:
-            logs.append(np.log(s)); logrs.append(np.log(np.mean(vals)))
-    if len(logs) < 2:
+        m = (n // s) * s
+        sums = r[:m].reshape(-1, s).sum(axis=1)   # non-overlapping s-period sums
+        if len(sums) < 2:
+            continue
+        v = float(sums.var())
+        if v > 0:
+            logs.append(np.log(s)); logv.append(np.log(v))
+    if len(logs) < 3:
         return np.nan
-    return float(np.polyfit(logs, logrs, 1)[0])
+    return float(np.polyfit(logs, logv, 1)[0] / 2.0)
 
 
 def hurst_exponent(close: pd.Series, window: int = 100) -> pd.Series:
     """Rolling Hurst exponent (§3.2). H>0.55 trending/persistent, H<0.45 mean-reverting, ~0.5 random."""
-    r = np.log(close.replace(0.0, np.nan)).diff()
-    return r.rolling(window, min_periods=window).apply(_hurst_rs, raw=True)
+    r = np.log(close.replace(0.0, np.nan)).diff().fillna(0.0)
+    return r.rolling(window, min_periods=window).apply(_hurst_var, raw=True)
 
 
 def kalman_slope(close: pd.Series, atr_series: pd.Series,
@@ -290,7 +287,9 @@ def ou_halflife(close: pd.Series, window: int = 50) -> pd.Series:
     large/NaN = slow or non-mean-reverting (don't fade). Causal: uses only past bars. Returned in
     BARS. NaN where phi is outside (0,1) (i.e. trending / random walk — not mean reverting).
     """
-    dev = close - close.rolling(window, min_periods=window).mean()
+    # EMA mean (not SMA) so the reference doesn't lag behind price spikes — the OU half-life then
+    # detects true mean reversion faster.
+    dev = close - close.ewm(span=window, adjust=False, min_periods=window).mean()
     dev1 = dev.shift(1)
     cov = dev.rolling(window, min_periods=window).cov(dev1)
     var = dev1.rolling(window, min_periods=window).var()

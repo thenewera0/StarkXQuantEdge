@@ -125,8 +125,11 @@ def _training() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         y.append(1.0 if pnl > 0 else 0.0)
         sw.append(max(abs(pnl), 1e-4) * float(np.exp(-lam * max(0.0, float(r["age_days"] or 0.0)))))
         base.append(float(r["win_prob"]) if r["win_prob"] is not None else 0.5)
+    sw = np.array(sw, dtype=float)
+    if len(sw) >= 20:                       # winsorize so one outlier trade can't dominate the fit
+        sw = np.clip(sw, None, float(np.percentile(sw, 95)))
     return (np.array(X, dtype=float), np.array(y, dtype=float),
-            np.array(sw, dtype=float), np.array(base, dtype=float))
+            sw, np.array(base, dtype=float))
 
 
 # --- train + gate -----------------------------------------------------------
