@@ -54,14 +54,19 @@ async def lifespan(app: FastAPI):
             _resolver_job, "interval", minutes=settings.resolver_interval_minutes,
             id="resolver", replace_existing=True, max_instances=1,
         )
-        # Weekly champion/challenger + meta-model retrain (no-op safely until enough outcomes exist).
-        def _weekly_retrain() -> None:
+        # Weekly champion/challenger weight retrain (heavier; weight changes stay deliberate).
+        _scheduler.add_job(
+            lambda: learning.train_and_gate(), "interval", weeks=1,
+            id="retrain", replace_existing=True, max_instances=1,
+        )
+        # Meta-model re-evaluates on a fast cadence (lightweight) now that shadow-learning feeds it
+        # data quickly — so shadow->gating promotion / demotion tracks recent behaviour.
+        def _meta_retrain() -> None:
             from . import meta_model
-            learning.train_and_gate()
             meta_model.train_and_gate()
         _scheduler.add_job(
-            _weekly_retrain, "interval", weeks=1,
-            id="retrain", replace_existing=True, max_instances=1,
+            _meta_retrain, "interval", days=settings.meta_retrain_days,
+            id="meta_retrain", replace_existing=True, max_instances=1,
         )
         # Autonomous scanner: find + give signals across popular pairs.
         if settings.scanner_enabled:

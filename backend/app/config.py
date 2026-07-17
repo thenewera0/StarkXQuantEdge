@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     # logged on every signal, but only feeds the EV gate once the model is PROMOTED (beats the
     # primary calibrated prob out-of-sample AND has enough samples). Flip enables gating on it.
     meta_gate_enabled: bool = True   # allow a PROMOTED model to drive EV; shadow-only until promoted
+    meta_retrain_days: int = 2       # meta-model re-evaluation cadence (fast; shadow-learning feeds it)
 
     # Self-calibration monitor (Blueprint v2 §4.6): shrink size when the calibrated probabilities
     # stop matching outcomes (rolling Brier worse than the base rate). "Knows when it doesn't know."
