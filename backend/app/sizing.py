@@ -21,11 +21,13 @@ from __future__ import annotations
 import math
 
 # name, equity_min, equity_max, max_concurrent, risk_cap_fraction, ev_threshold_R
+# EV thresholds trade off selectivity vs activity: a POSITIVE-EV setup profits in aggregate, so the
+# floors clear small-but-real edges (0.05R at standard) rather than demanding a rare 0.15R+ setup.
 TIERS = [
-    ("micro",    10,      100,    1,  0.02,  0.5),
-    ("small",    100,     1_000,  3,  0.02,  0.3),
-    ("standard", 1_000,   10_000, 6,  0.02,  0.15),
-    ("growth",   10_000,  1e12,   10, 0.015, 0.15),
+    ("micro",    10,      100,    1,  0.02,  0.20),
+    ("small",    100,     1_000,  3,  0.02,  0.10),
+    ("standard", 1_000,   10_000, 6,  0.02,  0.05),
+    ("growth",   10_000,  1e12,   10, 0.015, 0.05),
 ]
 _LN2 = math.log(2.0)
 

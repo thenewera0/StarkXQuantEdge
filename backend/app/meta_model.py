@@ -93,7 +93,7 @@ def _training() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
             from outcomes o
             join signals s on s.id = o.signal_id
             join factor_logs f on f.signal_id = s.id
-            where o.pnl is not null and s.composite is not null
+            where o.pnl is not null and s.composite is not null and s.shadow = false
             order by s.as_of asc
             """
         )

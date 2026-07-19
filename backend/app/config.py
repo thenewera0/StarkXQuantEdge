@@ -39,7 +39,8 @@ class Settings(BaseSettings):
     # Risk geometry (Confluence Engine L5)
     risk_per_trade_pct: float = 0.75      # account % risked per trade
     min_reward_risk: float = 1.5          # hard RR gate; below this, no actionable signal
-    conviction_floor: float = 25.0        # |composite| below this = no trade (silence)
+    conviction_floor: float = 18.0        # |composite| below this = no trade (silence). Lowered so
+                                          # more real setups reach the EV gate (which is the real filter).
 
     # EV gate (Blueprint v2 §2.6): a setup trades only if its calibrated expected value clears a
     # threshold AFTER modelled costs. EV = p*R - (1-p) - cost_in_R, where p is the isotonic-
@@ -65,6 +66,7 @@ class Settings(BaseSettings):
     # ages out of the trailing window (auto-recovery).
     drift_enabled: bool = True
     drift_window_trades: int = 80      # trailing window the PH test runs over
+    drift_window_days: int = 10        # AND only recent trades count, so drift recovers when idle
     drift_min_trades: int = 20         # need this many resolved trades before trusting the test
     drift_delta: float = 0.1           # tolerated drift magnitude (R) before accumulating
     drift_lambda: float = 3.0          # PH detection threshold (cumulative R of downward deviation)
@@ -143,7 +145,7 @@ class Settings(BaseSettings):
     # Autonomous signal scanner
     scanner_enabled: bool = True
     scanner_interval_minutes: int = 30
-    scanner_min_confidence: float = 55.0
+    scanner_min_confidence: float = 45.0   # don't double-filter: the EV gate already vetted it
 
     # Funding-carry arbitrage detector (Blueprint v2 §6.1). Delta-neutral funding harvest, gated on
     # expected funding (AR(1) forecast) minus round-trip cost of both legs. Detection only.

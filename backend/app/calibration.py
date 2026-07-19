@@ -62,7 +62,7 @@ def _load() -> dict:
                 select coalesce(s.regime,'unknown') regime, abs(s.composite) absc,
                        case when o.pnl > 0 then 1 else 0 end win
                 from outcomes o join signals s on s.id = o.signal_id
-                where o.pnl is not null and s.composite is not null
+                where o.pnl is not null and s.composite is not null and s.shadow = false
                 """
             )
             rows = cur.fetchall()
@@ -153,7 +153,7 @@ def calibration_health(window: int = 80) -> dict:
                     """
                     select s.win_prob, case when o.pnl > 0 then 1.0 else 0.0 end
                     from outcomes o join signals s on s.id = o.signal_id
-                    where o.pnl is not null and s.win_prob is not null
+                    where o.pnl is not null and s.win_prob is not null and s.shadow = false
                     order by o.resolved_at desc limit %s
                     """,
                     (window,),

@@ -18,13 +18,20 @@ from . import persistence
 from .config import settings
 from .signal_service import compute_signal
 
+# Wide, liquid universe so the engine actually hunts across the market (not just 8 majors). All
+# are liquid Binance USDT pairs with derivatives data; each is scanned on 1h AND 4h.
 POPULAR: dict[str, list[str]] = {
-    "crypto": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "AVAXUSDT"],
+    "crypto": [
+        "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "AVAXUSDT",
+        "LINKUSDT", "LTCUSDT", "DOTUSDT", "TRXUSDT", "ATOMUSDT", "UNIUSDT", "NEARUSDT", "APTUSDT",
+        "ARBUSDT", "OPUSDT", "FILUSDT", "INJUSDT", "SUIUSDT", "SEIUSDT", "TIAUSDT", "AAVEUSDT",
+        "ETCUSDT", "XLMUSDT", "RUNEUSDT", "GRTUSDT",
+    ],
     "forex": ["EUR/USD", "GBP/USD", "USD/JPY", "XAU/USD"],
 }
 SCAN_INTERVALS: dict[str, list[str]] = {
-    "crypto": ["4h"],
-    "forex": ["1h"],
+    "crypto": ["1h", "4h"],
+    "forex": ["1h", "4h"],
 }
 
 _ACTIONABLE = {"Buy", "Strong Buy", "Sell", "Strong Sell"}
@@ -35,7 +42,6 @@ def scan_once(min_confidence: float | None = None) -> dict:
     threshold = settings.scanner_min_confidence if min_confidence is None else min_confidence
     scanned = 0
     errors = 0
-    shadow = 0
     emitted: list[dict] = []
 
     for market, symbols in POPULAR.items():
@@ -50,23 +56,17 @@ def scan_once(min_confidence: float | None = None) -> dict:
                 if persistence.signal_exists(sig["symbol"], interval, sig["as_of"]):
                     continue  # already logged this bar (live or shadow)
 
-                actionable = sig["label"] in _ACTIONABLE and sig["confidence"] >= threshold
-                if actionable:
-                    sid = persistence.log_decision(sig)
-                    lv = sig["levels"]
-                    emitted.append({
-                        "id": sid, "symbol": sig["symbol"], "market": market, "interval": interval,
-                        "label": sig["label"], "confidence": sig["confidence"], "regime": sig.get("regime"),
-                        "entry": lv["entry"], "stop": lv["stop"], "target": lv["target"],
-                    })
-                else:
-                    # SILENCED candidate -> log as SHADOW (paper) so learning keeps getting outcomes.
-                    cand = sig.get("candidate") or {}
-                    if cand.get("direction") in ("long", "short") and cand.get("entry") and cand.get("stop") and cand.get("target"):
-                        if persistence.log_decision({**sig, "shadow": True}) is not None:
-                            shadow += 1
+                if sig["label"] not in _ACTIONABLE or sig["confidence"] < threshold:
+                    continue  # silenced — the engine only logs setups it would actually trade
+                sid = persistence.log_decision(sig)
+                lv = sig["levels"]
+                emitted.append({
+                    "id": sid, "symbol": sig["symbol"], "market": market, "interval": interval,
+                    "label": sig["label"], "confidence": sig["confidence"], "regime": sig.get("regime"),
+                    "entry": lv["entry"], "stop": lv["stop"], "target": lv["target"],
+                })
 
     return {
-        "scanned": scanned, "errors": errors, "emitted": len(emitted), "shadow": shadow,
+        "scanned": scanned, "errors": errors, "emitted": len(emitted),
         "min_confidence": threshold, "signals": emitted,
     }

@@ -290,7 +290,8 @@ def regime_performance(window_days: int = 4) -> dict[str, dict]:
                     select coalesce(s.regime,'unknown') r, count(*),
                            count(*) filter (where o.pnl > 0), coalesce(sum(o.pnl), 0)
                     from outcomes o join signals s on s.id = o.signal_id
-                    where o.pnl is not null and o.resolved_at > now() - interval '{int(window_days)} days'
+                    where o.pnl is not null and s.shadow = false
+                      and o.resolved_at > now() - interval '{int(window_days)} days'
                     group by r
                     """
                 )
@@ -346,7 +347,8 @@ def symbol_performance(window_days: int = 5) -> dict[str, dict]:
                     f"""
                     select s.symbol, count(*), count(*) filter (where o.pnl > 0), coalesce(sum(o.pnl), 0)
                     from outcomes o join signals s on s.id = o.signal_id
-                    where o.pnl is not null and o.resolved_at > now() - interval '{int(window_days)} days'
+                    where o.pnl is not null and s.shadow = false
+                      and o.resolved_at > now() - interval '{int(window_days)} days'
                     group by s.symbol
                     """
                 )
@@ -381,7 +383,7 @@ def direction_performance(window_days: int = 21) -> dict[str, dict]:
                     select case when s.label in ('Buy','Strong Buy') then 'long' else 'short' end d,
                            count(*), count(*) filter (where o.pnl > 0), coalesce(sum(o.pnl), 0)
                     from outcomes o join signals s on s.id = o.signal_id
-                    where o.pnl is not null and s.label <> 'Neutral'
+                    where o.pnl is not null and s.label <> 'Neutral' and s.shadow = false
                       and o.resolved_at > now() - interval '{int(window_days)} days'
                     group by d
                     """

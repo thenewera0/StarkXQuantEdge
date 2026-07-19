@@ -30,11 +30,12 @@ def _recent_r(limit: int = 80) -> list[float]:
     try:
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
-                """
+                f"""
                 select o.pnl, s.entry, s.stop, o.resolved_at
                 from outcomes o join signals s on s.id = o.signal_id
                 where o.pnl is not null and s.entry is not null and s.stop is not null
-                  and s.entry <> 0 and s.stop <> s.entry
+                  and s.entry <> 0 and s.stop <> s.entry and s.shadow = false
+                  and o.resolved_at > now() - interval '{int(settings.drift_window_days)} days'
                 order by o.resolved_at desc
                 limit %s
                 """,

@@ -38,7 +38,7 @@ def _family_stats(window_days: int) -> dict[str, dict]:
                        extract(epoch from (now() - o.resolved_at)) / 86400.0 as age
                 from outcomes o join signals s on s.id = o.signal_id
                 where o.pnl is not null and s.entry is not null and s.stop is not null
-                  and s.entry <> 0 and s.stop <> s.entry
+                  and s.entry <> 0 and s.stop <> s.entry and s.shadow = false
                   and o.resolved_at > now() - interval '{int(window_days)} days'
                 """
             )
