@@ -17,9 +17,6 @@
 html,
 body {
   color: var(--ink);
-  background: url('/bg.png') no-repeat center center fixed;
-  background-size: cover;
-  background-color: var(--bg);
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
