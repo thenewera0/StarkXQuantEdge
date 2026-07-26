@@ -33,8 +33,8 @@ export function MetricCards() {
     fetchStats().then(setStats).catch(() => {});
   }, []);
 
-  const totalAssets = 8452310 + (perf?.combined?.open_pnl_usd || 0) * 84; 
-  const totalReturns = 1245230 + (perf?.combined?.total_pnl_usd || 0) * 84;
+  const totalRealizedPnl = perf?.combined?.realized_pnl_usd || 0;
+  const totalPnl = perf?.combined?.total_pnl_usd || 0;
   const activeSignals = perf?.combined?.open_trades || 0;
   
   const hitRate = stats?.hit_rate ? (stats.hit_rate * 100).toFixed(1) : "0.0";
@@ -49,12 +49,12 @@ export function MetricCards() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0066ff]/20 to-[#00d4ff]/20 border border-[#00d4ff]/20 text-[#00d4ff]">
             <Box size={20} fill="currentColor" className="opacity-80" />
           </div>
-          <span className="text-sm font-medium text-slate-400">Total Assets</span>
+          <span className="text-sm font-medium text-slate-400">Total Realized PnL</span>
         </div>
-        <div className="text-3xl font-bold tracking-tight text-white mb-2">{new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(totalAssets)}</div>
+        <div className="text-3xl font-bold tracking-tight text-white mb-2">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(totalRealizedPnl)}</div>
         <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-emerald-400 font-medium bg-emerald-400/10 px-1.5 py-0.5 rounded">+12.45%</span>
-          <span className="text-slate-500">vs last month</span>
+          <span className="text-emerald-400 font-medium bg-emerald-400/10 px-1.5 py-0.5 rounded">Realized</span>
+          <span className="text-slate-500">all time</span>
         </div>
       </Card>
 
@@ -65,12 +65,11 @@ export function MetricCards() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0066ff]/20 to-[#00d4ff]/20 border border-[#00d4ff]/20 text-[#00d4ff]">
             <TrendingUp size={20} className="opacity-80" />
           </div>
-          <span className="text-sm font-medium text-slate-400">Total Returns</span>
+          <span className="text-sm font-medium text-slate-400">Total PnL (incl. Open)</span>
         </div>
-        <div className="text-3xl font-bold tracking-tight text-white mb-2">{new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(totalReturns)}</div>
+        <div className="text-3xl font-bold tracking-tight text-white mb-2">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(totalPnl)}</div>
         <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-emerald-400 font-medium bg-emerald-400/10 px-1.5 py-0.5 rounded">+18.74%</span>
-          <span className="text-slate-500">vs last month</span>
+          <span className="text-slate-500">Live performance</span>
         </div>
       </Card>
 
@@ -83,10 +82,9 @@ export function MetricCards() {
           </div>
           <span className="text-sm font-medium text-slate-400">Active Signals</span>
         </div>
-        <div className="text-3xl font-bold tracking-tight text-white mb-2">{activeSignals > 0 ? activeSignals : 24}</div>
+        <div className="text-3xl font-bold tracking-tight text-white mb-2">{activeSignals}</div>
         <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-emerald-400 font-medium bg-emerald-400/10 px-1.5 py-0.5 rounded">+{activeSignals > 0 ? activeSignals : 4}</span>
-          <span className="text-slate-500">vs last month</span>
+          <span className="text-slate-500">Open trades</span>
         </div>
       </Card>
 
@@ -123,7 +121,7 @@ export function PortfolioOverview() {
     fetchPerformance(1000).then(setPerf).catch(() => {});
   }, []);
 
-  const totalAssets = 8452310 + (perf?.combined?.open_pnl_usd || 0) * 84;
+  const overviewTotal = perf?.combined?.total_pnl_usd || 0;
 
   return (
     <Card className="col-span-full relative overflow-hidden p-0 h-[420px] flex flex-col group">
@@ -133,13 +131,12 @@ export function PortfolioOverview() {
         <div className="flex justify-between items-start">
           <div>
             <h3 className="text-xl font-medium text-white mb-6">Portfolio Overview</h3>
-            <div className="text-sm text-slate-400 mb-1">Total Portfolio Value</div>
+            <div className="text-sm text-slate-400 mb-1">Total PnL</div>
             <div className="text-4xl font-bold tracking-tight text-white mb-2 text-glow">
-              {new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(totalAssets)}
+              {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(overviewTotal)}
             </div>
             <div className="flex items-center gap-1.5 text-sm">
-              <span className="text-emerald-400 font-medium">+12.45% (₹9,38,320.50)</span>
-              <span className="text-slate-500">vs last month</span>
+              <span className="text-slate-500">All-time trading history</span>
             </div>
           </div>
           <button className="flex items-center gap-2 rounded-xl border border-[rgba(0,102,255,0.3)] bg-[rgba(0,102,255,0.1)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[rgba(0,102,255,0.2)]">
@@ -185,7 +182,7 @@ export function PortfolioOverview() {
          
          {/* Custom Floating Label */}
          <div className="absolute right-12 top-6 rounded-lg border border-[rgba(0,212,255,0.3)] bg-[#090b14]/80 px-3 py-1.5 text-sm font-semibold text-[#00d4ff] backdrop-blur-md shadow-[0_0_10px_rgba(0,212,255,0.2)]">
-            ₹84,52,310
+            {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(overviewTotal)}
          </div>
       </div>
     </Card>
@@ -196,13 +193,13 @@ export function AssetAllocation() {
   const [perf, setPerf] = useState<Performance | null>(null);
   useEffect(() => { fetchPerformance(1000).then(setPerf).catch(() => {}); }, []);
 
-  const totalClosed = perf?.combined?.closed_trades || 100;
+  const totalTrades = perf?.combined?.closed_trades || 1;
+  const cryptoTrades = perf?.per_symbol?.filter(s => !s.symbol.includes("/")).reduce((sum, s) => sum + s.trades, 0) || 0;
+  const forexTrades = perf?.per_symbol?.filter(s => s.symbol.includes("/")).reduce((sum, s) => sum + s.trades, 0) || 0;
   
-  // Fake allocation based on real trades count just to look good
-  const cryptoPct = 45.2;
-  const forexPct = 25.8;
-  const indicesPct = 15.6;
-  const otherPct = 13.4;
+  const cryptoPct = Math.round((cryptoTrades / totalTrades) * 100) || 0;
+  const forexPct = Math.round((forexTrades / totalTrades) * 100) || 0;
+  const otherPct = 100 - cryptoPct - forexPct;
 
   return (
     <Card className="p-6 h-full flex flex-col">
@@ -219,14 +216,13 @@ export function AssetAllocation() {
               background: `conic-gradient(
                 #0066ff 0% ${cryptoPct}%, 
                 #00d4ff ${cryptoPct}% ${cryptoPct + forexPct}%, 
-                #4338ca ${cryptoPct + forexPct}% ${cryptoPct + forexPct + indicesPct}%, 
-                #1e293b ${cryptoPct + forexPct + indicesPct}% 100%
+                #1e293b ${cryptoPct + forexPct}% 100%
               )`
             }}
           />
           <div className="absolute inset-4 rounded-full bg-[rgba(16,20,35,1)] flex flex-col items-center justify-center backdrop-blur-3xl shadow-[inset_0_0_10px_rgba(0,0,0,0.5)]">
-            <span className="text-xl font-bold text-white">84.52L</span>
-            <span className="text-[10px] text-slate-400">Total</span>
+            <span className="text-xl font-bold text-white">{cryptoTrades + forexTrades}</span>
+            <span className="text-[10px] text-slate-400">Total Trades</span>
           </div>
         </div>
         
@@ -240,11 +236,7 @@ export function AssetAllocation() {
             <div className="font-semibold text-white">{forexPct}%</div>
           </div>
           <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 text-slate-300"><div className="w-2 h-2 rounded-full bg-indigo-600"/> Indices</div>
-            <div className="font-semibold text-white">{indicesPct}%</div>
-          </div>
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 text-slate-300"><div className="w-2 h-2 rounded-full bg-slate-700"/> Cash</div>
+            <div className="flex items-center gap-2 text-slate-300"><div className="w-2 h-2 rounded-full bg-slate-700"/> Other</div>
             <div className="font-semibold text-white">{otherPct}%</div>
           </div>
         </div>

@@ -11,18 +11,15 @@
   --line: rgba(255, 255, 255, 0.08);
   --accent: #0066ff;
   --accent-glow: #00d4ff;
-  --card-bg: rgba(16, 20, 35, 0.5);
+  --card-bg: rgba(10, 14, 25, 0.75);
 }
 
 html,
 body {
   color: var(--ink);
-  background: 
-    radial-gradient(ellipse 80% 60% at 20% -10%, rgba(0, 80, 255, 0.35) 0%, rgba(0, 0, 0, 0) 100%),
-    radial-gradient(ellipse 60% 70% at 80% 20%, rgba(0, 212, 255, 0.25) 0%, rgba(0, 0, 0, 0) 100%),
-    radial-gradient(circle at 90% 70%, rgba(255, 119, 0, 0.12) 0%, rgba(0, 0, 0, 0) 50%),
-    radial-gradient(circle at 10% 80%, rgba(0, 102, 255, 0.25) 0%, rgba(0, 0, 0, 0) 50%),
-    var(--bg);
+  background: url('/bg.png') no-repeat center center fixed;
+  background-size: cover;
+  background-color: var(--bg);
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
@@ -31,8 +28,8 @@ body {
 /* Card surface — glassmorphic, dark, futuristic. */
 .card {
   background: var(--card-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--line);
   border-radius: 1rem;
   box-shadow: 
