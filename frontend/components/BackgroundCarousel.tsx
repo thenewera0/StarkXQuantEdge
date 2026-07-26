@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 
 const images = [
-  "/bg.png",
   "/bg1.png",
   "/bg2.png",
   "/bg3.png",
