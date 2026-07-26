@@ -1,19 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { fetchSignal, fetchSignalLite, fetchDecision, type Signal, type Decision } from "@/lib/api";
+import { 
+  MetricCards, 
+  PortfolioOverview, 
+  AssetAllocation, 
+  TopPerformers, 
+  RecentTransactions, 
+  AIInsightsWidget 
+} from "@/components/DashboardComponents";
+import { fetchSignal, fetchSignalLite, fetchDecision, type Signal, type Decision, type EmittedSignal } from "@/lib/api";
 import { SignalCard } from "@/components/SignalCard";
 import { PriceChart } from "@/components/PriceChart";
 import { DebatePanel } from "@/components/DebatePanel";
 import { HistoryPanel } from "@/components/HistoryPanel";
 import { ScannerPanel } from "@/components/ScannerPanel";
-import { PerformancePanel } from "@/components/PerformancePanel";
 import { SummaryPanel } from "@/components/SummaryPanel";
 import { TradeHistoryPanel } from "@/components/TradeHistoryPanel";
 import { ArbPanel } from "@/components/ArbPanel";
 import { Card } from "@/components/ui";
-import type { EmittedSignal } from "@/lib/api";
-import { Activity, Bitcoin, DollarSign, Sparkles, Gauge, RefreshCw } from "lucide-react";
+import { Activity, Bitcoin, DollarSign, Sparkles, RefreshCw } from "lucide-react";
 
 type Market = "crypto" | "forex";
 
@@ -30,9 +36,8 @@ const TIMEFRAMES = [
   { label: "Long", interval: "1w" },
 ];
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
-
-export default function Home() {
+export default function Dashboard() {
+  const [mounted, setMounted] = useState(false);
   const [market, setMarket] = useState<Market>("crypto");
   const [symbol, setSymbol] = useState("BTCUSDT");
   const [interval, setInterval] = useState("4h");
@@ -44,7 +49,6 @@ export default function Home() {
   const [debating, setDebating] = useState(false);
   const [debateError, setDebateError] = useState<string | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
-  const [dbOn, setDbOn] = useState<boolean | null>(null);
   const [livePrice, setLivePrice] = useState<number | null>(null);
   const handlePrice = useCallback((p: number) => setLivePrice(p), []);
 
@@ -80,8 +84,6 @@ export default function Home() {
 
   useEffect(() => { load(symbol, interval, market); }, [symbol, interval, market, load]);
 
-  // Live auto-refresh: re-fetch the DETERMINISTIC signal every 30s (NO LLM cost).
-  // Preserve the existing rationale so the card keeps its narrative between full loads.
   useEffect(() => {
     const id = window.setInterval(() => {
       fetchSignalLite(symbol, interval, market)
@@ -92,7 +94,7 @@ export default function Home() {
   }, [symbol, interval, market]);
 
   useEffect(() => {
-    fetch(`${API_BASE}/db/status`).then((r) => r.json()).then((d) => setDbOn(!!d.reachable)).catch(() => setDbOn(false));
+    setMounted(true);
   }, []);
 
   function switchMarket(mkt: Market) {
@@ -104,39 +106,39 @@ export default function Home() {
     setMarket((s.market as Market) ?? "crypto");
     setInterval(s.interval);
     setSymbol(s.symbol);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  return (
-    <div className="min-h-screen">
-      {/* Top bar */}
-      <header className="sticky top-0 z-10 border-b border-slate-200/70 bg-white/70 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-sm">
-              <Gauge size={18} />
-            </div>
-            <div>
-              <div className="text-sm font-semibold tracking-tight">Universal Signal Cockpit</div>
-              <div className="text-[11px] text-slate-500">AI decision-support · not financial advice</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-600">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> Live data
-            </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[11px] font-medium text-indigo-600">
-              <Sparkles size={12} /> Multi-agent AI
-            </span>
-            <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${dbOn ? "border-emerald-100 bg-emerald-50 text-emerald-600" : "border-slate-200 bg-slate-50 text-slate-400"}`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${dbOn ? "bg-emerald-500" : "bg-slate-300"}`} />
-              {dbOn ? "Learning live" : "DB off"}
-            </span>
-          </div>
-        </div>
-      </header>
+  if (!mounted) return null;
 
-      <main className="rise mx-auto max-w-5xl px-6 py-8">
+  return (
+    <div className="rise w-full max-w-[1400px] mx-auto space-y-8">
+      {/* Top row: Metric cards */}
+      <MetricCards />
+      
+      {/* Middle row: Portfolio Area Chart */}
+      <div className="w-full">
+        <PortfolioOverview />
+      </div>
+      
+      {/* Bottom row grid: Allocation, Performers, Transactions, AI */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-1">
+          <AssetAllocation />
+        </div>
+        <div className="lg:col-span-1">
+          <TopPerformers />
+        </div>
+        <div className="lg:col-span-1">
+          <RecentTransactions />
+        </div>
+        <div className="lg:col-span-1">
+          <AIInsightsWidget />
+        </div>
+      </div>
+
+      <div className="pt-8 border-t border-[rgba(255,255,255,0.05)]">
+        <h2 className="text-xl font-bold text-white mb-6">Engine Analytics</h2>
+        
         {/* Controls */}
         <div className="mb-6 flex flex-wrap items-center gap-3">
           <div className="seg">
@@ -153,7 +155,7 @@ export default function Home() {
               </button>
             ))}
           </div>
-          <button onClick={() => load(symbol, interval, market)} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+          <button onClick={() => load(symbol, interval, market)} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-[rgba(255,255,255,0.1)] bg-white/5 px-3 py-2 text-sm text-slate-300 hover:bg-white/10 transition-colors">
             <RefreshCw size={14} /> Refresh
           </button>
         </div>
@@ -165,41 +167,30 @@ export default function Home() {
           <input
             value={symbol}
             onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-            className="ml-auto w-40 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-400"
+            className="ml-auto w-40 rounded-lg border border-[rgba(255,255,255,0.1)] bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-[#00d4ff] transition-colors"
             placeholder="Symbol"
           />
         </div>
 
         {loading && (
-          <Card className="card-pad flex items-center gap-2 text-sm text-slate-500">
-            <Activity size={15} className="shimmer" /> Loading {symbol} {interval}…
+          <Card className="card-pad flex items-center gap-2 text-sm text-slate-400">
+            <Activity size={15} className="shimmer text-[#00d4ff]" /> Loading {symbol} {interval}…
           </Card>
         )}
 
         {error && (
-          <Card className="card-pad text-sm text-rose-700">
+          <Card className="card-pad text-sm text-rose-400 bg-rose-500/10 border-rose-500/20">
             {error}
-            <div className="mt-1 text-xs text-rose-500">Is the backend running at {API_BASE}?</div>
           </Card>
         )}
 
-        <div className="mb-6">
-          <PerformancePanel refreshKey={historyKey} />
-        </div>
-
-        <div className="mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <SummaryPanel refreshKey={historyKey} />
-        </div>
-
-        <div className="mb-6">
-          <TradeHistoryPanel refreshKey={historyKey} />
-        </div>
-
-        <div className="mb-6">
           <ScannerPanel onPick={pickSignal} onScanned={() => setHistoryKey((k) => k + 1)} />
         </div>
 
-        <div className="mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <TradeHistoryPanel refreshKey={historyKey} />
           <ArbPanel />
         </div>
 
@@ -208,20 +199,20 @@ export default function Home() {
             <PriceChart symbol={symbol} interval={interval} market={market} onPrice={handlePrice} />
             <SignalCard s={signal} livePrice={livePrice} />
 
-            <Card className="card-pad">
+            <Card className="card-pad border-[rgba(0,102,255,0.3)] bg-gradient-to-br from-[#090b14] to-[#05070c]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="flex items-center gap-1.5 text-sm font-semibold tracking-tight">
-                    <Sparkles size={15} className="text-indigo-500" /> Deep AI Analysis
+                  <div className="flex items-center gap-1.5 text-sm font-semibold tracking-tight text-white">
+                    <Sparkles size={15} className="text-[#00d4ff]" /> Deep AI Analysis
                   </div>
-                  <div className="mt-0.5 text-xs text-slate-500">
+                  <div className="mt-0.5 text-xs text-slate-400">
                     Bull and Bear analysts argue the data; a Risk Manager rules on the final conviction.
                   </div>
                 </div>
                 <button
                   onClick={runDebate}
                   disabled={debating}
-                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#0066ff] to-[#00d4ff] px-4 py-2 text-sm font-medium text-white shadow-[0_0_15px_rgba(0,102,255,0.3)] transition hover:opacity-90 disabled:opacity-60"
                 >
                   <Sparkles size={15} />
                   {debating ? "Agents debating…" : decision ? "Re-run AI debate" : "Run AI debate"}
@@ -229,13 +220,13 @@ export default function Home() {
               </div>
 
               {debating && (
-                <div className="mt-4 space-y-1.5 text-xs text-slate-500">
-                  <div className="shimmer">Bull analyst building the long case…</div>
-                  <div className="shimmer">Bear analyst rebutting…</div>
-                  <div className="shimmer">Risk manager weighing the verdict…</div>
+                <div className="mt-4 space-y-1.5 text-xs text-slate-400">
+                  <div className="shimmer text-[#00d4ff]">Bull analyst building the long case…</div>
+                  <div className="shimmer text-rose-400">Bear analyst rebutting…</div>
+                  <div className="shimmer text-violet-400">Risk manager weighing the verdict…</div>
                 </div>
               )}
-              {debateError && <div className="mt-3 text-sm text-rose-600">{debateError}</div>}
+              {debateError && <div className="mt-3 text-sm text-rose-400 bg-rose-500/10 p-2 rounded">{debateError}</div>}
             </Card>
 
             {decision && !debating && <DebatePanel d={decision} />}
@@ -243,11 +234,7 @@ export default function Home() {
             <HistoryPanel refreshKey={historyKey} />
           </div>
         )}
-      </main>
-
-      <footer className="mx-auto max-w-5xl px-6 pb-10 pt-2 text-center text-[11px] text-slate-400">
-        Deterministic factor engine · LLM reasons over numbers, never invents them · backtest-gated learning
-      </footer>
+      </div>
     </div>
   );
 }
