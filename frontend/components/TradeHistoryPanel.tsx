@@ -14,7 +14,7 @@ function usd(n: number): string {
   return `${s}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 function tone(n: number): string {
-  return n > 0 ? "text-emerald-600" : n < 0 ? "text-rose-600" : "text-slate-600";
+  return n > 0 ? "text-emerald-400" : n < 0 ? "text-rose-400" : "text-slate-400";
 }
 
 export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
@@ -62,7 +62,7 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
         </div>
       </div>
 
-      {error && <div className="mb-2 text-sm text-rose-600">{error}</div>}
+      {error && <div className="mb-2 text-sm text-rose-400">{error}</div>}
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -80,14 +80,14 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
           <tbody>
             {rows.map((t, i) => (
               <tr key={t.id ?? i} onClick={() => t.id && setOpenId(t.id)}
-                  className={`group border-t border-slate-100 ${t.id ? "cursor-pointer hover:bg-indigo-50/40" : ""}`}>
-                <td className="py-2 pr-3 font-medium text-slate-800">{t.symbol} <span className="text-[11px] text-slate-400">{t.interval}</span></td>
-                <td className="py-2 pr-3 capitalize text-slate-500">{t.direction}</td>
+                  className={`group border-t border-white/5 ${t.id ? "cursor-pointer hover:bg-white/5" : ""}`}>
+                <td className="py-2 pr-3 font-medium text-white">{t.symbol} <span className="text-[11px] text-slate-400">{t.interval}</span></td>
+                <td className="py-2 pr-3 capitalize text-slate-300">{t.direction}</td>
                 <td className="py-2 pr-3 text-[11px] capitalize text-slate-400">{t.regime?.replace("_", " ") ?? "—"}</td>
-                <td className="py-2 pr-3"><span className={t.result === "target" ? "text-emerald-600" : t.result === "stop" ? "text-rose-600" : "text-slate-500"}>{t.result}</span></td>
+                <td className="py-2 pr-3"><span className={t.result === "target" ? "text-emerald-400" : t.result === "stop" ? "text-rose-400" : "text-slate-400"}>{t.result}</span></td>
                 <td className={`py-2 pr-3 text-right tabular-nums ${tone(t.pnl_pct)}`}>{t.pnl_pct > 0 ? "+" : ""}{t.pnl_pct}%</td>
                 <td className={`py-2 pr-3 text-right font-medium tabular-nums ${tone(t.pnl_usd)}`}>{usd(t.pnl_usd)}</td>
-                <td className="py-2 text-right">{t.id && <Search size={13} className="ml-auto text-slate-300 group-hover:text-indigo-500" />}</td>
+                <td className="py-2 text-right">{t.id && <Search size={13} className="ml-auto text-slate-400 group-hover:text-[#00d4ff]" />}</td>
               </tr>
             ))}
           </tbody>
@@ -100,7 +100,7 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
         <div className="mt-3 text-center">
           <button onClick={() => { const off = offset + PAGE; setOffset(off); load(tab, off, true); }}
                   disabled={loading}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-60">
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-60">
             <ChevronDown size={14} /> {loading ? "Loading…" : `Load more (${rows.length}/${shown})`}
           </button>
         </div>
