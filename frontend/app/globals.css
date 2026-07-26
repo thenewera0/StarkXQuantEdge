@@ -18,8 +18,10 @@ html,
 body {
   color: var(--ink);
   background: 
-    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(0, 102, 255, 0.15) 0%, rgba(0, 0, 0, 0) 100%),
-    radial-gradient(ellipse 80% 60% at 80% -20%, rgba(0, 212, 255, 0.1) 0%, rgba(0, 0, 0, 0) 100%),
+    radial-gradient(ellipse 80% 60% at 20% -10%, rgba(0, 80, 255, 0.35) 0%, rgba(0, 0, 0, 0) 100%),
+    radial-gradient(ellipse 60% 70% at 80% 20%, rgba(0, 212, 255, 0.25) 0%, rgba(0, 0, 0, 0) 100%),
+    radial-gradient(circle at 90% 70%, rgba(255, 119, 0, 0.12) 0%, rgba(0, 0, 0, 0) 50%),
+    radial-gradient(circle at 10% 80%, rgba(0, 102, 255, 0.25) 0%, rgba(0, 0, 0, 0) 50%),
     var(--bg);
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;

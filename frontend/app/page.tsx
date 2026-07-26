@@ -116,7 +116,7 @@ export default function Dashboard() {
       <MetricCards />
       
       {/* Middle row: Portfolio Area Chart */}
-      <div className="w-full">
+      <div id="portfolio" className="w-full">
         <PortfolioOverview />
       </div>
       
@@ -128,7 +128,7 @@ export default function Dashboard() {
         <div className="lg:col-span-1">
           <TopPerformers />
         </div>
-        <div className="lg:col-span-1">
+        <div id="transactions" className="lg:col-span-1">
           <RecentTransactions />
         </div>
         <div className="lg:col-span-1">
@@ -136,7 +136,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="pt-8 border-t border-[rgba(255,255,255,0.05)]">
+      <div id="analytics" className="pt-8 border-t border-[rgba(255,255,255,0.05)]">
         <h2 className="text-xl font-bold text-white mb-6">Engine Analytics</h2>
         
         {/* Controls */}
@@ -160,7 +160,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        <div className="mb-6 flex flex-wrap items-center gap-2">
+        <div id="watchlist" className="mb-6 flex flex-wrap items-center gap-2">
           {WATCHLISTS[market].map((sym) => (
             <button key={sym} className="chip" data-active={symbol === sym} onClick={() => setSymbol(sym)}>{sym}</button>
           ))}

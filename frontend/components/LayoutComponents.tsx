@@ -3,37 +3,24 @@
 import { 
   LayoutDashboard, 
   Briefcase, 
-  LineChart, 
-  PieChart, 
   Activity, 
   ArrowRightLeft, 
-  FileText, 
   ListOrdered, 
-  Bell, 
-  Calendar, 
-  Folder, 
-  Settings,
   Search,
   Mail,
   ChevronDown,
-  Hexagon
+  Hexagon,
+  Bell
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-  { icon: Briefcase, label: "Portfolio", href: "/portfolio" },
-  { icon: LineChart, label: "Investments", href: "/investments" },
-  { icon: PieChart, label: "Funds", href: "/funds" },
-  { icon: Activity, label: "Analytics", href: "/analytics" },
-  { icon: ArrowRightLeft, label: "Transactions", href: "/transactions" },
-  { icon: FileText, label: "Reports", href: "/reports" },
-  { icon: ListOrdered, label: "Watchlist", href: "/watchlist" },
-  { icon: Bell, label: "Alerts", href: "/alerts" },
-  { icon: Calendar, label: "Calendar", href: "/calendar" },
-  { icon: Folder, label: "Documents", href: "/documents" },
-  { icon: Settings, label: "Settings", href: "/settings" },
+  { icon: Briefcase, label: "Portfolio", href: "#portfolio" },
+  { icon: Activity, label: "Analytics", href: "#analytics" },
+  { icon: ArrowRightLeft, label: "Transactions", href: "#transactions" },
+  { icon: ListOrdered, label: "Watchlist", href: "#watchlist" },
 ];
 
 export function Sidebar() {
@@ -50,10 +37,10 @@ export function Sidebar() {
         </div>
       </div>
       
-      <div className="mt-4 px-4 overflow-y-auto h-[calc(100vh-280px)]">
+      <div className="mt-4 px-4 overflow-y-auto h-[calc(100vh-100px)]">
         <ul className="space-y-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href || (item.href !== "/" && pathname?.startsWith(item.href));
+            const isActive = pathname === item.href || (item.href !== "/" && pathname?.startsWith(item.href)) || (item.href === "/" && pathname === "/");
             const Icon = item.icon;
             
             return (
@@ -78,24 +65,6 @@ export function Sidebar() {
             );
           })}
         </ul>
-      </div>
-      
-      <div className="absolute bottom-6 left-4 right-4">
-        <div className="rounded-xl border border-[rgba(0,102,255,0.3)] bg-[rgba(0,102,255,0.1)] p-4 relative overflow-hidden">
-          <div className="absolute -right-4 -top-4 h-16 w-16 rounded-full bg-[#00d4ff] opacity-20 blur-xl" />
-          <div className="relative z-10">
-            <h4 className="flex items-center gap-1.5 text-sm font-bold text-white">
-              <Hexagon size={14} className="text-[#00d4ff]" fill="currentColor" />
-              StarkX Pro
-            </h4>
-            <p className="mt-1.5 text-[11px] text-slate-300 leading-relaxed">
-              Unlock advanced analytics and exclusive investment opportunities.
-            </p>
-            <button className="mt-3 w-full rounded-lg bg-gradient-to-r from-[#0066ff] to-[#00d4ff] px-4 py-2 text-xs font-semibold text-white shadow-[0_0_15px_rgba(0,102,255,0.3)] transition-opacity hover:opacity-90">
-              Upgrade Now
-            </button>
-          </div>
-        </div>
       </div>
     </aside>
   );
