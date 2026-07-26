@@ -22,11 +22,11 @@ export function BackgroundCarousel() {
   }, []);
 
   return (
-    <div className="fixed inset-0 w-full h-full -z-50 bg-[#090b14]">
+    <div className="fixed top-0 right-0 bottom-0 left-64 w-[calc(100%-256px)] h-full -z-50 bg-[#090b14]">
       {images.map((src, i) => (
         <div
           key={src}
-          className="absolute inset-0 w-full h-full bg-[length:100%_100%] bg-no-repeat bg-center transition-opacity duration-[2000ms] ease-in-out saturate-[1.5] contrast-[1.15] brightness-[1.1]"
+          className="absolute inset-0 w-full h-full bg-contain bg-no-repeat bg-center transition-opacity duration-[2000ms] ease-in-out saturate-[1.5] contrast-[1.15] brightness-[1.1]"
           style={{
             backgroundImage: `url('${src}')`,
             opacity: i === currentIndex ? 1 : 0,
