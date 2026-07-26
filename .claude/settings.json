@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/Admin/Trading Bot app/backend/**)",
+      "Bash(./.venv/Scripts/python.exe -c ' *)"
+    ]
+  }
+}

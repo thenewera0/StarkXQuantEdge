@@ -18,8 +18,10 @@ from . import persistence
 from .config import settings
 from .signal_service import compute_signal
 
-# Wide, liquid universe so the engine actually hunts across the market (not just 8 majors). All
-# are liquid Binance USDT pairs with derivatives data; each is scanned on 1h AND 4h.
+# The engine autonomously trades ONLY where it has a demonstrated edge. Per the P&L record, the
+# edge is entirely in CRYPTO (crypto/long ~70% hit, +$2.2k; crypto/short is gated by the direction
+# gate when it bleeds). FOREX showed no edge across ~190 trades (long 30%/-$46, short 22%/-$123),
+# so it's dropped from the scanner (still viewable on-demand in the UI). Focus > breadth.
 POPULAR: dict[str, list[str]] = {
     "crypto": [
         "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "AVAXUSDT",
@@ -27,11 +29,9 @@ POPULAR: dict[str, list[str]] = {
         "ARBUSDT", "OPUSDT", "FILUSDT", "INJUSDT", "SUIUSDT", "SEIUSDT", "TIAUSDT", "AAVEUSDT",
         "ETCUSDT", "XLMUSDT", "RUNEUSDT", "GRTUSDT",
     ],
-    "forex": ["EUR/USD", "GBP/USD", "USD/JPY", "XAU/USD"],
 }
 SCAN_INTERVALS: dict[str, list[str]] = {
     "crypto": ["1h", "4h"],
-    "forex": ["1h", "4h"],
 }
 
 _ACTIONABLE = {"Buy", "Strong Buy", "Sell", "Strong Sell"}
