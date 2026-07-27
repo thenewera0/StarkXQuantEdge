@@ -12,7 +12,9 @@ import {
   Hexagon,
   Bell,
   Zap,
-  Radio
+  Radio,
+  Landmark,
+  PieChart
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -21,6 +23,8 @@ const navItems = [
   { icon: LayoutDashboard, label: "Overview", href: "#overview" },
   { icon: Zap, label: "Flash Bot", href: "#flash" },
   { icon: Radio, label: "Live Trades", href: "#live" },
+  { icon: Landmark, label: "Investments", href: "#invest" },
+  { icon: PieChart, label: "Fund", href: "#fund" },
   { icon: Activity, label: "Analytics", href: "#analytics" },
   { icon: ListOrdered, label: "History", href: "#history" },
   { icon: ArrowRightLeft, label: "Arbitrage", href: "#arb" },

@@ -508,3 +508,36 @@ export async function fetchCandles(symbol: string, interval: string, market: str
   }
   return res.json();
 }
+
+// ---- Long-term investments ---------------------------------------------
+export type InvestAsset = {
+  symbol: string; score: number; tier: string; price: number;
+  momentum_12_1: number; ann_return: number; ann_vol: number; sharpe: number;
+  drawdown_from_high: number; max_drawdown: number; above_ma200: boolean;
+  stability: number; notes: string[];
+};
+export type InvestScreen = {
+  screened: number; tiers: Record<string, number>; assets: InvestAsset[]; horizon: string;
+};
+export async function fetchInvestments(): Promise<InvestScreen> {
+  const res = await fetch(`${API_BASE}/investments/screen`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
+// ---- Portfolio allocation ----------------------------------------------
+export type Sleeve = {
+  name: string; weight: number; allocation_usd: number; trades: number;
+  expectancy_pct: number; total_return_pct: number; vol_r: number;
+  paper: boolean; reason: string;
+};
+export type Allocation = {
+  equity_usd: number; window_days: number; method: string; deployed_pct: number;
+  sleeves: Sleeve[];
+  cash: { weight: number; allocation_usd: number; reason: string };
+};
+export async function fetchAllocation(equity = 1000): Promise<Allocation> {
+  const res = await fetch(`${API_BASE}/portfolio/allocation?equity=${equity}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}

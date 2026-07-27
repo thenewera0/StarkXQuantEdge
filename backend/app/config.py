@@ -147,6 +147,11 @@ class Settings(BaseSettings):
     scanner_interval_minutes: int = 30
     scanner_min_confidence: float = 45.0   # don't double-filter: the EV gate already vetted it
 
+    # --- Portfolio allocation across sleeves (app/portfolio.py) -----------------------------
+    portfolio_cash_floor: float = 0.25    # always hold dry powder
+    portfolio_max_weight: float = 0.40    # no sleeve can be a single point of failure
+    portfolio_min_trades: int = 25        # below this a sleeve only gets a starter allocation
+
     # --- Short qualification (app/shorts.py) ------------------------------------------------
     # Derived from 321 live outcomes: shorts lost in EVERY regime (8-23% hit) while longs won in
     # the same regimes (51-66%) — they were counter-trend shorts in a dip-buying tape. A short now

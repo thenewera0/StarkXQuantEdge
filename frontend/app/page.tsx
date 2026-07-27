@@ -21,14 +21,16 @@ import { ArbPanel } from "@/components/ArbPanel";
 import { FlashBotPanel } from "@/components/FlashBotPanel";
 import { LiveTradesPanel } from "@/components/LiveTradesPanel";
 import { CombinedPnl } from "@/components/CombinedPnl";
+import { InvestmentsPanel } from "@/components/InvestmentsPanel";
+import { PortfolioPanel } from "@/components/PortfolioPanel";
 import { ViewHeader } from "@/components/PanelShell";
 import { Card } from "@/components/ui";
 import { Activity, Bitcoin, DollarSign, Sparkles, RefreshCw } from "lucide-react";
 
 type Market = "crypto" | "forex";
-type View = "overview" | "flash" | "live" | "analytics" | "history" | "arb";
+type View = "overview" | "flash" | "live" | "invest" | "fund" | "analytics" | "history" | "arb";
 
-const VIEWS: View[] = ["overview", "flash", "live", "analytics", "history", "arb"];
+const VIEWS: View[] = ["overview", "flash", "live", "invest", "fund", "analytics", "history", "arb"];
 
 const WATCHLISTS: Record<Market, string[]> = {
   crypto: ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"],
@@ -155,6 +157,25 @@ export default function Dashboard() {
           <ViewHeader title="Live Trades" subtitle="Every open position, marked to the live price." />
           <div className="space-y-6">
             <LiveTradesPanel refreshKey={historyKey} />
+            <CombinedPnl refreshKey={historyKey} />
+          </div>
+        </>
+      )}
+
+      {/* ---------------- INVESTMENTS ---------------- */}
+      {view === "invest" && (
+        <>
+          <ViewHeader title="Long-term Investments" subtitle="What deserves capital for months — screened on momentum, trend quality and risk-adjusted return." />
+          <InvestmentsPanel />
+        </>
+      )}
+
+      {/* ---------------- FUND / ALLOCATION ---------------- */}
+      {view === "fund" && (
+        <>
+          <ViewHeader title="Fund Allocation" subtitle="How capital is split across strategy sleeves — risk parity, tilted by proven expectancy." />
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <PortfolioPanel />
             <CombinedPnl refreshKey={historyKey} />
           </div>
         </>

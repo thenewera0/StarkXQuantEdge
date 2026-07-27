@@ -287,6 +287,20 @@ def meta_train() -> dict:
     return meta_model.train_and_gate()
 
 
+@app.get("/investments/screen")
+def investments_screen() -> dict:
+    """Long-horizon holding shortlist: momentum 12-1, trend quality, Sharpe, drawdown, stability."""
+    from . import investments
+    return investments.screen()
+
+
+@app.get("/portfolio/allocation")
+def portfolio_allocation(equity: float | None = None, days: int = 90) -> dict:
+    """Target capital split across strategy sleeves (risk parity tilted by realized expectancy)."""
+    from . import portfolio
+    return portfolio.allocate(equity, days)
+
+
 @app.post("/flash/scan")
 def flash_scan() -> dict:
     """Run the Flash Bot sweep: fast 5m/15m momentum, breakout and snap setups."""
