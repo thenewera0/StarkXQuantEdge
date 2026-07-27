@@ -132,7 +132,7 @@ def _open_signals(limit: int) -> list[dict]:
         cur.execute(
             """
             select id, symbol, coalesce(market,'crypto') as market, interval, as_of,
-                   label, entry, stop, target, atr, price
+                   label, entry, stop, target, atr, price, coalesce(strategy,'core') as strategy
             from signals s
             where not exists (select 1 from outcomes o where o.signal_id = s.id)
               and entry is not null and stop is not null and target is not null
@@ -181,10 +181,12 @@ def resolve_open_signals(max_signals: int = 50) -> dict:
             atr_pct = abs(float(atr)) / float(price)
         else:
             atr_pct = abs(entry - float(s["stop"])) / entry
+        # Flash scalps get a much shorter time-stop so they never become accidental swing trades.
+        hold = settings.flash_max_hold_bars if s.get("strategy") == "flash" else max_hold
         outcome = _resolve_one(
             s["symbol"], s["market"], s["interval"], direction,
             entry, float(s["stop"]), float(s["target"]), atr_pct,
-            future_after, max_hold,
+            future_after, hold,
         )
         if outcome is None:
             still_open += 1

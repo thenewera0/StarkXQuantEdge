@@ -437,6 +437,67 @@ export async function fetchArbAlerts(hours = 12): Promise<ArbAlert[]> {
   return (await res.json()).alerts ?? [];
 }
 
+// ---- Live running trades (core + flash) --------------------------------
+export type LiveTrade = {
+  id: number; symbol: string; interval: string; market: string;
+  strategy: string; paper: boolean; direction: string; regime: string | null;
+  entry: number; stop: number | null; target: number | null; price: number;
+  pnl_pct: number; pnl_usd: number; progress_pct: number | null;
+  r_multiple: number | null; opened_at: string; win_prob: number | null; ev_r: number | null;
+};
+export type LiveTrades = {
+  enabled: boolean; count?: number; open_pnl_usd?: number;
+  core_open?: number; flash_open?: number; trades?: LiveTrade[];
+};
+export async function fetchLiveTrades(tradeSize = 1000): Promise<LiveTrades> {
+  const res = await fetch(`${API_BASE}/live/trades?trade_size=${tradeSize}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
+// ---- Flash Bot ----------------------------------------------------------
+export type FlashTrigger = {
+  symbol: string; interval: string; direction: string; kind: string; strength: number;
+  entry: number; stop: number; target: number; atr_pct: number;
+  cost_r: number; win_prob: number; ev_r: number; tradeable: boolean;
+};
+export type FlashScan = {
+  enabled: boolean; active?: boolean; scanned?: number; emitted?: number;
+  win_rate?: number; triggers?: FlashTrigger[];
+  stats?: { trades: number; wins: number; hit_rate: number | null; pnl_frac: number };
+};
+export async function scanFlash(): Promise<FlashScan> {
+  const res = await fetch(`${API_BASE}/flash/scan`, { method: "POST", cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+export type FlashStatus = {
+  enabled: boolean; active: boolean; win_rate: number;
+  stats: { trades: number; wins: number; hit_rate: number | null; pnl_frac: number };
+  window_days: number; symbols: number; intervals: string[];
+};
+export async function fetchFlashStatus(): Promise<FlashStatus> {
+  const res = await fetch(`${API_BASE}/flash/status`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
+// ---- P&L by strategy family --------------------------------------------
+export type StrategyStats = {
+  trades: number; wins: number; losses: number; hit_rate: number | null;
+  realized_pnl_usd: number; paper?: boolean;
+};
+export type ByStrategy = {
+  enabled: boolean; trade_size_usd?: number;
+  strategies?: Record<string, StrategyStats>;
+  combined?: StrategyStats & { note?: string };
+};
+export async function fetchByStrategy(tradeSize = 1000): Promise<ByStrategy> {
+  const res = await fetch(`${API_BASE}/performance/by-strategy?trade_size=${tradeSize}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
 export async function fetchCandles(symbol: string, interval: string, market: string): Promise<Candles> {
   const params = new URLSearchParams({ symbol, interval, market, limit: "300" });
   const url = `${API_BASE}/candles?${params.toString()}`;

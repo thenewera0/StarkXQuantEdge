@@ -74,6 +74,18 @@ async def lifespan(app: FastAPI):
                 _scanner_job, "interval", minutes=settings.scanner_interval_minutes,
                 id="scanner", replace_existing=True, max_instances=1,
             )
+        # Flash Bot: fast 5m/15m sweep — the high-frequency half of the system.
+        if settings.flash_enabled:
+            def _flash_job() -> None:
+                from . import flash
+                try:
+                    flash.scan()
+                except Exception:
+                    logger.exception("flash scan failed")
+            _scheduler.add_job(
+                _flash_job, "interval", minutes=settings.flash_interval_minutes,
+                id="flash", replace_existing=True, max_instances=1,
+            )
         # Funding-carry arbitrage detector (hourly; funding updates slowly).
         if settings.arb_funding_enabled:
             def _arb_job() -> None:
@@ -273,6 +285,39 @@ def meta_train() -> dict:
     """Train the meta-labeling model + evaluate the shadow->gating promotion gate (Blueprint §5)."""
     from . import meta_model
     return meta_model.train_and_gate()
+
+
+@app.post("/flash/scan")
+def flash_scan() -> dict:
+    """Run the Flash Bot sweep: fast 5m/15m momentum, breakout and snap setups."""
+    from . import flash
+    return flash.scan()
+
+
+@app.get("/flash/status")
+def flash_status() -> dict:
+    """Flash Bot state: active/standing-down, rolling record, current calibrated win rate."""
+    from . import flash
+    from .config import settings as st
+    return {
+        "enabled": st.flash_enabled, "active": flash.is_enabled(),
+        "win_rate": flash.flash_win_rate(),
+        "stats": flash.flash_stats(st.flash_perf_window_days),
+        "window_days": st.flash_perf_window_days,
+        "symbols": len(flash.FLASH_SYMBOLS), "intervals": flash.FLASH_INTERVALS,
+    }
+
+
+@app.get("/live/trades")
+def live_trades(trade_size: float = 1000.0) -> dict:
+    """Running trades marked to live price — unrealized P&L and progress to target."""
+    return performance.live_trades(trade_size)
+
+
+@app.get("/performance/by-strategy")
+def performance_by_strategy(trade_size: float = 1000.0) -> dict:
+    """Realized P&L split by strategy family (core vs flash) plus the combined total."""
+    return performance.by_strategy(trade_size)
 
 
 @app.post("/arb/funding-scan")

@@ -18,6 +18,9 @@ import { ScannerPanel } from "@/components/ScannerPanel";
 import { SummaryPanel } from "@/components/SummaryPanel";
 import { TradeHistoryPanel } from "@/components/TradeHistoryPanel";
 import { ArbPanel } from "@/components/ArbPanel";
+import { FlashBotPanel } from "@/components/FlashBotPanel";
+import { LiveTradesPanel } from "@/components/LiveTradesPanel";
+import { CombinedPnl } from "@/components/CombinedPnl";
 import { Card } from "@/components/ui";
 import { Activity, Bitcoin, DollarSign, Sparkles, RefreshCw } from "lucide-react";
 
@@ -115,6 +118,15 @@ export default function Dashboard() {
       {/* Top row: Metric cards */}
       <MetricCards />
       
+      {/* Flash Bot + Running trades — the active, live half of the system */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div id="flashbot"><FlashBotPanel /></div>
+        <div id="livetrades"><LiveTradesPanel refreshKey={historyKey} /></div>
+      </div>
+
+      {/* Combined P&L across every strategy family */}
+      <CombinedPnl refreshKey={historyKey} />
+
       {/* Middle row: Portfolio Area Chart */}
       <div id="portfolio" className="w-full">
         <PortfolioOverview />

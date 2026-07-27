@@ -24,11 +24,14 @@ def log_decision(sig: dict) -> int | None:
     # SHADOW: a candidate the live gates silenced. Persist it as a paper trade (its would-be label +
     # levels) so the learning layer keeps getting outcomes, but flag it so the P&L excludes it.
     shadow = bool(sig.get("shadow"))
+    # A shadow row may carry its would-be levels in `candidate` (silenced core signal). Flash paper
+    # trades set their levels directly, so only fall back to `candidate` when it's actually present.
     cand = sig.get("candidate") or {}
-    src = cand if shadow else sig
-    lv = cand if shadow else sig.get("levels", {})
-    label = cand.get("label") if shadow else sig.get("label")
-    targets = (cand.get("targets") if shadow else sig.get("targets")) or []
+    use_cand = shadow and bool(cand)
+    src = cand if use_cand else sig
+    lv = cand if use_cand else sig.get("levels", {})
+    label = cand.get("label") if use_cand else sig.get("label")
+    targets = (cand.get("targets") if use_cand else sig.get("targets")) or []
     t2 = targets[1] if len(targets) > 1 else None
     t3 = targets[2] if len(targets) > 2 else None
 
@@ -41,8 +44,8 @@ def log_decision(sig: dict) -> int | None:
                    price, atr, rationale, entry, stop, target,
                    agreement, conviction, final_confidence, debate_source,
                    tier, reward_risk, size_pct, invalidation, target2, target3, psychology,
-                   win_prob, ev_r, features, meta_p, shadow)
-                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s)
+                   win_prob, ev_r, features, meta_p, shadow, strategy)
+                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,%s)
                 on conflict (symbol, interval, as_of) do nothing
                 returning id
                 """,
@@ -57,7 +60,7 @@ def log_decision(sig: dict) -> int | None:
                     sig.get("invalidation"), t2, t3, sig.get("psychology"),
                     src.get("win_prob"), src.get("ev_r"),
                     json.dumps(sig.get("features")) if sig.get("features") is not None else None,
-                    sig.get("meta_p"), shadow,
+                    sig.get("meta_p"), shadow, sig.get("strategy", "core"),
                 ),
             )
             row = cur.fetchone()

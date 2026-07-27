@@ -147,6 +147,35 @@ class Settings(BaseSettings):
     scanner_interval_minutes: int = 30
     scanner_min_confidence: float = 45.0   # don't double-filter: the EV gate already vetted it
 
+    # --- Flash Bot: fast 5m/15m scalper, its own strategy family + P&L ---------------------
+    # Deliberately far more active than the core swing engine: it hunts momentum bursts, breakouts
+    # and stretched-VWAP snaps, takes tight risk and exits fast. Still cost-gated (a 5m scalp must
+    # clear a REAL round-trip cost) and self-protecting (stands down if its own record goes negative).
+    # NOTE on geometry: a TIGHT stop is what kills scalpers — round-trip cost becomes a huge
+    # fraction of risk (measured: a 1.0x-ATR stop on 5m put cost at ~69% of risk, unwinnable).
+    # Wider stops + higher RR push cost down to a small fraction, which is what makes fast trading
+    # economically viable at all.
+    flash_enabled: bool = True
+    # PAPER MODE (measured, not a guess): a 2,791-trade causal backtest of these triggers net of
+    # real costs returned 35.2% win rate, PF 0.65, -0.35%/trade — every kind, interval and direction
+    # negative. So flash TRADES CONTINUOUSLY but on paper, building a real record; it is promoted to
+    # live capital only if that record proves positive. Same shadow->prove->promote discipline as
+    # the meta-model. Flip to False only when the flash P&L is genuinely positive.
+    flash_paper_mode: bool = True
+    flash_interval_minutes: int = 5        # scan cadence
+    flash_stop_atr: float = 2.2            # stop distance = this x ATR (wide enough to beat costs)
+    flash_rr: float = 2.0                  # target = flash_rr x stop
+    flash_min_ev_r: float = 0.0            # must be positive-EV after cost
+    flash_min_atr_pct: float = 0.0012      # skip dead tape (needs range to clear fees)
+    flash_vol_expansion: float = 1.15      # volume vs its 20-bar average for a burst
+    flash_breakout_bars: int = 15          # N-bar extreme for the breakout trigger
+    flash_snap_stretch: float = 0.0035     # VWAP distance that counts as stretched
+    flash_max_hold_bars: int = 30          # hard time-stop (a scalp never becomes a swing)
+    flash_risk_pct: float = 0.35           # advised risk per flash trade (smaller than core)
+    flash_prior_win_rate: float = 0.42     # conservative prior until it has its own record
+    flash_perf_window_days: int = 7
+    flash_perf_min_sample: int = 20
+
     # Funding-carry arbitrage detector (Blueprint v2 §6.1). Delta-neutral funding harvest, gated on
     # expected funding (AR(1) forecast) minus round-trip cost of both legs. Detection only.
     arb_funding_enabled: bool = True

@@ -111,6 +111,123 @@ def summary(trade_size: float | None = None) -> dict:
     }
 
 
+def live_trades(trade_size: float | None = None) -> dict:
+    """RUNNING trades marked to the live price: unrealized P&L, progress toward target/stop.
+
+    Covers both strategy families (core swing + flash scalps) so the dashboard can show one
+    'what am I in right now' view with live profit/loss."""
+    size = trade_size or settings.standard_trade_size_usd
+    if not db.enabled():
+        return {"enabled": False, "trades": []}
+    try:
+        with db.get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                select s.id, s.symbol, coalesce(s.market,'crypto') market, s.interval, s.label,
+                       s.entry, s.stop, s.target, s.created_at, coalesce(s.strategy,'core') strategy,
+                       s.regime, s.win_prob, s.ev_r, s.shadow
+                from signals s
+                where not exists (select 1 from outcomes o where o.signal_id = s.id)
+                  and s.entry is not null and s.label <> 'Neutral'
+                  and (s.shadow = false or coalesce(s.strategy,'core') = 'flash')
+                order by s.created_at desc
+                """
+            )
+            cols = [c.name for c in cur.description]
+            rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+    except Exception:
+        return {"enabled": True, "trades": [], "error": "query failed"}
+
+    price_cache: dict[tuple, float | None] = {}
+    out: list[dict] = []
+    total_open = 0.0
+    for r in rows:
+        key = (r["symbol"], r["market"], r["interval"])
+        if key not in price_cache:
+            price_cache[key] = _last_price(*key)
+        last = price_cache[key]
+        entry = float(r["entry"])
+        if last is None or entry <= 0:
+            continue
+        direction = _direction(r["label"])
+        frac = (last - entry) / entry if direction == "long" else (entry - last) / entry
+        pnl_usd = frac * size
+        if not r["shadow"]:
+            total_open += pnl_usd     # only REAL positions count toward live floating P&L
+
+        stop = float(r["stop"]) if r["stop"] is not None else None
+        target = float(r["target"]) if r["target"] is not None else None
+        # progress: 0% at entry, 100% at target, negative toward stop
+        progress = None
+        if target is not None and abs(target - entry) > 1e-12:
+            progress = round((last - entry) / (target - entry) * 100, 1)
+        risk_used = None
+        if stop is not None and abs(entry - stop) > 1e-12:
+            risk_used = round((last - entry) / (entry - stop) * 100, 1)
+
+        out.append({
+            "id": r["id"], "symbol": r["symbol"], "interval": r["interval"], "market": r["market"],
+            "strategy": r["strategy"], "paper": bool(r["shadow"]), "direction": direction, "regime": r["regime"],
+            "entry": entry, "stop": stop, "target": target, "price": last,
+            "pnl_pct": round(frac * 100, 3), "pnl_usd": round(pnl_usd, 2),
+            "progress_pct": progress, "r_multiple": round(frac / (abs(entry - stop) / entry), 2) if stop and abs(entry - stop) > 1e-12 else None,
+            "risk_used_pct": risk_used,
+            "opened_at": str(r["created_at"]), "win_prob": float(r["win_prob"]) if r["win_prob"] is not None else None,
+            "ev_r": float(r["ev_r"]) if r["ev_r"] is not None else None,
+        })
+
+    return {
+        "enabled": True, "trade_size_usd": size, "count": len(out),
+        "open_pnl_usd": round(total_open, 2),
+        "core_open": sum(1 for t in out if t["strategy"] == "core"),
+        "flash_open": sum(1 for t in out if t["strategy"] == "flash"),
+        "trades": out,
+    }
+
+
+def by_strategy(trade_size: float | None = None) -> dict:
+    """Realized P&L split by strategy family (core swing vs flash scalper) + combined."""
+    size = trade_size or settings.standard_trade_size_usd
+    if not db.enabled():
+        return {"enabled": False}
+    try:
+        with db.get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                """select coalesce(s.strategy,'core') strat, s.shadow, count(*),
+                          count(*) filter (where o.pnl > 0), coalesce(sum(o.pnl),0)
+                   from outcomes o join signals s on s.id = o.signal_id
+                   where o.pnl is not null
+                   group by strat, s.shadow"""
+            )
+            rows = cur.fetchall()
+    except Exception:
+        return {"enabled": True, "error": "query failed"}
+
+    fams: dict[str, dict] = {}
+    tot_n = tot_w = 0
+    tot_pnl = 0.0
+    for strat, shadow, n, w, pnl in rows:
+        n, w, pnl = int(n), int(w), float(pnl)
+        # 'core' shadow rows are legacy silenced candidates — not a strategy, skip them.
+        if shadow and strat != "flash":
+            continue
+        key = "flash (paper)" if (shadow and strat == "flash") else strat
+        f = fams.setdefault(key, {"trades": 0, "wins": 0, "losses": 0, "realized_pnl_usd": 0.0,
+                                  "paper": bool(shadow)})
+        f["trades"] += n; f["wins"] += w; f["losses"] += n - w
+        f["realized_pnl_usd"] = round(f["realized_pnl_usd"] + pnl * size, 2)
+        f["hit_rate"] = round(f["wins"] / f["trades"], 4) if f["trades"] else None
+        if not shadow:                       # only REAL money counts in the combined total
+            tot_n += n; tot_w += w; tot_pnl += pnl
+    return {
+        "enabled": True, "trade_size_usd": size, "strategies": fams,
+        "combined": {"trades": tot_n, "wins": tot_w, "losses": tot_n - tot_w,
+                     "hit_rate": round(tot_w / tot_n, 4) if tot_n else None,
+                     "realized_pnl_usd": round(tot_pnl * size, 2),
+                     "note": "live capital only — flash paper P&L is tracked separately"},
+    }
+
+
 def performance(trade_size: float | None = None) -> dict:
     """Combined + per-asset realized and floating P&L in USD at a fixed notional per trade."""
     size = trade_size or settings.standard_trade_size_usd

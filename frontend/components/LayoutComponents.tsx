@@ -10,13 +10,17 @@ import {
   Mail,
   ChevronDown,
   Hexagon,
-  Bell
+  Bell,
+  Zap,
+  Radio
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/" },
+  { icon: Zap, label: "Flash Bot", href: "#flashbot" },
+  { icon: Radio, label: "Live Trades", href: "#livetrades" },
   { icon: Briefcase, label: "Portfolio", href: "#portfolio" },
   { icon: Activity, label: "Analytics", href: "#analytics" },
   { icon: ArrowRightLeft, label: "Transactions", href: "#transactions" },
