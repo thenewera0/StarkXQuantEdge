@@ -54,7 +54,7 @@ export function MetricCards() {
         <div className="text-3xl font-bold tracking-tight text-white mb-2">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(totalRealizedPnl)}</div>
         <div className="flex items-center gap-1.5 text-xs">
           <span className="text-emerald-400 font-medium bg-emerald-400/10 px-1.5 py-0.5 rounded">Realized</span>
-          <span className="text-slate-500">all time</span>
+          <span className="text-[var(--ink-muted)]">all time</span>
         </div>
       </Card>
 
@@ -69,7 +69,7 @@ export function MetricCards() {
         </div>
         <div className="text-3xl font-bold tracking-tight text-white mb-2">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(totalPnl)}</div>
         <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-slate-500">Live performance</span>
+          <span className="text-[var(--ink-muted)]">Live performance</span>
         </div>
       </Card>
 
@@ -84,7 +84,7 @@ export function MetricCards() {
         </div>
         <div className="text-3xl font-bold tracking-tight text-white mb-2">{activeSignals}</div>
         <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-slate-500">Open trades</span>
+          <span className="text-[var(--ink-muted)]">Open trades</span>
         </div>
       </Card>
 
@@ -101,7 +101,7 @@ export function MetricCards() {
         <div className="flex items-end justify-between">
           <div>
             <div className="text-2xl font-bold tracking-tight text-white mb-1">{riskLabel}</div>
-            <div className="text-xs text-slate-500">System Win Rate: <span className="text-slate-300">{hitRate}%</span></div>
+            <div className="text-xs text-[var(--ink-muted)]">System Win Rate: <span className="text-slate-300">{hitRate}%</span></div>
           </div>
           
           <div className="relative h-14 w-14 rounded-full border-4 border-white/5 flex items-center justify-center">
@@ -136,7 +136,7 @@ export function PortfolioOverview() {
               {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(overviewTotal)}
             </div>
             <div className="flex items-center gap-1.5 text-sm">
-              <span className="text-slate-500">All-time trading history</span>
+              <span className="text-[var(--ink-muted)]">All-time trading history</span>
             </div>
           </div>
           <button className="flex items-center gap-2 rounded-xl border border-[rgba(0,102,255,0.3)] bg-[rgba(0,102,255,0.1)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[rgba(0,102,255,0.2)]">
@@ -269,7 +269,7 @@ export function TopPerformers() {
               </div>
               <div>
                 <div className="text-sm font-medium text-white">{sym.symbol}</div>
-                <div className="text-xs text-slate-500">{sym.wins} wins / {sym.trades} trades</div>
+                <div className="text-xs text-[var(--ink-muted)]">{sym.wins} wins / {sym.trades} trades</div>
               </div>
             </div>
             <div className="text-sm font-semibold text-emerald-400">
@@ -277,7 +277,7 @@ export function TopPerformers() {
             </div>
           </div>
         )) : (
-          <div className="flex h-full items-center justify-center text-sm text-slate-500">No data available</div>
+          <div className="flex h-full items-center justify-center text-sm text-[var(--ink-muted)]">No data available</div>
         )}
       </div>
     </Card>
@@ -304,22 +304,22 @@ export function RecentTransactions() {
             <div key={i} className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className={`flex h-8 w-8 items-center justify-center rounded-full border ${
-                  isBuy ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : 
-                  isFlat ? "bg-slate-500/10 border-slate-500/20 text-slate-400" : 
-                  "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                  isBuy ? "bg-[var(--profit-dim)]0/10 border-emerald-500/20 text-emerald-400" : 
+                  isFlat ? "bg-[var(--surface-raised)]0/10 border-slate-500/20 text-slate-400" : 
+                  "bg-[var(--loss-dim)]0/10 border-rose-500/20 text-rose-400"
                 }`}>
                   {isBuy ? <ArrowDownRight size={14} /> : <ArrowUpRight size={14} />}
                 </div>
                 <div>
                   <div className="text-sm font-medium text-white">{s.symbol}</div>
-                  <div className="text-xs text-slate-500">{s.label} ({s.interval})</div>
+                  <div className="text-xs text-[var(--ink-muted)]">{s.label} ({s.interval})</div>
                 </div>
               </div>
               <div className="text-right">
                 <div className={`text-sm font-semibold ${s.pnl && s.pnl > 0 ? "text-emerald-400" : s.pnl && s.pnl < 0 ? "text-rose-400" : "text-white"}`}>
                   {s.pnl ? `${s.pnl > 0 ? "+" : ""}${(s.pnl * 100).toFixed(2)}%` : s.result ? s.result : "Open"}
                 </div>
-                <div className="text-[10px] text-slate-500">{new Date(s.as_of).toLocaleDateString()}</div>
+                <div className="text-[10px] text-[var(--ink-muted)]">{new Date(s.as_of).toLocaleDateString()}</div>
               </div>
             </div>
           )

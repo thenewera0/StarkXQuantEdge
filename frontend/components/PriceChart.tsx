@@ -113,12 +113,12 @@ export function PriceChart({ symbol, interval, market, onPrice }: Props) {
       <div className="mb-2 flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Price</span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> {live === "ws" ? "LIVE · stream" : "LIVE"}
+          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--profit-dim)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--profit)]">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--profit-dim)]0" /> {live === "ws" ? "LIVE · stream" : "LIVE"}
           </span>
           {updatedAt && <span className="text-[10px] text-slate-400">{updatedAt.toLocaleTimeString()}</span>}
         </div>
-        <div className="flex items-center gap-3 text-[11px] text-slate-500">
+        <div className="flex items-center gap-3 text-[11px] text-[var(--ink-muted)]">
           <Legend color="#6366f1" label="EMA50" />
           <Legend color="#94a3b8" label="EMA200" />
           <Legend color="#f59e0b" label="UT Bot stop" />

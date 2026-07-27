@@ -20,8 +20,8 @@ function usd(n: number | null | undefined): string {
 }
 
 function tone(n: number | null | undefined): string {
-  if (n == null || n === 0) return "text-slate-600";
-  return n > 0 ? "text-emerald-600" : "text-rose-600";
+  if (n == null || n === 0) return "text-[var(--ink-secondary)]";
+  return n > 0 ? "text-[var(--profit)]" : "text-[var(--loss)]";
 }
 
 export function PerformancePanel({ refreshKey }: { refreshKey: number }) {
@@ -46,8 +46,8 @@ export function PerformancePanel({ refreshKey }: { refreshKey: number }) {
 
   if (perf && !perf.enabled) {
     return (
-      <Card className="card-pad text-sm text-slate-500">
-        <div className="mb-1 flex items-center gap-2 font-semibold text-slate-700"><Wallet size={15} /> Performance</div>
+      <Card className="card-pad text-sm text-[var(--ink-muted)]">
+        <div className="mb-1 flex items-center gap-2 font-semibold text-[var(--ink-secondary)]"><Wallet size={15} /> Performance</div>
         Persistence isn&apos;t configured, so paper-trading P&amp;L will appear here once the database is connected.
       </Card>
     );
@@ -59,7 +59,7 @@ export function PerformancePanel({ refreshKey }: { refreshKey: number }) {
     <Card className="card-pad">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Wallet size={16} className="text-indigo-500" />
+          <Wallet size={16} className="text-[var(--accent-bright)]" />
           <span className="text-sm font-semibold tracking-tight">Paper-Trading Performance</span>
           <span className="text-xs text-slate-400">every asset · {usd(size)}/trade</span>
         </div>
@@ -69,23 +69,23 @@ export function PerformancePanel({ refreshKey }: { refreshKey: number }) {
               <button key={s} data-active={size === s} onClick={() => setSize(s)}>${s.toLocaleString()}</button>
             ))}
           </div>
-          <button onClick={() => load(size)} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800">
+          <button onClick={() => load(size)} className="flex items-center gap-1 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)]">
             <RefreshCw size={12} className={loading ? "shimmer" : ""} /> Refresh
           </button>
         </div>
       </div>
 
-      {error && <div className="mb-3 text-sm text-rose-600">{error}</div>}
+      {error && <div className="mb-3 text-sm text-[var(--loss)]">{error}</div>}
 
       {/* Combined headline */}
       {c && (
         <>
-          <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-white p-5">
+          <div className="rounded-2xl border border-[var(--line)] bg-gradient-to-br from-slate-50 to-white p-5">
             <div className="text-xs uppercase tracking-wide text-slate-400">Combined P&amp;L (all trades, all assets)</div>
             <div className={`mt-1 text-4xl font-semibold tabular-nums ${tone(c.total_pnl_usd)}`}>
               {usd(c.total_pnl_usd)}
             </div>
-            <div className="mt-1 flex flex-wrap gap-4 text-xs text-slate-500">
+            <div className="mt-1 flex flex-wrap gap-4 text-xs text-[var(--ink-muted)]">
               <span className="inline-flex items-center gap-1">Realized: <span className={`font-medium ${tone(c.realized_pnl_usd)}`}>{usd(c.realized_pnl_usd)}</span></span>
               <span className="inline-flex items-center gap-1">Floating (open): <span className={`font-medium ${tone(c.open_pnl_usd)}`}>{usd(c.open_pnl_usd)}</span></span>
             </div>
@@ -118,9 +118,9 @@ export function PerformancePanel({ refreshKey }: { refreshKey: number }) {
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
             {perf.per_regime.map((r) => (
-              <div key={r.regime} className="rounded-xl border border-slate-100 bg-white p-3">
+              <div key={r.regime} className="rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] p-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-700">{REGIME_LABEL[r.regime] ?? r.regime}</span>
+                  <span className="text-sm font-medium text-[var(--ink-secondary)]">{REGIME_LABEL[r.regime] ?? r.regime}</span>
                   <span className={`text-sm font-semibold tabular-nums ${tone(r.pnl_usd)}`}>{usd(r.pnl_usd)}</span>
                 </div>
                 <div className="mt-0.5 text-[11px] text-slate-400">
@@ -140,10 +140,10 @@ export function PerformancePanel({ refreshKey }: { refreshKey: number }) {
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {perf.per_symbol.map((s) => (
-              <div key={s.symbol} className="flex items-center justify-between rounded-xl border border-slate-100 bg-white px-3 py-2">
+              <div key={s.symbol} className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-white px-3 py-2">
                 <div className="flex items-center gap-2">
                   {s.pnl_usd >= 0 ? <TrendingUp size={14} className="text-emerald-500" /> : <TrendingDown size={14} className="text-rose-500" />}
-                  <span className="font-medium text-slate-800">{s.symbol}</span>
+                  <span className="font-medium text-[var(--ink)]">{s.symbol}</span>
                   <span className="text-[11px] text-slate-400">{s.trades}t · {s.wins}W</span>
                 </div>
                 <span className={`text-sm font-semibold tabular-nums ${tone(s.pnl_usd)}`}>{usd(s.pnl_usd)}</span>
@@ -164,9 +164,9 @@ export function PerformancePanel({ refreshKey }: { refreshKey: number }) {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-3 text-center">
+    <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] p-3 text-center">
       <div className="text-[11px] uppercase tracking-wide text-slate-400">{label}</div>
-      <div className="mt-0.5 text-lg font-semibold tabular-nums text-slate-800">{value}</div>
+      <div className="mt-0.5 text-lg font-semibold tabular-nums text-[var(--ink)]">{value}</div>
     </div>
   );
 }

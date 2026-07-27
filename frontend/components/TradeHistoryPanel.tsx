@@ -14,7 +14,7 @@ function usd(n: number): string {
   return `${s}$${Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 function tone(n: number): string {
-  return n > 0 ? "text-emerald-400" : n < 0 ? "text-rose-400" : "text-slate-400";
+  return n > 0 ? "text-[var(--profit)]" : n < 0 ? "text-[var(--loss)]" : "text-slate-400";
 }
 
 export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
@@ -49,7 +49,7 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
     <Card className="card-pad">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <History size={16} className="text-indigo-500" />
+          <History size={16} className="text-[var(--accent-bright)]" />
           <span className="text-sm font-semibold tracking-tight">Trade History</span>
           <span className="text-xs text-slate-400">click any trade for full details</span>
         </div>
@@ -62,7 +62,7 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
         </div>
       </div>
 
-      {error && <div className="mb-2 text-sm text-rose-400">{error}</div>}
+      {error && <div className="mb-2 text-sm text-[var(--loss)]">{error}</div>}
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -84,10 +84,10 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
                 <td className="py-2 pr-3 font-medium text-white">{t.symbol} <span className="text-[11px] text-slate-400">{t.interval}</span></td>
                 <td className="py-2 pr-3 capitalize text-slate-300">{t.direction}</td>
                 <td className="py-2 pr-3 text-[11px] capitalize text-slate-400">{t.regime?.replace("_", " ") ?? "—"}</td>
-                <td className="py-2 pr-3"><span className={t.result === "target" ? "text-emerald-400" : t.result === "stop" ? "text-rose-400" : "text-slate-400"}>{t.result}</span></td>
+                <td className="py-2 pr-3"><span className={t.result === "target" ? "text-[var(--profit)]" : t.result === "stop" ? "text-[var(--loss)]" : "text-slate-400"}>{t.result}</span></td>
                 <td className={`py-2 pr-3 text-right tabular-nums ${tone(t.pnl_pct)}`}>{t.pnl_pct > 0 ? "+" : ""}{t.pnl_pct}%</td>
                 <td className={`py-2 pr-3 text-right font-medium tabular-nums ${tone(t.pnl_usd)}`}>{usd(t.pnl_usd)}</td>
-                <td className="py-2 text-right">{t.id && <Search size={13} className="ml-auto text-slate-400 group-hover:text-[#00d4ff]" />}</td>
+                <td className="py-2 text-right">{t.id && <Search size={13} className="ml-auto text-slate-400 group-hover:text-[var(--accent-bright)]" />}</td>
               </tr>
             ))}
           </tbody>

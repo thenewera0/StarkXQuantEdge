@@ -6,9 +6,9 @@ import { Card } from "./ui";
 import { History, RefreshCw, Target, CircleDot } from "lucide-react";
 
 const LABEL_COLOR: Record<string, string> = {
-  "Strong Buy": "text-emerald-600", Buy: "text-emerald-600",
-  Neutral: "text-slate-500",
-  Sell: "text-rose-600", "Strong Sell": "text-rose-600",
+  "Strong Buy": "text-[var(--profit)]", Buy: "text-[var(--profit)]",
+  Neutral: "text-[var(--ink-muted)]",
+  Sell: "text-[var(--loss)]", "Strong Sell": "text-[var(--loss)]",
 };
 
 export function HistoryPanel({ refreshKey }: { refreshKey: number }) {
@@ -29,8 +29,8 @@ export function HistoryPanel({ refreshKey }: { refreshKey: number }) {
 
   if (stats && !stats.enabled) {
     return (
-      <Card className="card-pad text-sm text-slate-500">
-        <div className="mb-1 flex items-center gap-2 font-semibold text-slate-700"><History size={15} /> Signal history</div>
+      <Card className="card-pad text-sm text-[var(--ink-muted)]">
+        <div className="mb-1 flex items-center gap-2 font-semibold text-[var(--ink-secondary)]"><History size={15} /> Signal history</div>
         Persistence isn&apos;t configured — logged decisions and accuracy will appear here once the database is connected.
       </Card>
     );
@@ -43,7 +43,7 @@ export function HistoryPanel({ refreshKey }: { refreshKey: number }) {
           <History size={15} className="text-slate-400" />
           <span className="text-sm font-semibold tracking-tight">Signal History &amp; Accuracy</span>
         </div>
-        <button onClick={load} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800">
+        <button onClick={load} className="flex items-center gap-1 text-xs text-[var(--ink-muted)] hover:text-[var(--ink)]">
           <RefreshCw size={12} /> Refresh
         </button>
       </div>
@@ -56,7 +56,7 @@ export function HistoryPanel({ refreshKey }: { refreshKey: number }) {
         </div>
       )}
 
-      {error && <div className="text-sm text-rose-600">{error}</div>}
+      {error && <div className="text-sm text-[var(--loss)]">{error}</div>}
 
       {rows.length === 0 ? (
         <div className="py-6 text-center text-sm text-slate-400">No signals logged yet. Run an AI debate to record one.</div>
@@ -74,14 +74,14 @@ export function HistoryPanel({ refreshKey }: { refreshKey: number }) {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-t border-slate-100 hover:bg-slate-50/60">
-                  <td className="py-2 pr-3 font-medium text-slate-800">{r.symbol}</td>
-                  <td className="py-2 pr-3 text-slate-500">{r.interval}</td>
-                  <td className={`py-2 pr-3 font-medium ${LABEL_COLOR[r.label] ?? "text-slate-600"}`}>{r.label}</td>
-                  <td className="py-2 pr-3 tabular-nums text-slate-600">{r.final_confidence != null ? `${r.final_confidence}%` : `${r.confidence}%`}</td>
+                <tr key={r.id} className="border-t border-[var(--line)] hover:bg-[var(--surface-raised)]">
+                  <td className="py-2 pr-3 font-medium text-[var(--ink)]">{r.symbol}</td>
+                  <td className="py-2 pr-3 text-[var(--ink-muted)]">{r.interval}</td>
+                  <td className={`py-2 pr-3 font-medium ${LABEL_COLOR[r.label] ?? "text-[var(--ink-secondary)]"}`}>{r.label}</td>
+                  <td className="py-2 pr-3 tabular-nums text-[var(--ink-secondary)]">{r.final_confidence != null ? `${r.final_confidence}%` : `${r.confidence}%`}</td>
                   <td className="py-2 pr-3">
                     {r.result ? (
-                      <span className={r.result === "target" ? "text-emerald-600" : "text-rose-600"}>
+                      <span className={r.result === "target" ? "text-[var(--profit)]" : "text-[var(--loss)]"}>
                         {r.result}{r.pnl != null ? ` (${(r.pnl * 100).toFixed(1)}%)` : ""}
                       </span>
                     ) : (
@@ -99,9 +99,9 @@ export function HistoryPanel({ refreshKey }: { refreshKey: number }) {
 }
 
 function StatTile({ label, value, icon, accent }: { label: string; value: string; icon: React.ReactNode; accent?: "emerald" | "rose" }) {
-  const v = accent === "emerald" ? "text-emerald-600" : accent === "rose" ? "text-rose-600" : "text-slate-800";
+  const v = accent === "emerald" ? "text-[var(--profit)]" : accent === "rose" ? "text-[var(--loss)]" : "text-[var(--ink)]";
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-3 text-center">
+    <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] p-3 text-center">
       <div className="flex items-center justify-center gap-1 text-[11px] uppercase tracking-wide text-slate-400">{icon}{label}</div>
       <div className={`mt-0.5 text-lg font-semibold tabular-nums ${v}`}>{value}</div>
     </div>

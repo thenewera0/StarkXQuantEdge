@@ -29,22 +29,22 @@ export function SignalCard({ s, livePrice }: { s: Signal; livePrice?: number | n
             <RegimeBadge regime={s.regime} />
             <TierBadge tier={s.tier} />
             {s.strategy === "range-fade" && (
-              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-600">FADE</span>
+              <span className="rounded-full bg-[var(--warn-dim)] px-2 py-0.5 text-[10px] font-semibold text-amber-600">FADE</span>
             )}
           </div>
-          <div className="mt-0.5 text-xs text-slate-500">
+          <div className="mt-0.5 text-xs text-[var(--ink-muted)]">
             {s.interval} · {new Date(s.as_of).toLocaleString()}
           </div>
           {livePrice != null && (
             <div className="mt-1.5 flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> LIVE
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--profit-dim)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--profit)]">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--profit-dim)]0" /> LIVE
               </span>
-              <span className="text-lg font-semibold tabular-nums text-slate-900">
+              <span className="text-lg font-semibold tabular-nums text-[var(--ink)]">
                 {livePrice.toLocaleString(undefined, { maximumFractionDigits: livePrice >= 100 ? 2 : 6 })}
               </span>
               {delta != null && (
-                <span className={`text-xs font-medium tabular-nums ${delta >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                <span className={`text-xs font-medium tabular-nums ${delta >= 0 ? "text-[var(--profit)]" : "text-[var(--loss)]"}`}>
                   {delta >= 0 ? "+" : ""}{(delta * 100).toFixed(2)}% since signal
                 </span>
               )}
@@ -55,10 +55,10 @@ export function SignalCard({ s, livePrice }: { s: Signal; livePrice?: number | n
       </div>
 
       {silenced && (
-        <div className="mt-4 flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3 text-sm text-slate-500">
+        <div className="mt-4 flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] p-3 text-sm text-[var(--ink-muted)]">
           <MinusCircle size={16} className="text-slate-400" />
           <span>
-            No actionable trade — <span className="font-medium text-slate-600">{(s.silence_reason ?? "").replace(/_/g, " ")}</span>.
+            No actionable trade — <span className="font-medium text-[var(--ink-secondary)]">{(s.silence_reason ?? "").replace(/_/g, " ")}</span>.
             Silence is a position; the engine only fires when regime, evidence, and risk geometry align.
           </span>
         </div>
@@ -68,9 +68,9 @@ export function SignalCard({ s, livePrice }: { s: Signal; livePrice?: number | n
       <div className="mt-5 flex items-center gap-6">
         <Ring value={s.confidence} label="conf" color={s.composite >= 0 ? "#10b981" : "#f43f5e"} size={84} />
         <div className="flex-1">
-          <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
+          <div className="mb-1 flex items-center justify-between text-xs text-[var(--ink-muted)]">
             <span>Confluence {s.agreement != null && <span className="text-slate-400">· {Math.round(s.agreement * 100)}% agree</span>}</span>
-            <span className="font-semibold tabular-nums text-slate-800">{s.composite > 0 ? `+${s.composite}` : s.composite}</span>
+            <span className="font-semibold tabular-nums text-[var(--ink)]">{s.composite > 0 ? `+${s.composite}` : s.composite}</span>
           </div>
           <div className="relative h-2.5 w-full rounded-full bg-gradient-to-r from-rose-200 via-slate-100 to-emerald-200">
             <div className="absolute left-1/2 top-0 h-full w-px bg-slate-300" />
@@ -81,13 +81,13 @@ export function SignalCard({ s, livePrice }: { s: Signal; livePrice?: number | n
           {(s.win_prob != null || s.ev_r != null) && (
             <div className="mt-2 flex items-center gap-4 text-[11px]">
               {s.win_prob != null && (
-                <span className="text-slate-500">calibrated win prob{" "}
-                  <span className="font-semibold tabular-nums text-slate-800">{Math.round(s.win_prob * 100)}%</span>
+                <span className="text-[var(--ink-muted)]">calibrated win prob{" "}
+                  <span className="font-semibold tabular-nums text-[var(--ink)]">{Math.round(s.win_prob * 100)}%</span>
                 </span>
               )}
               {s.ev_r != null && (
-                <span className="text-slate-500">edge (EV){" "}
-                  <span className={`font-semibold tabular-nums ${s.ev_r > 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                <span className="text-[var(--ink-muted)]">edge (EV){" "}
+                  <span className={`font-semibold tabular-nums ${s.ev_r > 0 ? "text-[var(--profit)]" : "text-[var(--loss)]"}`}>
                     {s.ev_r > 0 ? "+" : ""}{s.ev_r.toFixed(2)}R
                   </span>
                 </span>
@@ -102,27 +102,27 @@ export function SignalCard({ s, livePrice }: { s: Signal; livePrice?: number | n
         <div className="mt-5">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Trade plan</span>
-            <span className="flex items-center gap-2 text-[11px] text-slate-500">
-              {s.reward_risk != null && <span className="rounded bg-emerald-50 px-1.5 py-0.5 font-medium text-emerald-600">{s.reward_risk}R</span>}
+            <span className="flex items-center gap-2 text-[11px] text-[var(--ink-muted)]">
+              {s.reward_risk != null && <span className="rounded bg-[var(--profit-dim)] px-1.5 py-0.5 font-medium text-[var(--profit)]">{s.reward_risk}R</span>}
               {s.size_pct != null && <span>risk {s.size_pct}%</span>}
             </span>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Tile icon={<LogIn size={13} />} label="Entry" value={lv.entry} tone="ink"
-              badge={<span className="inline-flex items-center gap-0.5 text-[11px] font-medium capitalize text-slate-500">
+              badge={<span className="inline-flex items-center gap-0.5 text-[11px] font-medium capitalize text-[var(--ink-muted)]">
                 {lv.direction === "long" ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}{lv.direction}</span>} />
             <Tile icon={<ShieldAlert size={13} />} label="Stop" value={lv.stop} tone="risk" />
             <Tile icon={<Target size={13} />} label="Target 1" value={s.targets?.[0] ?? lv.target} tone="reward" />
             <Tile icon={<Target size={13} />} label="Target 2" value={s.targets?.[1] ?? null} tone="reward" />
             <Tile icon={<Target size={13} />} label="Target 3" value={s.targets?.[2] ?? null} tone="reward" />
           </div>
-          {s.invalidation && <div className="mt-2 text-[11px] text-slate-500">Invalidation: <span className="font-medium text-slate-600">{s.invalidation}</span></div>}
+          {s.invalidation && <div className="mt-2 text-[11px] text-[var(--ink-muted)]">Invalidation: <span className="font-medium text-[var(--ink-secondary)]">{s.invalidation}</span></div>}
           {s.position_sizing && (
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-slate-100 bg-slate-50/60 px-2.5 py-1.5 text-[11px]">
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-[var(--line)] bg-[var(--surface-raised)] px-2.5 py-1.5 text-[11px]">
               <span className="font-semibold uppercase tracking-wide text-slate-400">Suggested size</span>
-              <span className="rounded bg-indigo-50 px-1.5 py-0.5 font-medium capitalize text-indigo-600">{s.position_sizing.tier} tier</span>
-              <span className="text-slate-600">risk <span className="font-semibold tabular-nums">{s.position_sizing.risk_pct}%</span> · ${s.position_sizing.risk_usd}</span>
-              <span className="text-slate-600">notional <span className="font-semibold tabular-nums">${s.position_sizing.notional_usd.toLocaleString()}</span></span>
+              <span className="rounded bg-[var(--accent-dim)] px-1.5 py-0.5 font-medium capitalize text-[var(--accent-bright)]">{s.position_sizing.tier} tier</span>
+              <span className="text-[var(--ink-secondary)]">risk <span className="font-semibold tabular-nums">{s.position_sizing.risk_pct}%</span> · ${s.position_sizing.risk_usd}</span>
+              <span className="text-[var(--ink-secondary)]">notional <span className="font-semibold tabular-nums">${s.position_sizing.notional_usd.toLocaleString()}</span></span>
               <span className="text-slate-400">bound by {s.position_sizing.bound_by}</span>
             </div>
           )}
@@ -131,9 +131,9 @@ export function SignalCard({ s, livePrice }: { s: Signal; livePrice?: number | n
 
       {/* Psychology */}
       {s.psychology && s.psychology !== "no crowd extreme" && (
-        <div className="mt-4 flex items-start gap-2 rounded-xl border border-indigo-100 bg-indigo-50/40 p-3">
-          <Brain size={15} className="mt-0.5 text-indigo-500" />
-          <div className="text-sm text-slate-700"><span className="font-medium text-indigo-600">Positioning:</span> {s.psychology}</div>
+        <div className="mt-4 flex items-start gap-2 rounded-xl border border-[var(--accent)]/25 bg-[var(--accent-dim)] p-3">
+          <Brain size={15} className="mt-0.5 text-[var(--accent-bright)]" />
+          <div className="text-sm text-[var(--ink-secondary)]"><span className="font-medium text-[var(--accent-bright)]">Positioning:</span> {s.psychology}</div>
         </div>
       )}
 
@@ -147,17 +147,17 @@ export function SignalCard({ s, livePrice }: { s: Signal; livePrice?: number | n
 
       {/* Rationale */}
       {s.explanation && (
-        <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+        <div className="mt-6 rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] p-4">
           <div className="mb-1 flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Thesis</span>
             <span className="text-[10px] text-slate-400">{s.explanation.source === "openrouter" ? s.explanation.model : "deterministic fallback"}</span>
           </div>
-          <p className="text-sm leading-relaxed text-slate-700">{s.explanation.rationale}</p>
+          <p className="text-sm leading-relaxed text-[var(--ink-secondary)]">{s.explanation.rationale}</p>
         </div>
       )}
 
       {/* Market context strip */}
-      <div className="mt-5 flex flex-wrap gap-x-5 gap-y-1 border-t border-slate-100 pt-4 text-[11px] text-slate-500">
+      <div className="mt-5 flex flex-wrap gap-x-5 gap-y-1 border-t border-[var(--line)] pt-4 text-[11px] text-[var(--ink-muted)]">
         {s.fear_greed?.value != null && <Ctx label="F&G" value={`${s.fear_greed.value} (${s.fear_greed.classification})`} />}
         {s.derivatives?.funding_rate != null && <Ctx label="Funding" value={`${(s.derivatives.funding_rate * 100).toFixed(3)}%`} />}
         {s.derivatives?.long_short_ratio != null && <Ctx label="L/S" value={s.derivatives.long_short_ratio.toFixed(2)} />}
@@ -174,9 +174,9 @@ export function SignalCard({ s, livePrice }: { s: Signal; livePrice?: number | n
 }
 
 function Tile({ icon, label, value, tone, badge }: { icon: React.ReactNode; label: string; value: number | null | undefined; tone: "ink" | "risk" | "reward"; badge?: React.ReactNode }) {
-  const color = tone === "risk" ? "text-rose-600" : tone === "reward" ? "text-emerald-600" : "text-slate-900";
+  const color = tone === "risk" ? "text-[var(--loss)]" : tone === "reward" ? "text-[var(--profit)]" : "text-[var(--ink)]";
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-3">
+    <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] p-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-slate-400"><span className="text-slate-300">{icon}</span>{label}</div>
         {badge}
@@ -187,5 +187,5 @@ function Tile({ icon, label, value, tone, badge }: { icon: React.ReactNode; labe
 }
 
 function Ctx({ label, value }: { label: string; value: string }) {
-  return <span><span className="text-slate-400">{label}:</span> <span className="font-medium text-slate-600">{value}</span></span>;
+  return <span><span className="text-slate-400">{label}:</span> <span className="font-medium text-[var(--ink-secondary)]">{value}</span></span>;
 }

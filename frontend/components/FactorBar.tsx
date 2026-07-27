@@ -12,12 +12,12 @@ export function FactorBar({ label, value }: Props) {
 
   return (
     <div className="flex items-center gap-3 py-1">
-      <div className="w-24 shrink-0 text-xs font-medium capitalize text-slate-600">{label}</div>
-      <div className="relative h-2.5 flex-1 rounded-full bg-slate-100">
+      <div className="w-24 shrink-0 text-xs font-medium capitalize text-[var(--ink-secondary)]">{label}</div>
+      <div className="relative h-2.5 flex-1 rounded-full bg-[var(--surface-hover)]">
         <div className="absolute left-1/2 top-0 h-full w-px bg-slate-300" />
         {available && (
           <div
-            className={`absolute top-0 h-full rounded-full ${positive ? "bg-emerald-500" : "bg-rose-500"}`}
+            className={`absolute top-0 h-full rounded-full ${positive ? "bg-[var(--profit-dim)]0" : "bg-[var(--loss-dim)]0"}`}
             style={
               positive
                 ? { left: "50%", width: `${widthPct}%` }
@@ -26,7 +26,7 @@ export function FactorBar({ label, value }: Props) {
           />
         )}
       </div>
-      <div className={`w-12 shrink-0 text-right text-xs tabular-nums ${available ? "text-slate-700" : "text-slate-300"}`}>
+      <div className={`w-12 shrink-0 text-right text-xs tabular-nums ${available ? "text-[var(--ink-secondary)]" : "text-slate-300"}`}>
         {available ? (v > 0 ? `+${Math.round(v)}` : Math.round(v)) : "n/a"}
       </div>
     </div>

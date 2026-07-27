@@ -34,9 +34,9 @@ export function ScannerPanel({ onPick, onScanned }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-1.5 text-sm font-semibold tracking-tight">
-            <Radar size={15} className="text-indigo-500" /> Autonomous Scanner
+            <Radar size={15} className="text-[var(--accent-bright)]" /> Autonomous Scanner
           </div>
-          <div className="mt-0.5 text-xs text-slate-500">
+          <div className="mt-0.5 text-xs text-[var(--ink-muted)]">
             Sweeps popular crypto &amp; forex pairs, logs actionable signals, then the resolver verifies and the model self-improves. Runs automatically every 30 min.
           </div>
         </div>
@@ -50,13 +50,13 @@ export function ScannerPanel({ onPick, onScanned }: Props) {
         </button>
       </div>
 
-      {error && <div className="mt-3 text-sm text-rose-600">{error}</div>}
+      {error && <div className="mt-3 text-sm text-[var(--loss)]">{error}</div>}
 
       {result && (
         <div className="mt-4">
-          <div className="mb-2 text-xs text-slate-500">
-            Scanned <span className="font-semibold text-slate-700">{result.scanned}</span> pairs ·
-            emitted <span className="font-semibold text-slate-700">{result.emitted}</span> actionable
+          <div className="mb-2 text-xs text-[var(--ink-muted)]">
+            Scanned <span className="font-semibold text-[var(--ink-secondary)]">{result.scanned}</span> pairs ·
+            emitted <span className="font-semibold text-[var(--ink-secondary)]">{result.emitted}</span> actionable
             (conf ≥ {result.min_confidence})
           </div>
           {result.signals.length === 0 ? (
@@ -67,22 +67,22 @@ export function ScannerPanel({ onPick, onScanned }: Props) {
                 <button
                   key={s.id ?? i}
                   onClick={() => onPick?.(s)}
-                  className="flex items-center justify-between rounded-xl border border-slate-100 bg-white p-3 text-left transition hover:border-indigo-200 hover:bg-indigo-50/30"
+                  className="flex items-center justify-between rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] p-3 text-left transition hover:border-indigo-200 hover:bg-[var(--accent-dim)]/30"
                 >
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-800">{s.symbol}</span>
+                      <span className="font-semibold text-[var(--ink)]">{s.symbol}</span>
                       <span className="text-[11px] text-slate-400">{s.interval}</span>
                       <RegimeBadge regime={s.regime} />
                     </div>
-                    <div className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
+                    <div className="mt-1 flex items-center gap-1 text-[11px] text-[var(--ink-muted)]">
                       {s.label.includes("Buy") ? <ArrowUpRight size={12} className="text-emerald-500" /> : <ArrowDownRight size={12} className="text-rose-500" />}
                       entry {s.entry} · tgt {s.target} · stop {s.stop}
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <SignalBadge label={s.label} size="sm" />
-                    <span className="text-[11px] tabular-nums text-slate-500">{s.confidence}%</span>
+                    <span className="text-[11px] tabular-nums text-[var(--ink-muted)]">{s.confidence}%</span>
                   </div>
                 </button>
               ))}

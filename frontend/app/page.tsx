@@ -198,18 +198,18 @@ export default function Dashboard() {
             <input
               value={symbol}
               onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-              className="ml-auto w-40 rounded-lg border border-[rgba(255,255,255,0.1)] bg-white/5 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-[#00d4ff]"
+              className="ml-auto w-40 rounded-lg border border-[rgba(255,255,255,0.1)] bg-white/5 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-[var(--accent-bright)]"
               placeholder="Symbol"
             />
           </div>
 
           {loading && (
             <Card className="card-pad flex items-center gap-2 text-sm text-slate-400">
-              <Activity size={15} className="shimmer text-[#00d4ff]" /> Loading {symbol} {interval}…
+              <Activity size={15} className="shimmer text-[var(--accent-bright)]" /> Loading {symbol} {interval}…
             </Card>
           )}
           {error && (
-            <Card className="card-pad border-rose-500/20 bg-rose-500/10 text-sm text-rose-400">{error}</Card>
+            <Card className="card-pad border-rose-500/20 bg-rose-500/10 text-sm text-[var(--loss)]">{error}</Card>
           )}
 
           {!loading && !error && signal && (
@@ -221,18 +221,18 @@ export default function Dashboard() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-1.5 text-sm font-semibold tracking-tight text-white">
-                      <Sparkles size={15} className="text-[#00d4ff]" /> Deep AI Analysis
+                      <Sparkles size={15} className="text-[var(--accent-bright)]" /> Deep AI Analysis
                     </div>
                     <div className="mt-0.5 text-xs text-slate-400">
                       Bull and Bear analysts argue the numbers; a Risk Manager rules on final conviction.
                     </div>
                   </div>
                   <button onClick={runDebate} disabled={debating}
-                    className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-br from-[#00d4ff] to-[#0066ff] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90 disabled:opacity-60">
+                    className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-br from-[var(--accent-bright)] to-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90 disabled:opacity-60">
                     <Sparkles size={15} />{debating ? "Agents debating…" : decision ? "Re-run debate" : "Run AI debate"}
                   </button>
                 </div>
-                {debateError && <div className="mt-3 text-sm text-rose-400">{debateError}</div>}
+                {debateError && <div className="mt-3 text-sm text-[var(--loss)]">{debateError}</div>}
               </Card>
 
               {decision && !debating && <DebatePanel d={decision} />}

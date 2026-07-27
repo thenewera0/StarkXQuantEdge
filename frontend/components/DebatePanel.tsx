@@ -3,9 +3,9 @@ import { Card, Ring, SignalBadge } from "./ui";
 import { TrendingUp, TrendingDown, Scale, CheckCircle2, AlertTriangle, XCircle, Sparkles } from "lucide-react";
 
 const AGREEMENT: Record<string, { badge: string; label: string; icon: React.ReactNode }> = {
-  agree: { badge: "bg-emerald-50 text-emerald-700 border-emerald-100", label: "AI agrees with the model", icon: <CheckCircle2 size={14} /> },
-  caution: { badge: "bg-amber-50 text-amber-700 border-amber-100", label: "AI urges caution", icon: <AlertTriangle size={14} /> },
-  disagree: { badge: "bg-rose-50 text-rose-700 border-rose-100", label: "AI disagrees with the model", icon: <XCircle size={14} /> },
+  agree: { badge: "bg-[var(--profit-dim)] text-[var(--profit)] border-[var(--profit)]/25", label: "AI agrees with the model", icon: <CheckCircle2 size={14} /> },
+  caution: { badge: "bg-[var(--warn-dim)] text-amber-700 border-[var(--warn)]/25", label: "AI urges caution", icon: <AlertTriangle size={14} /> },
+  disagree: { badge: "bg-[var(--loss-dim)] text-[var(--loss)] border-[var(--loss)]/25", label: "AI disagrees with the model", icon: <XCircle size={14} /> },
 };
 
 export function DebatePanel({ d }: { d: Decision }) {
@@ -20,12 +20,12 @@ export function DebatePanel({ d }: { d: Decision }) {
           <div className="flex items-center gap-4">
             <Ring value={d.final.conviction} label="conviction" color="#4f46e5" size={84} />
             <div>
-              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-indigo-500">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--accent-bright)]">
                 <Sparkles size={13} /> AI Final Decision
               </div>
               <div className="mt-1 flex items-center gap-2">
                 <SignalBadge label={d.final.label} size="lg" />
-                <span className="text-sm text-slate-500">final conf {d.final.final_confidence}%</span>
+                <span className="text-sm text-[var(--ink-muted)]">final conf {d.final.final_confidence}%</span>
               </div>
             </div>
           </div>
@@ -34,12 +34,12 @@ export function DebatePanel({ d }: { d: Decision }) {
           </span>
         </div>
 
-        <p className="mt-4 text-sm leading-relaxed text-slate-700">{debate.verdict}</p>
+        <p className="mt-4 text-sm leading-relaxed text-[var(--ink-secondary)]">{debate.verdict}</p>
 
         {debate.key_risks.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
             {debate.key_risks.map((r, i) => (
-              <span key={i} className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2.5 py-1 text-xs text-amber-700">
+              <span key={i} className="inline-flex items-center gap-1 rounded-md bg-[var(--warn-dim)] px-2.5 py-1 text-xs text-amber-700">
                 <AlertTriangle size={12} /> {r}
               </span>
             ))}
@@ -60,8 +60,8 @@ export function DebatePanel({ d }: { d: Decision }) {
 }
 
 function AgentCard({ tone, title, text, icon }: { tone: "bull" | "bear"; title: string; text: string; icon: React.ReactNode }) {
-  const accent = tone === "bull" ? "text-emerald-600" : "text-rose-600";
-  const bar = tone === "bull" ? "bg-emerald-500" : "bg-rose-500";
+  const accent = tone === "bull" ? "text-[var(--profit)]" : "text-[var(--loss)]";
+  const bar = tone === "bull" ? "bg-[var(--profit-dim)]0" : "bg-[var(--loss-dim)]0";
   return (
     <Card className="relative overflow-hidden card-pad">
       <div className={`absolute left-0 top-0 h-full w-1 ${bar}`} />
@@ -69,7 +69,7 @@ function AgentCard({ tone, title, text, icon }: { tone: "bull" | "bear"; title: 
         <span className={accent}>{icon}</span>
         <span className={`text-sm font-semibold ${accent}`}>{title}</span>
       </div>
-      <p className="text-sm leading-relaxed text-slate-700">{text}</p>
+      <p className="text-sm leading-relaxed text-[var(--ink-secondary)]">{text}</p>
     </Card>
   );
 }
