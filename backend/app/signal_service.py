@@ -14,7 +14,7 @@ import math
 
 import pandas as pd
 
-from . import allocator, calibration, drift, learning, meta_features, meta_model, sizing
+from . import allocator, calibration, drift, learning, meta_features, meta_model, shorts, sizing
 from .config import settings
 from .costs import cost_in_r
 from .geometry import trade_levels
@@ -61,6 +61,14 @@ def _allowed_directions() -> set[str]:
         )
     return {"long", "short"}
 _OI_PERIODS = {"5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d"}
+
+
+def _short_ok(ind: pd.DataFrame, composite: float, htf_trend: int, funding: float | None) -> dict:
+    """Bear-regime qualification for shorts (app/shorts.py). Never raises on the live path."""
+    try:
+        return shorts.qualify_short(ind, composite, htf_trend, funding)
+    except Exception:
+        return {"ok": False, "reasons": ["short qualification failed"], "checks": {}}
 
 
 def _rr_floor(regime: str | None) -> float:
@@ -287,6 +295,9 @@ def compute_signal(
         silence_reason = "symbol_filter"  # this symbol has proven negative expectancy
     elif candidate_dir != "flat" and candidate_dir not in _allowed_directions():
         silence_reason = "direction_filter"  # this direction has proven negative expectancy
+    elif candidate_dir == "short" and not _short_ok(ind, composite, raw_features["htf_trend"],
+                                                    (flow_extras or {}).get("funding_rate"))["ok"]:
+        silence_reason = "short_not_qualified"  # counter-trend short — the thing that lost the money
     elif abs(composite) < settings.conviction_floor:
         silence_reason = "below_conviction_floor"
     elif geo["direction"] == "flat":

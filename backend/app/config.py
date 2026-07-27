@@ -147,6 +147,14 @@ class Settings(BaseSettings):
     scanner_interval_minutes: int = 30
     scanner_min_confidence: float = 45.0   # don't double-filter: the EV gate already vetted it
 
+    # --- Short qualification (app/shorts.py) ------------------------------------------------
+    # Derived from 321 live outcomes: shorts lost in EVERY regime (8-23% hit) while longs won in
+    # the same regimes (51-66%) — they were counter-trend shorts in a dip-buying tape. A short now
+    # has to prove it is an actual downtrend before it may fire.
+    short_gate_enabled: bool = True
+    short_min_conviction: float = 52.0    # winning shorts scored 52-69; losers 31-49
+    short_min_funding: float = 0.0        # want crowded LONGS to flush, not an already-short crowd
+
     # --- Flash Bot: fast 5m/15m scalper, its own strategy family + P&L ---------------------
     # Deliberately far more active than the core swing engine: it hunts momentum bursts, breakouts
     # and stretched-VWAP snaps, takes tight risk and exits fast. Still cost-gated (a 5m scalp must
