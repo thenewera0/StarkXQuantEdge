@@ -81,6 +81,58 @@ export function FlashBotPanel() {
         <Stat label="Paper P&L" value={usd(flashPnl?.realized_pnl_usd ?? 0)} sub="tracked apart" valueClass={tone(flashPnl?.realized_pnl_usd ?? 0)} />
       </div>
 
+      {/* What the bot has learned from its OWN trades, and progress toward real capital */}
+      {scan?.learning && (
+        <div className="mb-4 surface-raised p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
+              Self-learning · last {scan.learning.window_days}d
+            </span>
+            {scan.promotion && (
+              <span className="text-[10.5px] tabular-nums text-[var(--ink-muted)]">
+                {scan.promotion.trades}/{scan.promotion.needed} trades to graduate
+              </span>
+            )}
+          </div>
+
+          {scan.promotion && (
+            <div className="mb-2.5 h-1.5 w-full overflow-hidden rounded-full bg-[var(--surface-hover)]">
+              <div className="h-full rounded-full bg-[var(--accent)]"
+                style={{ width: `${Math.min(100, (scan.promotion.trades / Math.max(1, scan.promotion.needed)) * 100)}%` }} />
+            </div>
+          )}
+
+          {(["interval", "kind"] as const).map((g) => {
+            const buckets = Object.entries(scan.learning!.stats[g] ?? {});
+            if (!buckets.length) return null;
+            const blockedList = g === "interval" ? scan.learning!.intervals.blocked : scan.learning!.kinds.blocked;
+            return (
+              <div key={g} className="mb-1.5">
+                <div className="mb-1 text-[10px] uppercase tracking-wider text-[var(--ink-muted)]">by {g}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {buckets.sort((a, b) => b[1].pnl - a[1].pnl).map(([k, b]) => {
+                    const blocked = blockedList.includes(k);
+                    return (
+                      <span key={k}
+                        className={`rounded border px-1.5 py-0.5 text-[10px] tabular-nums ${
+                          blocked ? "border-[var(--loss)]/30 bg-[var(--loss-dim)] text-[var(--loss)] line-through"
+                            : b.pnl > 0 ? "border-[var(--profit)]/25 bg-[var(--profit-dim)] text-[var(--profit)]"
+                              : "border-[var(--line)] text-[var(--ink-muted)]"}`}>
+                        {k} · {b.trades}t · {b.hit_rate != null ? `${Math.round(b.hit_rate * 100)}%` : "—"} · {b.pnl > 0 ? "+" : ""}{(b.pnl * 1000).toFixed(0)}$
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          <p className="mt-1.5 text-[10px] leading-snug text-[var(--ink-muted)]">
+            Buckets with {scan.learning.min_sample}+ trades and negative P&amp;L switch off automatically;
+            thin ones keep exploring so the bot can still discover what works.
+          </p>
+        </div>
+      )}
+
       <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--ink-muted)]">
         <Activity size={12} /> Live opportunity feed
       </div>

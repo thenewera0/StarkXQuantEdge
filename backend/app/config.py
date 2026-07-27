@@ -189,6 +189,16 @@ class Settings(BaseSettings):
     flash_perf_window_days: int = 7
     flash_perf_min_sample: int = 20
 
+    # Flash self-learning: the bot narrows to what its OWN outcomes prove, using the same gate
+    # pattern that created the core engine's edge (per-kind / per-symbol / per-interval).
+    # Thin buckets keep exploring; proven-negative buckets are dropped until they age out.
+    flash_learn_enabled: bool = True
+    flash_learn_window_days: int = 21
+    flash_learn_min_sample: int = 15       # evidence needed before a bucket can be blocked
+    # Graduation from paper to real capital — decided purely by its own realized record.
+    flash_promote_min_trades: int = 120
+    flash_promote_min_hit: float = 0.40
+
     # Funding-carry arbitrage detector (Blueprint v2 §6.1). Delta-neutral funding harvest, gated on
     # expected funding (AR(1) forecast) minus round-trip cost of both legs. Detection only.
     arb_funding_enabled: bool = True

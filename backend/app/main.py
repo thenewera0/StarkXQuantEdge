@@ -310,15 +310,18 @@ def flash_scan() -> dict:
 
 @app.get("/flash/status")
 def flash_status() -> dict:
-    """Flash Bot state: active/standing-down, rolling record, current calibrated win rate."""
+    """Flash Bot state: record, what it has LEARNED, and progress toward real capital."""
     from . import flash
     from .config import settings as st
     return {
         "enabled": st.flash_enabled, "active": flash.is_enabled(),
+        "paper": st.flash_paper_mode,
         "win_rate": flash.flash_win_rate(),
         "stats": flash.flash_stats(st.flash_perf_window_days),
         "window_days": st.flash_perf_window_days,
         "symbols": len(flash.FLASH_SYMBOLS), "intervals": flash.FLASH_INTERVALS,
+        "learning": flash.learning_state(),
+        "promotion": flash.promotion_status(),
     }
 
 

@@ -457,14 +457,28 @@ export async function fetchLiveTrades(tradeSize = 1000): Promise<LiveTrades> {
 
 // ---- Flash Bot ----------------------------------------------------------
 export type FlashTrigger = {
+  blocked_by?: string;
   symbol: string; interval: string; direction: string; kind: string; strength: number;
   entry: number; stop: number; target: number; atr_pct: number;
   cost_r: number; win_prob: number; ev_r: number; tradeable: boolean;
 };
+export type FlashBucket = { trades: number; wins: number; hit_rate: number | null; pnl: number };
+export type FlashLearning = {
+  window_days: number; min_sample: number;
+  stats: { kind: Record<string, FlashBucket>; symbol: Record<string, FlashBucket>; interval: Record<string, FlashBucket> };
+  kinds: { allowed: string[]; blocked: string[] };
+  symbols: { allowed: string[]; blocked: string[] };
+  intervals: { allowed: string[]; blocked: string[] };
+};
+export type FlashPromotion = {
+  paper: boolean; trades: number; needed: number; pnl_frac: number;
+  hit_rate: number | null; ready_to_promote: boolean; blocker: string | null;
+};
 export type FlashScan = {
-  enabled: boolean; active?: boolean; scanned?: number; emitted?: number;
+  enabled: boolean; active?: boolean; scanned?: number; emitted?: number; gated_by_learning?: number;
   win_rate?: number; triggers?: FlashTrigger[];
   stats?: { trades: number; wins: number; hit_rate: number | null; pnl_frac: number };
+  learning?: FlashLearning | null; promotion?: FlashPromotion;
 };
 export async function scanFlash(): Promise<FlashScan> {
   const res = await fetch(`${API_BASE}/flash/scan`, { method: "POST", cache: "no-store" });

@@ -176,6 +176,14 @@ def detect_trigger(ind: pd.DataFrame) -> dict | None:
         if close < lo_n and vol_exp >= 1.1 and rsi < 50:
             return {"direction": "short", "kind": "breakout", "strength": min(100.0, 45 + 25 * vol_exp)}
 
+    # --- dip: buy a pullback INSIDE an uptrend ---
+    # Research (v3/H3) made this the best-performing family by a clear margin: PF 0.67 and 37% win
+    # vs 30% for breakout chasing. It mirrors what the CORE engine's winning longs actually look
+    # like — mean reversion inside an intact trend, not momentum chasing.
+    ema200 = _f(last, "ema200")
+    if ema200 is not None and close > ema200 and rsi < 42 and close < ema21 and thrust > 0:
+        return {"direction": "long", "kind": "dip", "strength": 60.0}
+
     # --- snap: stretched from VWAP and reversing (fast fade) ---
     if vwap_dist is not None:
         stretch = settings.flash_snap_stretch
@@ -216,9 +224,10 @@ def evaluate(symbol: str, interval: str) -> dict | None:
 
     stop_frac = stop_dist / price
     cost_r = cost_in_r("crypto", symbol, atr_pct, stop_frac)
-    # Flash EV: assume the trigger's historical edge is modest; require the payoff to clear cost
-    # with a real margin. p is taken from the flash performance record (falls back to a prior).
-    p = flash_win_rate()
+    # EV uses the win rate LEARNED for this specific trigger kind (falls back to the overall flash
+    # record, then a conservative prior). So as evidence accumulates, each family is judged on its
+    # own merit rather than one blended number.
+    p = kind_win_rate(trig["kind"])
     ev_r = p * settings.flash_rr - (1.0 - p) - cost_r
 
     return {
@@ -230,6 +239,127 @@ def evaluate(symbol: str, interval: str) -> dict | None:
         "reward_risk": settings.flash_rr,
         "cost_r": round(cost_r, 4), "win_prob": round(p, 4), "ev_r": round(ev_r, 4),
         "tradeable": bool(ev_r > settings.flash_min_ev_r and atr_pct >= settings.flash_min_atr_pct),
+    }
+
+
+# --- self-learning: flash narrows to what its OWN record proves -------------
+#
+# This is the machinery that actually created the core engine's edge. Raw signals backtest
+# negative; the LIVE gated system is profitable — because per-regime / per-direction / per-symbol
+# gates progressively cut what loses. Flash gets the same treatment on its own outcomes:
+#
+#   * per-TRIGGER-KIND gate   burst / breakout / snap / dip — drop kinds that prove negative
+#   * per-SYMBOL gate         drop pairs that prove negative for fast trading
+#   * per-INTERVAL gate       drop timeframes that prove negative
+#   * adaptive win rate       EV uses its own realized hit rate, per kind, not a fixed prior
+#   * auto-promotion          paper -> live capital once the record is genuinely positive
+#
+# Thin buckets always get benefit of the doubt so the bot keeps exploring and can recover.
+
+_LEARN_TTL = 180.0
+_learn_cache: tuple[float, dict] | None = None
+
+
+def _bucket_stats(window_days: int) -> dict:
+    """Realized flash stats grouped by trigger kind, symbol and interval."""
+    out = {"kind": {}, "symbol": {}, "interval": {}}
+    if not db.enabled():
+        return out
+    try:
+        with db.get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                f"""select coalesce(s.regime,'flash_?') kind, s.symbol, s.interval,
+                           o.pnl
+                    from outcomes o join signals s on s.id = o.signal_id
+                    where o.pnl is not null and s.strategy = 'flash'
+                      and o.resolved_at > now() - interval '{int(window_days)} days'"""
+            )
+            rows = cur.fetchall()
+    except Exception:
+        return out
+
+    def add(group: str, key: str, pnl: float) -> None:
+        b = out[group].setdefault(key, {"trades": 0, "wins": 0, "pnl": 0.0})
+        b["trades"] += 1
+        b["wins"] += 1 if pnl > 0 else 0
+        b["pnl"] += pnl
+
+    for kind, sym, itv, pnl in rows:
+        p = float(pnl)
+        add("kind", str(kind).replace("flash_", ""), p)
+        add("symbol", sym, p)
+        add("interval", itv, p)
+    for g in out.values():
+        for b in g.values():
+            b["hit_rate"] = round(b["wins"] / b["trades"], 4) if b["trades"] else None
+            b["pnl"] = round(b["pnl"], 6)
+    return out
+
+
+def learning_state(window_days: int | None = None) -> dict:
+    """Cached view of what flash has learned, plus the gates it implies."""
+    global _learn_cache
+    import time as _t
+    now = _t.time()
+    if _learn_cache and now - _learn_cache[0] < _LEARN_TTL:
+        return _learn_cache[1]
+
+    wd = window_days or settings.flash_learn_window_days
+    stats = _bucket_stats(wd)
+    minn = settings.flash_learn_min_sample
+
+    def gate(group: str) -> dict:
+        allowed, blocked = [], []
+        for key, b in stats[group].items():
+            # thin -> keep exploring; proven-negative -> drop until it ages out
+            if b["trades"] < minn or b["pnl"] > 0:
+                allowed.append(key)
+            else:
+                blocked.append(key)
+        return {"allowed": sorted(allowed), "blocked": sorted(blocked)}
+
+    state = {
+        "window_days": wd, "min_sample": minn,
+        "stats": stats,
+        "kinds": gate("kind"), "symbols": gate("symbol"), "intervals": gate("interval"),
+    }
+    _learn_cache = (now, state)
+    return state
+
+
+def refresh_learning() -> None:
+    global _learn_cache
+    _learn_cache = None
+
+
+def _is_blocked(state: dict, group: str, key: str) -> bool:
+    return key in state[group]["blocked"]
+
+
+def kind_win_rate(kind: str) -> float:
+    """Win rate for THIS trigger kind from its own record; conservative prior when thin."""
+    if not settings.flash_learn_enabled:
+        return flash_win_rate()
+    b = learning_state()["stats"]["kind"].get(kind)
+    if b and b["trades"] >= settings.flash_learn_min_sample and b["hit_rate"] is not None:
+        return float(min(0.85, max(0.15, b["hit_rate"])))
+    return flash_win_rate()
+
+
+def promotion_status() -> dict:
+    """Should flash graduate from paper to real capital? Decided purely by its own record."""
+    s = flash_stats(settings.flash_perf_window_days)
+    need = settings.flash_promote_min_trades
+    ready = bool(s["trades"] >= need and s["pnl_frac"] > 0
+                 and (s["hit_rate"] or 0) >= settings.flash_promote_min_hit)
+    return {
+        "paper": settings.flash_paper_mode,
+        "trades": s["trades"], "needed": need,
+        "pnl_frac": s["pnl_frac"], "hit_rate": s["hit_rate"],
+        "ready_to_promote": ready,
+        "blocker": None if ready else (
+            f"needs {need - s['trades']} more trades" if s["trades"] < need
+            else "record is not yet profitable"),
     }
 
 
@@ -282,16 +412,28 @@ def scan(log: bool = True) -> dict:
     if not settings.flash_enabled:
         return {"enabled": False, "scanned": 0, "triggers": [], "emitted": 0}
     active = is_enabled()
+    learn = learning_state() if settings.flash_learn_enabled else None
     scanned = 0
     triggers: list[dict] = []
     emitted = 0
+    gated = 0
 
     for symbol in FLASH_SYMBOLS:
+        # Learned gate: a pair that has proven negative for FAST trading is skipped entirely.
+        if learn and _is_blocked(learn, "symbols", symbol):
+            continue
         for interval in FLASH_INTERVALS:
+            if learn and _is_blocked(learn, "intervals", interval):
+                continue
             scanned += 1
             c = evaluate(symbol, interval)
             if c is None:
                 continue
+            # Learned gate: drop trigger families this bot has proven it cannot trade.
+            if learn and _is_blocked(learn, "kinds", c["kind"]):
+                c["tradeable"] = False
+                c["blocked_by"] = f"'{c['kind']}' setups have proven negative — learning gate"
+                gated += 1
             triggers.append(c)
             if log and active and c["tradeable"]:
                 if persistence.signal_exists(symbol, interval, c["as_of"]):
@@ -303,8 +445,9 @@ def scan(log: bool = True) -> dict:
     triggers.sort(key=lambda x: x["ev_r"], reverse=True)
     return {
         "enabled": True, "active": active, "scanned": scanned,
-        "triggers": triggers[:25], "emitted": emitted,
+        "triggers": triggers[:25], "emitted": emitted, "gated_by_learning": gated,
         "win_rate": flash_win_rate(), "stats": flash_stats(settings.flash_perf_window_days),
+        "learning": learn, "promotion": promotion_status(),
     }
 
 
