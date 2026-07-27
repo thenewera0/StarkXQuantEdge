@@ -150,9 +150,11 @@ def fetch_klines_history(symbol: str = "BTCUSDT", interval: str = "1h", total: i
     full = pd.concat(chunks, ignore_index=True)
     full["close_time"] = pd.to_datetime(full["close_time"], unit="ms", utc=True)
     full = full.drop_duplicates(subset="close_time").set_index("close_time").sort_index()
-    for col in ("open", "high", "low", "close", "volume"):
+    # taker_base must survive here too — without it CVD is NaN and any backtest silently runs
+    # WITHOUT its order-flow factor (this bit us once already).
+    for col in ("open", "high", "low", "close", "volume", "taker_base", "trades"):
         full[col] = pd.to_numeric(full[col], errors="coerce")
-    return full[["open", "high", "low", "close", "volume"]].dropna()
+    return full[["open", "high", "low", "close", "volume", "taker_base", "trades"]].dropna()
 
 
 def fetch_book_tickers() -> dict[str, dict]:
