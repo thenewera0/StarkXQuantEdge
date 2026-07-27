@@ -55,8 +55,14 @@ function useHashView(): View {
     };
     read();
     window.addEventListener("hashchange", read);
-    return () => window.removeEventListener("hashchange", read);
+    window.addEventListener("popstate", read);   // browser back/forward
+    return () => {
+      window.removeEventListener("hashchange", read);
+      window.removeEventListener("popstate", read);
+    };
   }, []);
+  // Views replace the whole page, so start each one at the top.
+  useEffect(() => { document.querySelector("main")?.scrollTo({ top: 0 }); }, [view]);
   return view;
 }
 

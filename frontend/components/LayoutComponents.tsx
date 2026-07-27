@@ -16,7 +16,6 @@ import {
   Landmark,
   PieChart
 } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const navItems = [
@@ -59,7 +58,7 @@ export function Sidebar() {
             
             return (
               <li key={item.label}>
-                <Link 
+                <a 
                   href={item.href}
                   className={`group flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
                     isActive 
@@ -74,7 +73,7 @@ export function Sidebar() {
                       <div className="h-1.5 w-1.5 rounded-full bg-[#00d4ff] animate-pulse" />
                     </div>
                   )}
-                </Link>
+                </a>
               </li>
             );
           })}
