@@ -311,6 +311,60 @@ def fib_position(close: pd.Series, lookback: int = 50) -> pd.Series:
     return ((close - ll) / rng).clip(0.0, 1.0)
 
 
+def cvd(volume: pd.Series, taker_buy: pd.Series, window: int = 50) -> tuple[pd.Series, pd.Series]:
+    """Cumulative Volume Delta from TAKER flow — real order-flow pressure, free inside every kline.
+
+    taker_buy is volume lifted by aggressive BUYERS; the remainder was hit into the bid by
+    aggressive sellers. delta = buy - sell = 2*taker_buy - volume. Returns (cvd_z, delta_ratio):
+      cvd_z        - z-score of the rolling-summed delta (is flow unusually one-sided right now?)
+      delta_ratio  - per-bar net aggression in [-1, 1] (+1 = all buying)
+    This is genuine microstructure: price can rise on weak buying (short covering) or fall on heavy
+    selling that gets absorbed — CVD separates the two, which price/volume alone cannot.
+    """
+    delta = 2.0 * taker_buy - volume
+    ratio = (delta / volume.replace(0.0, np.nan)).clip(-1, 1)
+    roll = delta.rolling(window, min_periods=window // 2).sum()
+    mu = roll.rolling(window, min_periods=window // 2).mean()
+    sd = roll.rolling(window, min_periods=window // 2).std(ddof=0)
+    z = ((roll - mu) / sd.replace(0.0, np.nan)).clip(-5, 5)
+    return z, ratio
+
+
+def hawkes_intensity(series: pd.Series, decay: float = 0.35, window: int = 100) -> pd.Series:
+    """Self-exciting (Hawkes) intensity of activity bursts — clustering detector.
+
+    A Hawkes process models events that TRIGGER more events: lambda(t) = mu + sum a*exp(-b(t-ti)).
+    Volatility and volume are famously self-exciting (bursts cluster), so a rising intensity says
+    'we are inside an active cluster' rather than a one-off spike. Implemented as an exponentially
+    decayed accumulation of standardized activity, then z-scored so it is scale-free.
+    """
+    x = series.astype(float)
+    mu = x.rolling(window, min_periods=window // 2).mean()
+    sd = x.rolling(window, min_periods=window // 2).std(ddof=0)
+    excite = ((x - mu) / sd.replace(0.0, np.nan)).clip(lower=0.0).fillna(0.0)   # only bursts excite
+    # lambda_t = decay*lambda_{t-1} + excite_t  (recursive kernel — O(n), no lookahead)
+    out = np.zeros(len(excite))
+    prev = 0.0
+    vals = excite.to_numpy()
+    for i in range(len(vals)):
+        prev = decay * prev + vals[i]
+        out[i] = prev
+    lam = pd.Series(out, index=series.index)
+    lm = lam.rolling(window, min_periods=window // 2).mean()
+    ls = lam.rolling(window, min_periods=window // 2).std(ddof=0)
+    return ((lam - lm) / ls.replace(0.0, np.nan)).clip(-5, 5)
+
+
+def parkinson_vol(high: pd.Series, low: pd.Series, window: int = 20) -> pd.Series:
+    """Parkinson range-based volatility — ~5x more statistically efficient than close-to-close.
+
+    sigma^2 = 1/(4 ln2) * mean( ln(H/L)^2 ). Uses the whole bar's range instead of throwing away
+    everything between the closes, so the volatility regime is measured with far less noise.
+    """
+    hl = np.log((high / low.replace(0.0, np.nan)).clip(lower=1e-12)) ** 2
+    return np.sqrt(hl.rolling(window, min_periods=window // 2).mean() / (4.0 * np.log(2.0)))
+
+
 # Higher-timeframe resample rule per base interval (for HTF confluence, §5). No extra network:
 # we aggregate the already-fetched OHLCV to a coarser timeframe.
 _HTF_RULE = {
@@ -397,6 +451,19 @@ def compute_indicators(df: pd.DataFrame) -> pd.DataFrame:
     out["pivot_s1"] = s1
     out["fib_pos"] = fib_position(c, 50)
     out["ou_halflife"] = ou_halflife(c, 50)  # mean-reversion speed (range-fade gate, §3.3)
+
+    # Microstructure / self-excitation (Flash v2). CVD needs taker flow; degrade cleanly without it.
+    if "taker_base" in out.columns:
+        cvd_z, delta_ratio = cvd(v, out["taker_base"], 50)
+        out["cvd_z"] = cvd_z
+        out["flow_ratio"] = delta_ratio
+    else:
+        out["cvd_z"] = np.nan
+        out["flow_ratio"] = np.nan
+    out["burst"] = hawkes_intensity((h - l) / c.replace(0.0, np.nan), 0.35, 100)
+    out["vol_burst"] = hawkes_intensity(v, 0.35, 100)
+    out["pk_vol"] = parkinson_vol(h, l, 20)
+    out["pk_vol_ratio"] = out["pk_vol"] / out["pk_vol"].rolling(100, min_periods=50).mean()
 
     # Advanced statistical machinery (Blueprint v2 §3) — fed to the meta-model as features.
     out["hurst"] = hurst_exponent(c, 100)

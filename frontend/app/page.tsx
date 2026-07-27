@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { 
-  MetricCards, 
-  PortfolioOverview, 
-  AssetAllocation, 
-  TopPerformers, 
-  RecentTransactions, 
-  AIInsightsWidget 
+import {
+  MetricCards,
+  PortfolioOverview,
+  AssetAllocation,
+  TopPerformers,
+  RecentTransactions,
+  AIInsightsWidget,
 } from "@/components/DashboardComponents";
 import { fetchSignal, fetchSignalLite, fetchDecision, type Signal, type Decision, type EmittedSignal } from "@/lib/api";
 import { SignalCard } from "@/components/SignalCard";
@@ -21,10 +21,14 @@ import { ArbPanel } from "@/components/ArbPanel";
 import { FlashBotPanel } from "@/components/FlashBotPanel";
 import { LiveTradesPanel } from "@/components/LiveTradesPanel";
 import { CombinedPnl } from "@/components/CombinedPnl";
+import { ViewHeader } from "@/components/PanelShell";
 import { Card } from "@/components/ui";
 import { Activity, Bitcoin, DollarSign, Sparkles, RefreshCw } from "lucide-react";
 
 type Market = "crypto" | "forex";
+type View = "overview" | "flash" | "live" | "analytics" | "history" | "arb";
+
+const VIEWS: View[] = ["overview", "flash", "live", "analytics", "history", "arb"];
 
 const WATCHLISTS: Record<Market, string[]> = {
   crypto: ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"],
@@ -39,8 +43,25 @@ const TIMEFRAMES = [
   { label: "Long", interval: "1w" },
 ];
 
+/** Sidebar drives this via the URL hash — real navigation, back button works. */
+function useHashView(): View {
+  const [view, setView] = useState<View>("overview");
+  useEffect(() => {
+    const read = () => {
+      const h = (window.location.hash || "").replace("#", "") as View;
+      setView(VIEWS.includes(h) ? h : "overview");
+    };
+    read();
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
+  }, []);
+  return view;
+}
+
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
+  const view = useHashView();
+
   const [market, setMarket] = useState<Market>("crypto");
   const [symbol, setSymbol] = useState("BTCUSDT");
   const [interval, setInterval] = useState("4h");
@@ -56,197 +77,193 @@ export default function Dashboard() {
   const handlePrice = useCallback((p: number) => setLivePrice(p), []);
 
   const load = useCallback(async (sym: string, tf: string, mkt: Market) => {
-    setLoading(true);
-    setError(null);
-    setDecision(null);
-    setDebateError(null);
-    setLivePrice(null);
-    try {
-      setSignal(await fetchSignal(sym, tf, mkt));
-    } catch (e) {
-      setSignal(null);
-      setError(e instanceof Error ? e.message : "Request failed");
-    } finally {
-      setLoading(false);
-    }
+    setLoading(true); setError(null); setDecision(null); setDebateError(null); setLivePrice(null);
+    try { setSignal(await fetchSignal(sym, tf, mkt)); }
+    catch (e) { setSignal(null); setError(e instanceof Error ? e.message : "Request failed"); }
+    finally { setLoading(false); }
   }, []);
 
   const runDebate = useCallback(async () => {
-    setDebating(true);
-    setDebateError(null);
-    try {
-      setDecision(await fetchDecision(symbol, interval, market));
-      setHistoryKey((k) => k + 1);
-    } catch (e) {
-      setDecision(null);
-      setDebateError(e instanceof Error ? e.message : "Debate failed");
-    } finally {
-      setDebating(false);
-    }
+    setDebating(true); setDebateError(null);
+    try { setDecision(await fetchDecision(symbol, interval, market)); setHistoryKey((k) => k + 1); }
+    catch (e) { setDecision(null); setDebateError(e instanceof Error ? e.message : "Debate failed"); }
+    finally { setDebating(false); }
   }, [symbol, interval, market]);
 
-  useEffect(() => { load(symbol, interval, market); }, [symbol, interval, market, load]);
+  // Only fetch the analytics signal when that view is actually visible.
+  useEffect(() => {
+    if (view === "analytics") load(symbol, interval, market);
+  }, [symbol, interval, market, load, view]);
 
   useEffect(() => {
+    if (view !== "analytics") return;
     const id = window.setInterval(() => {
       fetchSignalLite(symbol, interval, market)
         .then((lite) => setSignal((prev) => (prev ? { ...lite, explanation: prev.explanation } : lite)))
         .catch(() => {});
     }, 30000);
     return () => window.clearInterval(id);
-  }, [symbol, interval, market]);
+  }, [symbol, interval, market, view]);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
-  function switchMarket(mkt: Market) {
-    setMarket(mkt);
-    setSymbol(WATCHLISTS[mkt][0]);
-  }
-
+  function switchMarket(mkt: Market) { setMarket(mkt); setSymbol(WATCHLISTS[mkt][0]); }
   function pickSignal(s: EmittedSignal) {
     setMarket((s.market as Market) ?? "crypto");
-    setInterval(s.interval);
-    setSymbol(s.symbol);
+    setInterval(s.interval); setSymbol(s.symbol);
+    window.location.hash = "analytics";
   }
 
   if (!mounted) return null;
 
   return (
-    <div className="rise w-full max-w-[1400px] mx-auto space-y-8">
-      {/* Top row: Metric cards */}
-      <MetricCards />
-      
-      {/* Flash Bot + Running trades — the active, live half of the system */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div id="flashbot"><FlashBotPanel /></div>
-        <div id="livetrades"><LiveTradesPanel refreshKey={historyKey} /></div>
-      </div>
-
-      {/* Combined P&L across every strategy family */}
-      <CombinedPnl refreshKey={historyKey} />
-
-      {/* Middle row: Portfolio Area Chart */}
-      <div id="portfolio" className="w-full">
-        <PortfolioOverview />
-      </div>
-      
-      {/* Bottom row grid: Allocation, Performers, Transactions, AI */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-1">
-          <AssetAllocation />
-        </div>
-        <div className="lg:col-span-1">
-          <TopPerformers />
-        </div>
-        <div id="transactions" className="lg:col-span-1">
-          <RecentTransactions />
-        </div>
-        <div className="lg:col-span-1">
-          <AIInsightsWidget />
-        </div>
-      </div>
-
-      <div id="analytics" className="pt-8 border-t border-[rgba(255,255,255,0.05)]">
-        <h2 className="text-xl font-bold text-white mb-6">Engine Analytics</h2>
-        
-        {/* Controls */}
-        <div className="mb-6 flex flex-wrap items-center gap-3">
-          <div className="seg">
-            {(["crypto", "forex"] as Market[]).map((m) => (
-              <button key={m} data-active={market === m} onClick={() => switchMarket(m)} className="flex items-center gap-1.5 capitalize">
-                {m === "crypto" ? <Bitcoin size={14} /> : <DollarSign size={14} />}{m}
-              </button>
-            ))}
-          </div>
-          <div className="seg">
-            {TIMEFRAMES.map((tf) => (
-              <button key={tf.interval} data-active={interval === tf.interval} onClick={() => setInterval(tf.interval)}>
-                {tf.label}
-              </button>
-            ))}
-          </div>
-          <button onClick={() => load(symbol, interval, market)} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-[rgba(255,255,255,0.1)] bg-white/5 px-3 py-2 text-sm text-slate-300 hover:bg-white/10 transition-colors">
-            <RefreshCw size={14} /> Refresh
-          </button>
-        </div>
-
-        <div id="watchlist" className="mb-6 flex flex-wrap items-center gap-2">
-          {WATCHLISTS[market].map((sym) => (
-            <button key={sym} className="chip" data-active={symbol === sym} onClick={() => setSymbol(sym)}>{sym}</button>
-          ))}
-          <input
-            value={symbol}
-            onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-            className="ml-auto w-40 rounded-lg border border-[rgba(255,255,255,0.1)] bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-[#00d4ff] transition-colors"
-            placeholder="Symbol"
-          />
-        </div>
-
-        {loading && (
-          <Card className="card-pad flex items-center gap-2 text-sm text-slate-400">
-            <Activity size={15} className="shimmer text-[#00d4ff]" /> Loading {symbol} {interval}…
-          </Card>
-        )}
-
-        {error && (
-          <Card className="card-pad text-sm text-rose-400 bg-rose-500/10 border-rose-500/20">
-            {error}
-          </Card>
-        )}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <SummaryPanel refreshKey={historyKey} />
-          <ScannerPanel onPick={pickSignal} onScanned={() => setHistoryKey((k) => k + 1)} />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <TradeHistoryPanel refreshKey={historyKey} />
-          <ArbPanel />
-        </div>
-
-        {!loading && !error && signal && (
+    <div className="rise w-full max-w-[1500px] mx-auto">
+      {/* ---------------- OVERVIEW ---------------- */}
+      {view === "overview" && (
+        <>
+          <ViewHeader title="Overview" subtitle="Live capital, open risk, and what the engine is doing right now." />
           <div className="space-y-6">
-            <PriceChart symbol={symbol} interval={interval} market={market} onPrice={handlePrice} />
-            <SignalCard s={signal} livePrice={livePrice} />
+            <MetricCards />
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <div className="xl:col-span-2"><PortfolioOverview /></div>
+              <CombinedPnl refreshKey={historyKey} />
+            </div>
+            <LiveTradesPanel refreshKey={historyKey} />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <AssetAllocation />
+              <TopPerformers />
+              <AIInsightsWidget />
+            </div>
+          </div>
+        </>
+      )}
 
-            <Card className="card-pad border-[rgba(0,102,255,0.3)] bg-gradient-to-br from-[#090b14] to-[#05070c]">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-1.5 text-sm font-semibold tracking-tight text-white">
-                    <Sparkles size={15} className="text-[#00d4ff]" /> Deep AI Analysis
-                  </div>
-                  <div className="mt-0.5 text-xs text-slate-400">
-                    Bull and Bear analysts argue the data; a Risk Manager rules on the final conviction.
-                  </div>
-                </div>
-                <button
-                  onClick={runDebate}
-                  disabled={debating}
-                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#0066ff] to-[#00d4ff] px-4 py-2 text-sm font-medium text-white shadow-[0_0_15px_rgba(0,102,255,0.3)] transition hover:opacity-90 disabled:opacity-60"
-                >
-                  <Sparkles size={15} />
-                  {debating ? "Agents debating…" : decision ? "Re-run AI debate" : "Run AI debate"}
+      {/* ---------------- FLASH BOT ---------------- */}
+      {view === "flash" && (
+        <>
+          <ViewHeader title="Flash Bot" subtitle="Fast 15m/1h hunter — momentum, breakout and mean-reversion snaps." />
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <FlashBotPanel />
+            <LiveTradesPanel refreshKey={historyKey} />
+          </div>
+        </>
+      )}
+
+      {/* ---------------- LIVE TRADES ---------------- */}
+      {view === "live" && (
+        <>
+          <ViewHeader title="Live Trades" subtitle="Every open position, marked to the live price." />
+          <div className="space-y-6">
+            <LiveTradesPanel refreshKey={historyKey} />
+            <CombinedPnl refreshKey={historyKey} />
+          </div>
+        </>
+      )}
+
+      {/* ---------------- ANALYTICS ---------------- */}
+      {view === "analytics" && (
+        <>
+          <ViewHeader
+            title="Engine Analytics"
+            subtitle="Inspect any market through the full confluence engine."
+            right={
+              <button onClick={() => load(symbol, interval, market)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(255,255,255,0.1)] bg-white/5 px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/10">
+                <RefreshCw size={14} /> Refresh
+              </button>
+            }
+          />
+
+          <div className="mb-5 flex flex-wrap items-center gap-3">
+            <div className="seg">
+              {(["crypto", "forex"] as Market[]).map((m) => (
+                <button key={m} data-active={market === m} onClick={() => switchMarket(m)} className="flex items-center gap-1.5 capitalize">
+                  {m === "crypto" ? <Bitcoin size={14} /> : <DollarSign size={14} />}{m}
                 </button>
-              </div>
+              ))}
+            </div>
+            <div className="seg">
+              {TIMEFRAMES.map((tf) => (
+                <button key={tf.interval} data-active={interval === tf.interval} onClick={() => setInterval(tf.interval)}>
+                  {tf.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-              {debating && (
-                <div className="mt-4 space-y-1.5 text-xs text-slate-400">
-                  <div className="shimmer text-[#00d4ff]">Bull analyst building the long case…</div>
-                  <div className="shimmer text-rose-400">Bear analyst rebutting…</div>
-                  <div className="shimmer text-violet-400">Risk manager weighing the verdict…</div>
-                </div>
-              )}
-              {debateError && <div className="mt-3 text-sm text-rose-400 bg-rose-500/10 p-2 rounded">{debateError}</div>}
+          <div className="mb-5 flex flex-wrap items-center gap-2">
+            {WATCHLISTS[market].map((sym) => (
+              <button key={sym} className="chip" data-active={symbol === sym} onClick={() => setSymbol(sym)}>{sym}</button>
+            ))}
+            <input
+              value={symbol}
+              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+              className="ml-auto w-40 rounded-lg border border-[rgba(255,255,255,0.1)] bg-white/5 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-[#00d4ff]"
+              placeholder="Symbol"
+            />
+          </div>
+
+          {loading && (
+            <Card className="card-pad flex items-center gap-2 text-sm text-slate-400">
+              <Activity size={15} className="shimmer text-[#00d4ff]" /> Loading {symbol} {interval}…
             </Card>
+          )}
+          {error && (
+            <Card className="card-pad border-rose-500/20 bg-rose-500/10 text-sm text-rose-400">{error}</Card>
+          )}
 
-            {decision && !debating && <DebatePanel d={decision} />}
+          {!loading && !error && signal && (
+            <div className="space-y-6">
+              <PriceChart symbol={symbol} interval={interval} market={market} onPrice={handlePrice} />
+              <SignalCard s={signal} livePrice={livePrice} />
 
+              <Card className="card-pad">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-sm font-semibold tracking-tight text-white">
+                      <Sparkles size={15} className="text-[#00d4ff]" /> Deep AI Analysis
+                    </div>
+                    <div className="mt-0.5 text-xs text-slate-400">
+                      Bull and Bear analysts argue the numbers; a Risk Manager rules on final conviction.
+                    </div>
+                  </div>
+                  <button onClick={runDebate} disabled={debating}
+                    className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-br from-[#00d4ff] to-[#0066ff] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90 disabled:opacity-60">
+                    <Sparkles size={15} />{debating ? "Agents debating…" : decision ? "Re-run debate" : "Run AI debate"}
+                  </button>
+                </div>
+                {debateError && <div className="mt-3 text-sm text-rose-400">{debateError}</div>}
+              </Card>
+
+              {decision && !debating && <DebatePanel d={decision} />}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ---------------- HISTORY ---------------- */}
+      {view === "history" && (
+        <>
+          <ViewHeader title="Trade History" subtitle="Every closed trade, what the engine learned, and the scanner feed." />
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <SummaryPanel refreshKey={historyKey} />
+              <ScannerPanel onPick={pickSignal} onScanned={() => setHistoryKey((k) => k + 1)} />
+            </div>
+            <TradeHistoryPanel refreshKey={historyKey} />
+            <div id="transactions"><RecentTransactions /></div>
             <HistoryPanel refreshKey={historyKey} />
           </div>
-        )}
-      </div>
+        </>
+      )}
+
+      {/* ---------------- ARBITRAGE ---------------- */}
+      {view === "arb" && (
+        <>
+          <ViewHeader title="Arbitrage" subtitle="Funding carry, triangular cycles and cross-exchange spreads — EV-gated after costs." />
+          <ArbPanel />
+        </>
+      )}
     </div>
   );
 }

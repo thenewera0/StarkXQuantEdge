@@ -37,6 +37,8 @@ logger = logging.getLogger("flash")
 FLASH_SYMBOLS = [
     "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT",
     "ADAUSDT", "NEARUSDT", "APTUSDT", "ARBUSDT", "OPUSDT", "INJUSDT", "SUIUSDT", "TIAUSDT",
+    "LTCUSDT", "DOTUSDT", "ATOMUSDT", "UNIUSDT", "FILUSDT", "SEIUSDT", "AAVEUSDT", "RUNEUSDT",
+    "ETCUSDT", "XLMUSDT", "GRTUSDT", "TRXUSDT",
 ]
 # 15m + 1h: fast enough to fire many times a day, but with enough ATR that the round-trip cost is a
 # SMALL fraction of risk. (5m was measured at ~69% cost-to-risk — mathematically unwinnable.)
@@ -48,6 +50,85 @@ def _f(row: pd.Series, key: str) -> float | None:
     if v is None or pd.isna(v):
         return None
     return float(v)
+
+
+def flash_score(ind: pd.DataFrame) -> dict | None:
+    """Flash v2 — multi-factor confluence score in [-100, +100] for a fast trade.
+
+    v1 used three naive triggers and measured a losing edge (35% win, PF 0.65). v2 demands agreement
+    across genuinely independent evidence, so it fires far less often but on much better setups:
+
+      F1 ORDER FLOW   (cvd_z, flow_ratio)  — are AGGRESSIVE buyers or sellers actually in control?
+                       Free from Binance taker volume; independent of price pattern.
+      F2 MOMENTUM     (EMA stack, RSI, MACD histogram vs ATR) — directional thrust.
+      F3 EXCITATION   (Hawkes burst on range + volume) — are we inside an ACTIVE cluster? Fast
+                       trades need continued activity; dead tape is where scalps die of fees.
+      F4 VOL REGIME   (Parkinson vol ratio) — expansion favours continuation, compression fades.
+      F5 LOCATION     (VWAP distance, band position) — is entry at a sane price or chasing?
+
+    Returns {score, direction, factors} or None if inputs are unusable.
+    """
+    if len(ind) < 60:
+        return None
+    last = ind.iloc[-1]
+    close, atr = _f(last, "close"), _f(last, "atr")
+    if not close or not atr or atr <= 0:
+        return None
+
+    f: dict[str, float] = {}
+
+    # --- F1 order flow (the edge most retail never touches) ---
+    cvd_z, flow_ratio = _f(last, "cvd_z"), _f(last, "flow_ratio")
+    if cvd_z is not None:
+        f["flow"] = max(-100.0, min(100.0, cvd_z * 28.0 + (flow_ratio or 0.0) * 45.0))
+
+    # --- F2 momentum ---
+    ema9, ema21, ema50 = _f(last, "ema9"), _f(last, "ema21"), _f(last, "ema50")
+    rsi, macd_h = _f(last, "rsi"), _f(last, "macd_hist")
+    if None not in (ema9, ema21, ema50, rsi):
+        stack = (1 if ema9 > ema21 else -1) + (1 if ema21 > ema50 else -1) + (1 if close > ema9 else -1)
+        mom = stack / 3.0 * 55.0 + (rsi - 50.0) * 1.1
+        if macd_h is not None:
+            mom += max(-30.0, min(30.0, macd_h / (0.4 * atr) * 30.0))
+        f["momentum"] = max(-100.0, min(100.0, mom))
+
+    # --- F3 excitation (unsigned: gates, doesn't pick a side) ---
+    burst, vol_burst = _f(last, "burst"), _f(last, "vol_burst")
+    if burst is not None or vol_burst is not None:
+        f["excitation"] = max(-100.0, min(100.0, 30.0 * ((burst or 0.0) + (vol_burst or 0.0))))
+
+    # --- F4 volatility regime (unsigned) ---
+    pk = _f(last, "pk_vol_ratio")
+    if pk is not None:
+        f["vol_regime"] = max(-100.0, min(100.0, (pk - 1.0) * 90.0))
+
+    # --- F5 location ---
+    vwap_dist, pctb = _f(last, "vwap_dist"), _f(last, "bb_pctb")
+    loc = 0.0
+    if vwap_dist is not None:
+        loc += max(-60.0, min(60.0, -vwap_dist / 0.004 * 60.0))   # penalise chasing far from VWAP
+    if pctb is not None:
+        loc += max(-40.0, min(40.0, -(pctb - 0.5) * 80.0))
+    f["location"] = max(-100.0, min(100.0, loc))
+
+    directional = [f.get("flow"), f.get("momentum")]
+    directional = [x for x in directional if x is not None]
+    if not directional:
+        return None
+
+    # Weighted blend. Flow + momentum carry direction; location tempers chasing.
+    w = {"flow": 0.40, "momentum": 0.40, "location": 0.20}
+    num = sum(w[k] * f[k] for k in w if k in f)
+    den = sum(w[k] for k in w if k in f)
+    raw = num / den if den > 0 else 0.0
+
+    # Agreement: flow and momentum must not fight each other.
+    agree = 1.0
+    if "flow" in f and "momentum" in f:
+        agree = 1.0 if (f["flow"] >= 0) == (f["momentum"] >= 0) else 0.35
+    score = raw * agree
+
+    return {"score": round(score, 2), "direction": "long" if score > 0 else "short", "factors": f}
 
 
 def detect_trigger(ind: pd.DataFrame) -> dict | None:

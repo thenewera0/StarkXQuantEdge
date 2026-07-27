@@ -2,7 +2,7 @@
 
 import { 
   LayoutDashboard, 
-  Briefcase, 
+
   Activity, 
   ArrowRightLeft, 
   ListOrdered, 
@@ -15,21 +15,27 @@ import {
   Radio
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-  { icon: Zap, label: "Flash Bot", href: "#flashbot" },
-  { icon: Radio, label: "Live Trades", href: "#livetrades" },
-  { icon: Briefcase, label: "Portfolio", href: "#portfolio" },
+  { icon: LayoutDashboard, label: "Overview", href: "#overview" },
+  { icon: Zap, label: "Flash Bot", href: "#flash" },
+  { icon: Radio, label: "Live Trades", href: "#live" },
   { icon: Activity, label: "Analytics", href: "#analytics" },
-  { icon: ArrowRightLeft, label: "Transactions", href: "#transactions" },
-  { icon: ListOrdered, label: "Watchlist", href: "#watchlist" },
+  { icon: ListOrdered, label: "History", href: "#history" },
+  { icon: ArrowRightLeft, label: "Arbitrage", href: "#arb" },
 ];
 
 export function Sidebar() {
-  const pathname = usePathname();
-  
+  // Views are hash-routed, so track the hash (pathname never changes on a single page).
+  const [hash, setHash] = useState("#overview");
+  useEffect(() => {
+    const read = () => setHash(window.location.hash || "#overview");
+    read();
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
+  }, []);
+
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-white/5 bg-[#05070c]/80 backdrop-blur-xl">
       <div className="flex h-20 items-center px-6">
@@ -44,7 +50,7 @@ export function Sidebar() {
       <div className="mt-4 px-4 overflow-y-auto h-[calc(100vh-100px)]">
         <ul className="space-y-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href || (item.href !== "/" && pathname?.startsWith(item.href)) || (item.href === "/" && pathname === "/");
+            const isActive = hash === item.href;
             const Icon = item.icon;
             
             return (

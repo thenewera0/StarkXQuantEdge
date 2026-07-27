@@ -93,9 +93,11 @@ def fetch_klines(symbol: str = "BTCUSDT", interval: str = "1h", limit: int = 500
     df = pd.DataFrame(rows, columns=_KLINE_COLUMNS)
     df["close_time"] = pd.to_datetime(df["close_time"], unit="ms", utc=True)
     df = df.set_index("close_time")
-    for col in ("open", "high", "low", "close", "volume"):
+    for col in ("open", "high", "low", "close", "volume", "taker_base", "trades"):
         df[col] = pd.to_numeric(df[col], errors="coerce")
-    return df[["open", "high", "low", "close", "volume"]].dropna()
+    # taker_base = volume executed by AGGRESSIVE BUYERS. Binance ships it inside every kline and
+    # almost nobody uses it — it's a free, genuine order-flow signal (see indicators.cvd).
+    return df[["open", "high", "low", "close", "volume", "taker_base", "trades"]].dropna()
 
 
 def fetch_klines_history(symbol: str = "BTCUSDT", interval: str = "1h", total: int = 3000) -> pd.DataFrame:
