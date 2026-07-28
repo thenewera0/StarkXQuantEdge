@@ -555,3 +555,20 @@ export async function fetchAllocation(equity = 1000): Promise<Allocation> {
   if (!res.ok) throw new Error(`Backend ${res.status}`);
   return res.json();
 }
+
+// ---- Solana DEX <-> CEX arbitrage -------------------------------------
+export type SolanaOpp = {
+  token: string; dex_price: number; cex_bid: number; cex_ask: number;
+  gross_spread: number; cost: number; net: number; direction: string; positive: boolean;
+};
+export type SolanaScan = {
+  enabled: boolean; scanned?: number; positive?: number;
+  opportunities?: SolanaOpp[];
+  cost_model?: { dex_fee: number; cex_fee: number; network: number; round_trip: number };
+  note?: string;
+};
+export async function scanSolana(): Promise<SolanaScan> {
+  const res = await fetch(`${API_BASE}/arb/solana-scan`, { method: "POST", cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}

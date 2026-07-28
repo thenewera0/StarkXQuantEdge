@@ -215,6 +215,13 @@ class Settings(BaseSettings):
                         "LINKUSDT,LTCUSDT,DOTUSDT,TRXUSDT,ATOMUSDT,UNIUSDT,NEARUSDT,APTUSDT,"
                         "ARBUSDT,OPUSDT,FILUSDT,INJUSDT,SUIUSDT,SEIUSDT,TIAUSDT,AAVEUSDT")
 
+    # Solana DEX <-> CEX arbitrage detector (app/solana.py). Detection only.
+    solana_arb_enabled: bool = True
+    solana_dex_fee: float = 0.0025      # typical Solana AMM pool fee
+    solana_cex_fee: float = 0.001       # Binance taker
+    solana_network_fee: float = 0.0002  # gas + priority, as a fraction of a typical clip
+    solana_buffer: float = 0.0005       # must clear this to count as an opportunity
+
     # Triangular-arb detector (§6.2): Bellman-Ford negative-cycle over the currency graph.
     arb_triangular_enabled: bool = True
     arb_tri_fee: float = 0.001          # taker fee per conversion (0.075% with BNB discount)

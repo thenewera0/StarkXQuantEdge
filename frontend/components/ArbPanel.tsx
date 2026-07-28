@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { scanFundingCarry, scanTriangular, scanCross, fetchArbAlerts, type FundingScan, type TriangularScan, type CrossScan, type ArbAlert } from "@/lib/api";
+import { scanFundingCarry, scanTriangular, scanCross, scanSolana, type SolanaScan, fetchArbAlerts, type FundingScan, type TriangularScan, type CrossScan, type ArbAlert } from "@/lib/api";
 import { Card } from "./ui";
 import { Repeat, RefreshCw, CheckCircle2, Triangle, ArrowLeftRight, Zap } from "lucide-react";
 
@@ -13,6 +13,7 @@ export function ArbPanel() {
   const [scan, setScan] = useState<FundingScan | null>(null);
   const [tri, setTri] = useState<TriangularScan | null>(null);
   const [cross, setCross] = useState<CrossScan | null>(null);
+  const [sol, setSol] = useState<SolanaScan | null>(null);
   const [alerts, setAlerts] = useState<ArbAlert[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,11 +21,11 @@ export function ArbPanel() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [f, t, c, a] = await Promise.all([
+      const [f, t, c, sl, a] = await Promise.all([
         scanFundingCarry(), scanTriangular().catch(() => null), scanCross().catch(() => null),
-        fetchArbAlerts(24).catch(() => []),
+        scanSolana().catch(() => null), fetchArbAlerts(24).catch(() => []),
       ]);
-      setScan(f); setTri(t); setCross(c); setAlerts(a); setError(null);
+      setScan(f); setTri(t); setCross(c); setSol(sl); setAlerts(a); setError(null);
     }
     catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
@@ -135,6 +136,29 @@ export function ArbPanel() {
               <span className="text-[var(--ink-muted)]">no spread clears fees</span>
             )}
           </span>
+        </div>
+      )}
+      {sol && sol.enabled && (
+        <div className="mt-2 surface-raised px-3 py-2 text-[12px]">
+          <div className="flex items-center gap-2">
+            <Zap size={13} className="text-[var(--accent-bright)]" />
+            <span className="font-medium text-[var(--ink-secondary)]">Solana DEX ↔ Binance</span>
+            <span className="text-[var(--ink-muted)]">
+              {sol.scanned ?? 0} tokens · round-trip cost {((sol.cost_model?.round_trip ?? 0) * 100).toFixed(2)}%
+            </span>
+            <span className="ml-auto">
+              {(sol.positive ?? 0) > 0 && sol.opportunities?.[0] ? (
+                <span className="rounded bg-[var(--profit-dim)] px-1.5 py-0.5 font-medium text-[var(--profit)]">
+                  {sol.opportunities[0].token} +{(sol.opportunities[0].net * 100).toFixed(3)}%
+                </span>
+              ) : (
+                <span className="text-[var(--ink-muted)]">
+                  best {sol.opportunities?.[0] ? `${sol.opportunities[0].token} ${(sol.opportunities[0].net * 100).toFixed(3)}%` : "—"} · no gap clears fees
+                </span>
+              )}
+            </span>
+          </div>
+          {sol.note && <p className="mt-1 text-[10px] text-[var(--ink-muted)]">{sol.note}</p>}
         </div>
       )}
     </Card>

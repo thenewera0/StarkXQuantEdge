@@ -351,6 +351,13 @@ def arb_triangular_scan() -> dict:
     return arb.triangular_scan()
 
 
+@app.post("/arb/solana-scan")
+def arb_solana_scan() -> dict:
+    """Solana DEX (Jupiter) vs Binance — on-chain price gaps, costed honestly."""
+    from . import solana
+    return solana.scan()
+
+
 @app.post("/arb/cross-scan")
 def arb_cross_scan() -> dict:
     """Scan Binance vs Bybit for a profitable simultaneous cross-exchange trade (Blueprint §6.3)."""

@@ -1,0 +1,137 @@
+"""Solana DEX <-> CEX arbitrage detector (Jupiter aggregator vs Binance).
+
+Context, stated honestly: viral posts about turning $1 into six figures with Solana arb are not
+credible — arbitrage profit is bounded by deployed capital, so a 400,000x return cannot come from
+capturing small spreads (the screenshot behind that particular claim even says "SIMULATED").
+
+What IS real: on-chain DEX prices genuinely drift from centralised order books, and Solana's fees
+are low enough that the gap is sometimes worth taking. That is a legitimate strategy — it is simply
+contested by professional MEV searchers with dedicated RPC nodes, Jito bundles and sub-100ms
+latency. So we do what we do with every other arb type: DETECT it, cost it honestly, log how big
+and how persistent the edge is, and let the evidence decide whether it is executable at our latency.
+
+Cost model (why most "opportunities" are not opportunities):
+    DEX side  : AMM pool fee (~0.25% typical) + price impact for the size + network/priority fee
+    CEX side  : taker fee (~0.10%)
+    -> round trip is roughly 0.35-0.5%, so a 0.1% quoted gap is a LOSS, not an edge.
+
+Detection only — no wallet, no keys, no signing. Executing this would require a funded Solana
+wallet and is a separate, deliberate decision.
+"""
+
+from __future__ import annotations
+
+import logging
+
+import httpx
+
+from .config import settings
+
+logger = logging.getLogger("solana")
+
+_JUP_PRICE = "https://lite-api.jup.ag/price/v3"
+_BINANCE = "https://data-api.binance.vision/api/v3/ticker/bookTicker"
+
+# Solana mints for liquid assets that also trade on Binance.
+MINTS: dict[str, str] = {
+    "SOL":  "So11111111111111111111111111111111111111112",
+    "JUP":  "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+    "BONK": "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+    "JTO":  "jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL",
+    "WIF":  "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+    "RAY":  "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+    "PYTH": "HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3",
+    "W":    "85VBFQZC9TZkfaptBWjvUw7YbZjy52A6mjtPGjstQAmQ",
+}
+# Binance symbol for each (USDT quoted).
+CEX_SYMBOL = {k: f"{k}USDT" for k in MINTS}
+
+
+def _jupiter_prices() -> dict[str, float]:
+    """USD price per token from Jupiter's aggregated on-chain routing. {} on failure."""
+    try:
+        r = httpx.get(_JUP_PRICE, params={"ids": ",".join(MINTS.values())}, timeout=20.0)
+        r.raise_for_status()
+        data = r.json()
+    except Exception:
+        return {}
+    out: dict[str, float] = {}
+    for name, mint in MINTS.items():
+        node = data.get(mint) or {}
+        px = node.get("usdPrice")
+        if px:
+            out[name] = float(px)
+    return out
+
+
+def _binance_books() -> dict[str, dict]:
+    """Best bid/ask for the matching Binance spot pairs. {} on failure."""
+    try:
+        r = httpx.get(_BINANCE, timeout=20.0)
+        r.raise_for_status()
+        rows = r.json()
+    except Exception:
+        return {}
+    want = set(CEX_SYMBOL.values())
+    out: dict[str, dict] = {}
+    for row in rows:
+        if row.get("symbol") in want:
+            try:
+                bid, ask = float(row["bidPrice"]), float(row["askPrice"])
+            except (KeyError, ValueError, TypeError):
+                continue
+            if bid > 0 and ask > 0:
+                out[row["symbol"]] = {"bid": bid, "ask": ask}
+    return out
+
+
+def scan() -> dict:
+    """Compare Solana DEX pricing against Binance and cost every gap honestly."""
+    if not settings.solana_arb_enabled:
+        return {"enabled": False, "opportunities": []}
+
+    jup = _jupiter_prices()
+    cex = _binance_books()
+    if not jup or not cex:
+        return {"enabled": True, "error": "price feed unavailable", "opportunities": []}
+
+    dex_fee = settings.solana_dex_fee          # AMM pool fee
+    cex_fee = settings.solana_cex_fee          # taker
+    net_fee = settings.solana_network_fee      # gas/priority, as a fraction of a typical clip
+    buffer = settings.solana_buffer
+
+    opps: list[dict] = []
+    for token, dex_px in jup.items():
+        book = cex.get(CEX_SYMBOL[token])
+        if not book:
+            continue
+        cex_bid, cex_ask = book["bid"], book["ask"]
+
+        # Direction A: buy on DEX (pay dex_px), sell into the CEX bid.
+        a = (cex_bid / dex_px) - 1.0
+        # Direction B: buy on the CEX ask, sell on DEX.
+        b = (dex_px / cex_ask) - 1.0
+        gross, direction = (a, "buy DEX -> sell Binance") if a >= b else (b, "buy Binance -> sell DEX")
+
+        cost = dex_fee + cex_fee + net_fee
+        net = gross - cost
+        opps.append({
+            "token": token, "dex_price": round(dex_px, 6),
+            "cex_bid": cex_bid, "cex_ask": cex_ask,
+            "gross_spread": round(gross, 6), "cost": round(cost, 6),
+            "net": round(net, 6), "direction": direction,
+            "positive": bool(net > buffer),
+        })
+
+    opps.sort(key=lambda x: x["net"], reverse=True)
+    positives = [o for o in opps if o["positive"]]
+    for o in positives:
+        logger.warning("SOLANA ARB %s net %+.3f%% (%s)", o["token"], o["net"] * 100, o["direction"])
+    return {
+        "enabled": True, "scanned": len(opps), "positive": len(positives),
+        "opportunities": opps,
+        "cost_model": {"dex_fee": dex_fee, "cex_fee": cex_fee, "network": net_fee,
+                       "round_trip": round(dex_fee + cex_fee + net_fee, 6)},
+        "note": ("detection only — execution needs a funded Solana wallet and competes with MEV "
+                 "searchers running dedicated RPC nodes"),
+    }
