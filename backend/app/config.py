@@ -221,6 +221,9 @@ class Settings(BaseSettings):
     solana_cex_fee: float = 0.001       # Binance taker
     solana_network_fee: float = 0.0002  # gas + priority, as a fraction of a typical clip
     solana_buffer: float = 0.0005       # must clear this to count as an opportunity
+    # Gross spread that counts as a DISLOCATION — the only regime where flash-loan arb pays.
+    # Calm markets measure ~0.1%; stress events (cascades, depegs) blow past 0.5%.
+    solana_dislocation_gross: float = 0.005
 
     # Triangular-arb detector (§6.2): Bellman-Ford negative-cycle over the currency graph.
     arb_triangular_enabled: bool = True

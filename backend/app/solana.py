@@ -127,11 +127,33 @@ def scan() -> dict:
     positives = [o for o in opps if o["positive"]]
     for o in positives:
         logger.warning("SOLANA ARB %s net %+.3f%% (%s)", o["token"], o["net"] * 100, o["direction"])
+
+    # --- dislocation view: the ONLY regime where flash-loan arb actually pays ---
+    # In calm markets aggregators keep DEX pricing efficient (measured: best round trip +0.002%).
+    # Spreads only blow out during stress — crashes, liquidation cascades, depegs. Flash loans
+    # (Balancer/Morpho at 0% fee) make CAPITAL free, so during those windows the binding limit is
+    # spread and priority fee, not how much money you have. This tracks how close we are.
+    best = opps[0]["net"] if opps else None
+    disloc = [o for o in opps if o["gross_spread"] >= settings.solana_dislocation_gross]
+    state = ("DISLOCATED — spreads are wide enough to matter" if disloc
+             else "efficient — aggregator pricing is tight, no flash-loan edge")
+    if disloc:
+        logger.warning("SOLANA DISLOCATION: %s", [(o["token"], round(o["gross_spread"] * 100, 3)) for o in disloc])
+
     return {
         "enabled": True, "scanned": len(opps), "positive": len(positives),
         "opportunities": opps,
         "cost_model": {"dex_fee": dex_fee, "cex_fee": cex_fee, "network": net_fee,
                        "round_trip": round(dex_fee + cex_fee + net_fee, 6)},
-        "note": ("detection only — execution needs a funded Solana wallet and competes with MEV "
-                 "searchers running dedicated RPC nodes"),
+        "market_state": state,
+        "dislocated": [o["token"] for o in disloc],
+        "best_net": best,
+        "flash_loan": {
+            "capital_needed": "none — Balancer V2 and Morpho lend at 0% fee inside one transaction",
+            "still_required": "a funded wallet for priority fees + a deployed contract; a flash "
+                              "loan removes the capital constraint, never the cost or competition",
+            "worth_attempting": bool(disloc and positives),
+        },
+        "note": ("detection only — execution needs a funded wallet and competes with MEV searchers "
+                 "on dedicated RPC nodes"),
     }
