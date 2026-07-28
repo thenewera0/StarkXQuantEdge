@@ -224,6 +224,7 @@ class Settings(BaseSettings):
     # Gross spread that counts as a DISLOCATION — the only regime where flash-loan arb pays.
     # Calm markets measure ~0.1%; stress events (cascades, depegs) blow past 0.5%.
     solana_dislocation_gross: float = 0.005
+    solana_flash_fee: float = 0.0        # Balancer V2 / Morpho lend at 0%; Aave V3 would be 0.0005
 
     # Triangular-arb detector (§6.2): Bellman-Ford negative-cycle over the currency graph.
     arb_triangular_enabled: bool = True

@@ -85,6 +85,55 @@ def _binance_books() -> dict[str, dict]:
     return out
 
 
+_JUP_QUOTE = "https://lite-api.jup.ag/swap/v1/quote"
+
+
+def verify_round_trip(mint_a: str, mint_b: str, amount: int,
+                      dex_out: str | None = None, dex_back: str | None = None) -> dict | None:
+    """EXECUTABLE test: swap A->B->A for a real size and report what actually comes back.
+
+    THIS IS THE ONLY VALID PROOF OF AN ON-CHAIN ARB, and it exists because quoted price dispersion
+    is NOT arbitrage. Measured live: individual Solana venues disagreed by 1.5% (SOL) and 15.8%
+    (JUP), which looks like enormous free money. Round-tripping those exact venues returned
+    -0.22%, -0.31%, -1.16% and -5.28%.
+
+    The reason: a venue quotes 'cheap' precisely because it is thin for your size. The discount IS
+    your price impact — you pay it the moment you trade there. Phoenix looked 1.5% cheap and cost
+    5.28%. Any bot that treats a quoted spread as profit will lose money quickly, and a flash loan
+    would simply lose it on borrowed principal.
+
+    So: never act on a spread. Only ever act on a round trip that returns more than it consumed.
+    """
+    try:
+        p1 = {"inputMint": mint_a, "outputMint": mint_b, "amount": int(amount), "slippageBps": 100}
+        if dex_out:
+            p1["dexes"] = dex_out
+        r1 = httpx.get(_JUP_QUOTE, params=p1, timeout=20.0)
+        r1.raise_for_status()
+        mid = int(r1.json()["outAmount"])
+
+        p2 = {"inputMint": mint_b, "outputMint": mint_a, "amount": mid, "slippageBps": 100}
+        if dex_back:
+            p2["dexes"] = dex_back
+        r2 = httpx.get(_JUP_QUOTE, params=p2, timeout=20.0)
+        r2.raise_for_status()
+        back = int(r2.json()["outAmount"])
+    except Exception:
+        return None
+
+    net = (back - amount) / amount
+    # A flash loan must repay the FULL principal out of this number, plus its own fee and priority.
+    total_cost = settings.solana_flash_fee + settings.solana_network_fee
+    return {
+        "size_in": amount, "size_out": back,
+        "net_round_trip": round(net, 6),
+        "flash_loan_cost": round(total_cost, 6),
+        "net_after_flash_costs": round(net - total_cost, 6),
+        "executable": bool(net - total_cost > settings.solana_buffer),
+        "venues": {"out": dex_out or "aggregated", "back": dex_back or "aggregated"},
+    }
+
+
 def scan() -> dict:
     """Compare Solana DEX pricing against Binance and cost every gap honestly."""
     if not settings.solana_arb_enabled:
@@ -157,3 +206,16 @@ def scan() -> dict:
         "note": ("detection only — execution needs a funded wallet and competes with MEV searchers "
                  "on dedicated RPC nodes"),
     }
+
+
+def verify_round_trip_usd(token: str, usd: float = 1000.0) -> dict | None:
+    """Convenience wrapper: round-trip USDC -> token -> USDC for a dollar clip."""
+    mint = MINTS.get(token.upper())
+    if not mint:
+        return None
+    usdc = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+    out = verify_round_trip(usdc, mint, int(usd * 1_000_000))
+    if out:
+        out["token"] = token.upper()
+        out["usd"] = usd
+    return out

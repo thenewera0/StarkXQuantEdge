@@ -358,6 +358,13 @@ def arb_solana_scan() -> dict:
     return solana.scan()
 
 
+@app.post("/arb/solana-verify")
+def arb_solana_verify(token: str = "SOL", usd: float = 1000.0) -> dict:
+    """Executable A->B->A round trip — the only valid proof of an on-chain arb (quotes lie)."""
+    from . import solana
+    return solana.verify_round_trip_usd(token, usd) or {"error": "quote unavailable"}
+
+
 @app.post("/arb/cross-scan")
 def arb_cross_scan() -> dict:
     """Scan Binance vs Bybit for a profitable simultaneous cross-exchange trade (Blueprint §6.3)."""
