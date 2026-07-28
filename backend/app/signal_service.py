@@ -230,7 +230,12 @@ def compute_signal(
     geo = _risk_geometry(last, candidate_dir, interval, regime)
 
     # --- L5b expected value (Blueprint v2 §2.6): calibrated P(win) x R minus modelled cost ---
-    win_prob = calibration.win_prob(regime, abs(composite))
+    # Condition on market x direction — crypto longs hit ~70% while crypto shorts hit ~4%, so a
+    # pooled probability badly misprices both (this was suppressing EV on genuinely good longs).
+    win_prob = calibration.win_prob(
+        regime, abs(composite), market=market,
+        direction=(candidate_dir if candidate_dir in ("long", "short") else None),
+    )
     price_v = _num(last, "close")
     atr_v = _num(last, "atr")
     atr_pct = (atr_v / price_v) if (atr_v and price_v) else 0.0

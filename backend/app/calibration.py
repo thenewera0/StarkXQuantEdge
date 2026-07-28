@@ -51,8 +51,19 @@ def _pava(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _load() -> dict:
-    """Fit global + per-regime calibration curves from resolved outcomes."""
-    curves: dict = {"regimes": {}, "global": None, "base": 0.5, "n": 0}
+    """Fit calibration curves CONDITIONED on the segment actually being traded.
+
+    CRITICAL: a single pooled curve is wrong here. Our own record shows the hit rate depends
+    overwhelmingly on market x direction:
+
+        crypto/long 70.2%   forex/long 30.1%   forex/short 22.1%   crypto/short 4.4%
+
+    Pooling them produced a ~38% base rate, so a crypto LONG (really ~70%) was being told it had a
+    ~17-38% chance. EV = p*R-(1-p)-cost, so understating p made EV spuriously negative and the gate
+    rejected genuinely good trades. We therefore key curves by (market, direction, regime) and fall
+    back through (market, direction) -> global as data thins.
+    """
+    curves: dict = {"segments": {}, "regimes": {}, "global": None, "base": 0.5, "n": 0}
     if not db.enabled():
         return curves
     try:
@@ -60,7 +71,9 @@ def _load() -> dict:
             cur.execute(
                 """
                 select coalesce(s.regime,'unknown') regime, abs(s.composite) absc,
-                       case when o.pnl > 0 then 1 else 0 end win
+                       case when o.pnl > 0 then 1 else 0 end win,
+                       case when coalesce(s.market,'crypto') = 'crypto' then 'crypto' else 'forex' end mkt,
+                       case when s.label in ('Buy','Strong Buy') then 'long' else 'short' end dir
                 from outcomes o join signals s on s.id = o.signal_id
                 where o.pnl is not null and s.composite is not null and s.shadow = false
                 """
@@ -78,15 +91,29 @@ def _load() -> dict:
     kg, fg = _pava(absc, win)
     curves["global"] = (kg, fg)
 
-    by: dict[str, list[int]] = {}
-    for i, r in enumerate(rows):
-        by.setdefault(r[0], []).append(i)
-    for regime, idx in by.items():
+    def fit(idx: list[int]) -> dict | None:
         if len(idx) < _MIN_REGIME:
-            continue
+            return None
         ii = np.array(idx)
         k, f = _pava(absc[ii], win[ii])
-        curves["regimes"][regime] = {"knots": k, "fitted": f, "n": len(idx), "base": float(win[ii].mean())}
+        return {"knots": k, "fitted": f, "n": len(idx), "base": float(win[ii].mean())}
+
+    seg_idx: dict[str, list[int]] = {}
+    reg_idx: dict[str, list[int]] = {}
+    for i, r in enumerate(rows):
+        regime, mkt, direction = r[0], r[3], r[4]
+        seg_idx.setdefault(f"{mkt}|{direction}", []).append(i)
+        seg_idx.setdefault(f"{mkt}|{direction}|{regime}", []).append(i)
+        reg_idx.setdefault(regime, []).append(i)
+
+    for key, idx in seg_idx.items():
+        c = fit(idx)
+        if c:
+            curves["segments"][key] = c
+    for regime, idx in reg_idx.items():
+        c = fit(idx)
+        if c:
+            curves["regimes"][regime] = c
     return curves
 
 
@@ -105,25 +132,34 @@ def refresh() -> None:
     _cache = None
 
 
-def win_prob(regime: str | None, abs_composite: float) -> float:
+def win_prob(regime: str | None, abs_composite: float,
+             market: str | None = None, direction: str | None = None) -> float:
     """Calibrated P(target before stop) for a setup, in [0.02, 0.98].
 
-    Uses the regime curve shrunk toward the global curve by sample count; falls back to the global
-    curve, then the global base rate, when data is thin.
+    Walks from the most specific curve to the least — (market,direction,regime) ->
+    (market,direction) -> regime -> global — shrinking each toward the broader one by sample count.
+    Conditioning on market x direction matters enormously here: crypto longs hit ~70% while crypto
+    shorts hit ~4%, so one pooled number misprices both.
     """
     c = _curves()
     if c.get("global") is None:
         return 0.5  # no data yet -> non-committal
     kg, fg = c["global"]
-    p_global = float(np.interp(abs_composite, kg, fg))
+    p = float(np.interp(abs_composite, kg, fg))
 
-    reg = c["regimes"].get(regime or "")
-    if reg is None:
-        p = p_global
-    else:
-        p_reg = float(np.interp(abs_composite, reg["knots"], reg["fitted"]))
-        alpha = reg["n"] / (reg["n"] + _SHRINK)
-        p = alpha * p_reg + (1 - alpha) * p_global
+    def blend(prior: float, curve: dict | None) -> float:
+        if not curve:
+            return prior
+        p_c = float(np.interp(abs_composite, curve["knots"], curve["fitted"]))
+        a = curve["n"] / (curve["n"] + _SHRINK)
+        return a * p_c + (1 - a) * prior
+
+    # broad -> specific, each level refining the one above it
+    p = blend(p, c["regimes"].get(regime or ""))
+    if market and direction:
+        mkt = "crypto" if market == "crypto" else "forex"
+        p = blend(p, c["segments"].get(f"{mkt}|{direction}"))
+        p = blend(p, c["segments"].get(f"{mkt}|{direction}|{regime}"))
     return float(min(0.98, max(0.02, p)))
 
 
