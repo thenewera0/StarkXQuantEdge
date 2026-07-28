@@ -260,39 +260,34 @@ _LEARN_TTL = 180.0
 _learn_cache: tuple[float, dict] | None = None
 
 
-def _bucket_stats(window_days: int) -> dict:
-    """Realized flash stats grouped by trigger kind, symbol and interval."""
-    out = {"kind": {}, "symbol": {}, "interval": {}}
+def _raw_rows(window_days: int) -> list[tuple]:
     if not db.enabled():
-        return out
+        return []
     try:
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
-                f"""select coalesce(s.regime,'flash_?') kind, s.symbol, s.interval,
-                           o.pnl
+                f"""select replace(coalesce(s.regime,'flash_?'),'flash_','') kind,
+                           s.symbol, s.interval, o.pnl
                     from outcomes o join signals s on s.id = o.signal_id
                     where o.pnl is not null and s.strategy = 'flash'
                       and o.resolved_at > now() - interval '{int(window_days)} days'"""
             )
-            rows = cur.fetchall()
+            return list(cur.fetchall())
     except Exception:
-        return out
+        return []
 
-    def add(group: str, key: str, pnl: float) -> None:
-        b = out[group].setdefault(key, {"trades": 0, "wins": 0, "pnl": 0.0})
+
+def _tally(rows: list[tuple], idx: int) -> dict:
+    out: dict[str, dict] = {}
+    for r in rows:
+        key, pnl = str(r[idx]), float(r[3])
+        b = out.setdefault(key, {"trades": 0, "wins": 0, "pnl": 0.0})
         b["trades"] += 1
         b["wins"] += 1 if pnl > 0 else 0
         b["pnl"] += pnl
-
-    for kind, sym, itv, pnl in rows:
-        p = float(pnl)
-        add("kind", str(kind).replace("flash_", ""), p)
-        add("symbol", sym, p)
-        add("interval", itv, p)
-    for g in out.values():
-        for b in g.values():
-            b["hit_rate"] = round(b["wins"] / b["trades"], 4) if b["trades"] else None
-            b["pnl"] = round(b["pnl"], 6)
+    for b in out.values():
+        b["hit_rate"] = round(b["wins"] / b["trades"], 4) if b["trades"] else None
+        b["pnl"] = round(b["pnl"], 6)
     return out
 
 
@@ -305,23 +300,37 @@ def learning_state(window_days: int | None = None) -> dict:
         return _learn_cache[1]
 
     wd = window_days or settings.flash_learn_window_days
-    stats = _bucket_stats(wd)
     minn = settings.flash_learn_min_sample
+    rows = _raw_rows(wd)
 
-    def gate(group: str) -> dict:
+    def gate(tally: dict) -> dict:
         allowed, blocked = [], []
-        for key, b in stats[group].items():
+        for key, b in tally.items():
             # thin -> keep exploring; proven-negative -> drop until it ages out
-            if b["trades"] < minn or b["pnl"] > 0:
-                allowed.append(key)
-            else:
-                blocked.append(key)
+            (allowed if (b["trades"] < minn or b["pnl"] > 0) else blocked).append(key)
         return {"allowed": sorted(allowed), "blocked": sorted(blocked)}
+
+    # HIERARCHICAL GATING. Kinds are judged first, then symbols/intervals are judged ONLY on the
+    # trades from surviving kinds.
+    #
+    # Why this matters: 'snap' lost -$289 across both timeframes. Judged naively, 15m and 1h both
+    # look negative and BOTH get blocked — which kills the bot entirely, even though 'burst' is
+    # profitable on both. That is double-counting the same losses, and it is exactly the
+    # over-gating that froze the core engine. Re-scoring the timeframes on burst-only trades lets
+    # them stay open on their own merit.
+    kind_tally = _tally(rows, 0)
+    kinds = gate(kind_tally)
+    surviving = [r for r in rows if str(r[0]) in kinds["allowed"]]
+
+    sym_tally = _tally(surviving, 1)
+    itv_tally = _tally(surviving, 2)
 
     state = {
         "window_days": wd, "min_sample": minn,
-        "stats": stats,
-        "kinds": gate("kind"), "symbols": gate("symbol"), "intervals": gate("interval"),
+        "stats": {"kind": kind_tally, "symbol": sym_tally, "interval": itv_tally},
+        "kinds": kinds, "symbols": gate(sym_tally), "intervals": gate(itv_tally),
+        "note": "symbols/intervals are scored only on trades from surviving kinds, so one bad "
+                "trigger family cannot blacklist the whole bot",
     }
     _learn_cache = (now, state)
     return state
