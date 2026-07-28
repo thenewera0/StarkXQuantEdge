@@ -333,8 +333,10 @@ _dir_perf_cache: tuple[float, dict] | None = None
 _sym_perf_cache: tuple[float, dict] | None = None
 
 
-def symbol_performance(window_days: int = 5) -> dict[str, dict]:
+def symbol_performance(window_days: int | None = None) -> dict[str, dict]:
     """Per-symbol realized stats over a rolling window: {symbol: {trades, wins, pnl_frac}}. Cached."""
+    from .config import settings as _s
+    window_days = _s.symbol_perf_window_days if window_days is None else window_days
     global _sym_perf_cache
     now = time.time()
     if _sym_perf_cache and now - _sym_perf_cache[0] < _REGIME_TTL:
@@ -360,8 +362,10 @@ def symbol_performance(window_days: int = 5) -> dict[str, dict]:
     return result
 
 
-def is_symbol_tradeable(symbol: str, min_sample: int = 12, window_days: int = 5) -> bool:
+def is_symbol_tradeable(symbol: str, min_sample: int | None = None, window_days: int | None = None) -> bool:
     """A symbol is paused only if it has >= min_sample recent trades AND negative net P&L."""
+    from .config import settings as _s
+    min_sample = _s.symbol_perf_min_sample if min_sample is None else min_sample
     p = symbol_performance(window_days).get(symbol)
     if p is None or p["trades"] < min_sample:
         return True  # thin -> benefit of the doubt (also lets a paused symbol re-explore)
