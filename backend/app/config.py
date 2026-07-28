@@ -108,7 +108,10 @@ class Settings(BaseSettings):
     # pairs that lack derivatives/on-chain data and lose). Re-tests as losing trades age out.
     symbol_perf_gate_enabled: bool = True
     symbol_perf_min_sample: int = 12
-    symbol_perf_window_days: int = 5
+    # WAS 5 DAYS AND THEREFORE DEAD: at current trade frequency no symbol ever reached 12 resolved
+    # trades inside a 5-day window, so this gate could never block anything. Measured over 30 days
+    # it has real evidence to act on (e.g. SOL 33% hit / -$26, DOGE 35% / -$25, while ADA runs 81%).
+    symbol_perf_window_days: int = 30
 
     # Performance / P&L (fixed notional per trade for the paper track record)
     standard_trade_size_usd: float = 1000.0
