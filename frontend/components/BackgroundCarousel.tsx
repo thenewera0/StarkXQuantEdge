@@ -22,25 +22,23 @@ export function BackgroundCarousel() {
   }, []);
 
   return (
-    <div className="fixed inset-0 w-full h-full -z-50 bg-[#04060a]">
+    <div className="fixed inset-0 w-full h-full -z-50 carbon-mesh">
+      {/* Spotlight spotlighting center dashboard */}
+      <div className="absolute inset-0 w-full h-full bg-[radial-gradient(circle_at_50%_35%,transparent_10%,rgba(5,7,12,0.85)_85%)] pointer-events-none" />
+
       {images.map((src, i) => (
         <div
           key={src}
-          className="absolute inset-0 w-full h-full bg-[length:100%_100%] bg-no-repeat bg-center transition-opacity duration-[2000ms] ease-in-out saturate-[1.5] contrast-[1.15] brightness-[1.1] opacity-40"
+          className="absolute inset-0 w-full h-full bg-[length:100%_100%] bg-no-repeat bg-center transition-opacity duration-[2000ms] ease-in-out saturate-[1.2] contrast-[1.1] brightness-[0.8] mix-blend-overlay"
           style={{
             backgroundImage: `url('${src}')`,
-            opacity: i === currentIndex ? 0.45 : 0,
+            opacity: i === currentIndex ? 0.25 : 0,
           }}
         />
       ))}
       
-      {/* Liquid morphing gradient blobs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-gradient-to-br from-[#00d4ff]/15 to-[#2f7fff]/15 blur-[120px] animate-liquid-blob pointer-events-none mix-blend-screen" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[60vw] h-[60vw] rounded-full bg-gradient-to-tr from-[#8a2be2]/12 to-[#4d9fff]/12 blur-[150px] animate-liquid-blob-reverse pointer-events-none mix-blend-screen" />
-      <div className="absolute top-[30%] left-[40%] w-[35vw] h-[35vw] rounded-full bg-gradient-to-tr from-[#00ffd4]/10 to-[#2f7fff]/10 blur-[130px] animate-liquid-blob pointer-events-none mix-blend-screen" style={{ animationDelay: "-8s" }} />
-
-      {/* Glossy overlay to ensure everything looks super good */}
-      <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-black/40 via-transparent to-[#00d4ff]/10 pointer-events-none mix-blend-overlay" />
+      {/* Glare overlay simulating curved terminal glass reflection */}
+      <div className="absolute inset-0 w-full h-full bg-[linear-gradient(135deg,rgba(255,255,255,0.02)_0%,rgba(255,255,255,0)_50%,rgba(255,255,255,0.01)_100%)] pointer-events-none" />
     </div>
   );
 }

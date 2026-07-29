@@ -14,8 +14,11 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} dark`}>
-      <body className="font-sans antialiased text-white selection:bg-[#00d4ff]/30 selection:text-white bg-transparent">
+      <body className="font-sans antialiased text-white selection:bg-[#3b82f6]/30 selection:text-white bg-transparent">
         <BackgroundCarousel />
+        {/* Physical scanline overlay for retro-tactile CRT displays */}
+        <div className="fixed inset-0 pointer-events-none -z-40 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.15)_50%)] bg-[length:100%_4px]" />
+        
         <div className="flex h-screen overflow-hidden">
           <Sidebar />
           <div className="flex flex-1 flex-col ml-64 overflow-hidden relative">

@@ -13,42 +13,42 @@
   /* Type — --font-sans is injected by next/font (Inter); we only add fallbacks. */
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 
-  /* Surfaces — Liquid Glassmorphism translucent variables */
-  --bg: #04060a;
-  --bg-sidebar: rgba(4, 6, 10, 0.25);
-  --surface: rgba(10, 15, 30, 0.42);
-  --surface-raised: rgba(16, 24, 45, 0.52);
-  --surface-hover: rgba(24, 34, 62, 0.62);
+  /* Surfaces — Skeuomorphic metallic panel variables */
+  --bg: #090c15;
+  --bg-sidebar: linear-gradient(180deg, #131929 0%, #0a0d16 100%);
+  --surface: linear-gradient(135deg, #151c2e 0%, #0c0f1a 100%);
+  --surface-raised: linear-gradient(135deg, #1c253c 0%, #101423 100%);
+  --surface-hover: linear-gradient(135deg, #222d4a 0%, #151b2e 100%);
 
   /* Ink ------------------------------------------------------------------ */
-  --ink: #f8fafc;           /* primary text    ~16:1 on --bg */
-  --ink-secondary: #cbd5e1; /* secondary text  ~7.5:1 */
-  --ink-muted: #94a3b8;     /* labels/captions ~4.6:1 (AA) */
+  --ink: #f8fafc;           /* primary text */
+  --ink-secondary: #cbd5e1; /* secondary text */
+  --ink-muted: #64748b;     /* labels/captions */
 
-  /* Lines — delicate, glass-like boundaries ------------------------------ */
-  --line: rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(255, 255, 255, 0.16);
+  /* Lines — beveled metal slots ----------------------------------------- */
+  --line: #1c243b;
+  --line-strong: #2e3a5c;
 
-  /* Brand — interactive/identity only, never "this number is good" -------- */
-  --accent: #2f7fff;
-  --accent-bright: #4d9fff;
-  --accent-dim: rgba(47, 127, 255, 0.15);
+  /* Brand — interactive/identity only ----------------------------------- */
+  --accent: #1e60ff;
+  --accent-bright: #3b82f6;
+  --accent-dim: rgba(30, 96, 255, 0.15);
 
-  /* Semantic — glass-tinted variations for badges and alerts -------------- */
+  /* Semantic — glowing LED colors ---------------------------------------- */
   --profit: #10b981;
-  --profit-dim: rgba(16, 185, 129, 0.15);
+  --profit-dim: rgba(16, 185, 129, 0.1);
   --loss: #f43f5e;
-  --loss-dim: rgba(244, 63, 94, 0.15);
-  --warn: #f59e0b;
-  --warn-dim: rgba(245, 158, 11, 0.15);
+  --loss-dim: rgba(244, 63, 94, 0.1);
+  --warn: #eab308;
+  --warn-dim: rgba(234, 179, 8, 0.1);
 
-  /* Radius rhythm — exaggerated, organic curves for liquid/fluid feel ------- */
-  --r-sm: 10px;
-  --r-md: 16px;
-  --r-lg: 24px;
+  /* Radius rhythm — Machined crisp angles --------------------------------- */
+  --r-sm: 5px;
+  --r-md: 8px;
+  --r-lg: 12px;
 
-  /* Back-compat aliases used by existing components ---------------------- */
-  --card-bg: var(--surface);
+  /* Back-compat aliases kept --------------------------------------------- */
+  --card-bg: #151c2e;
   --accent-glow: var(--accent-bright);
   --muted: var(--ink-muted);
 }
@@ -77,95 +77,102 @@ h3 { font-size: 14px; line-height: 1.3;  font-weight: 600; letter-spacing: -0.01
 .card {
   position: relative;
   background: var(--surface);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid var(--line);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 1px solid rgba(255, 255, 255, 0.04);
+  border-right: 1px solid rgba(0, 0, 0, 0.45);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.65);
   border-radius: var(--r-lg);
   box-shadow: 
-    0 10px 40px -10px rgba(0, 0, 0, 0.5),
-    inset 0 1px 1px rgba(255, 255, 255, 0.12);
-  transition: all 400ms cubic-bezier(0.25, 1, 0.5, 1);
+    4px 4px 16px rgba(0, 0, 0, 0.6),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .card:hover {
   background: var(--surface-hover);
-  border-color: var(--line-strong);
   box-shadow: 
-    0 16px 50px -8px rgba(0, 0, 0, 0.6),
-    inset 0 1px 1px rgba(255, 255, 255, 0.2),
-    0 0 20px rgba(77, 159, 255, 0.08);
-  transform: translateY(-2px);
+    6px 6px 20px rgba(0, 0, 0, 0.7),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
 }
 .card-pad { padding: 18px 20px; }
 
 .surface-raised {
   background: var(--surface-raised);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--line);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-left: 1px solid rgba(255, 255, 255, 0.04);
+  border-right: 1px solid rgba(0, 0, 0, 0.5);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.7);
   border-radius: var(--r-md);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transition: all 300ms cubic-bezier(0.25, 1, 0.5, 1);
-}
-.surface-raised:hover {
-  background: var(--surface-hover);
-  border-color: var(--line-strong);
+  box-shadow: 
+    2px 2px 8px rgba(0, 0, 0, 0.5),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 /* Segmented control ------------------------------------------------------- */
 .seg {
   display: inline-flex;
-  padding: 4px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 3px;
+  border-radius: 8px;
+  background: #05070c;
+  border-top: 1px solid rgba(0, 0, 0, 0.85);
+  border-left: 1px solid rgba(0, 0, 0, 0.75);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.8);
 }
 .seg button {
-  border-radius: 8px;
-  padding: 6px 14px;
-  font-size: 12.5px;
-  font-weight: 550;
+  border-radius: 5px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--ink-muted);
-  transition: all 300ms cubic-bezier(0.25, 1, 0.5, 1);
+  transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 .seg button[data-active="true"] { 
-  background: rgba(255, 255, 255, 0.1); 
+  background: linear-gradient(180deg, #1c253c 0%, #101423 100%);
   color: var(--ink); 
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+  border-right: 1px solid rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.6);
   box-shadow: 
-    0 2px 10px rgba(0, 0, 0, 0.2), 
-    inset 0 1px 1px rgba(255, 255, 255, 0.1);
+    1px 1px 3px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 .seg button:hover:not([data-active="true"]) { 
   color: var(--ink-secondary); 
-  background: rgba(255, 255, 255, 0.04);
 }
 
 /* Chip -------------------------------------------------------------------- */
 .chip {
-  border-radius: 10px;
-  padding: 6px 14px;
-  font-size: 12.5px;
-  font-weight: 550;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: #05070c;
+  border-top: 1px solid rgba(0, 0, 0, 0.85);
+  border-left: 1px solid rgba(0, 0, 0, 0.75);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 1.5px 1.5px 3px rgba(0, 0, 0, 0.8);
   color: var(--ink-secondary);
-  transition: all 350ms cubic-bezier(0.25, 1, 0.5, 1);
+  transition: all 150ms ease;
 }
 .chip[data-active="true"] {
-  background: var(--accent-dim);
+  background: linear-gradient(180deg, #22355c 0%, #121e36 100%);
   color: var(--accent-bright);
-  border-color: rgba(77, 159, 255, 0.45);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  border-right: 1px solid rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.6);
   box-shadow: 
-    0 0 15px rgba(77, 159, 255, 0.15),
-    inset 0 1px 1px rgba(255, 255, 255, 0.15);
+    1px 1px 3px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 0 10px rgba(59, 130, 246, 0.15);
 }
 .chip:hover:not([data-active="true"]) { 
-  background: rgba(255, 255, 255, 0.08); 
-  border-color: rgba(255, 255, 255, 0.12);
+  background: #080c16; 
   color: var(--ink); 
 }
 
@@ -181,45 +188,12 @@ h3 { font-size: 14px; line-height: 1.3;  font-weight: 600; letter-spacing: -0.01
   border-radius: 4px;
 }
 
-/* Motion & Liquid Animations ----------------------------------------------- */
-@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-.rise { animation: rise 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+/* Motion & Physical Animations --------------------------------------------- */
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 
-@keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
-.shimmer { animation: pulse-soft 1.6s ease-in-out infinite; }
-
-/* Liquid animation keyframes */
-@keyframes liquid-blob {
-  0%, 100% {
-    transform: translate(0px, 0px) scale(1) rotate(0deg);
-  }
-  33% {
-    transform: translate(30px, -50px) scale(1.15) rotate(120deg);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9) rotate(240deg);
-  }
-}
-
-@keyframes liquid-blob-reverse {
-  0%, 100% {
-    transform: translate(0px, 0px) scale(1) rotate(0deg);
-  }
-  33% {
-    transform: translate(-30px, 40px) scale(0.9) rotate(-120deg);
-  }
-  66% {
-    transform: translate(25px, -30px) scale(1.1) rotate(-240deg);
-  }
-}
-
-.animate-liquid-blob {
-  animation: liquid-blob 25s ease-in-out infinite alternate;
-}
-
-.animate-liquid-blob-reverse {
-  animation: liquid-blob-reverse 30s ease-in-out infinite alternate;
-}
+@keyframes pulse-soft { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.shimmer { animation: pulse-soft 1.8s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -245,6 +219,29 @@ h3 { font-size: 14px; line-height: 1.3;  font-weight: 600; letter-spacing: -0.01
   background-clip: padding-box;
 }
 
+/* Skeuomorphic Mesh Overlay */
+.carbon-mesh {
+  background-color: #07090e;
+  background-image: 
+    linear-gradient(45deg, #0e111a 25%, transparent 25%), 
+    linear-gradient(-45deg, #0e111a 25%, transparent 25%), 
+    linear-gradient(45deg, transparent 75%, #0e111a 75%), 
+    linear-gradient(-45deg, transparent 75%, #0e111a 75%);
+  background-size: 6px 6px;
+  background-position: 0 0, 0 3px, 3px -3px, -3px 0px;
+}
+
+/* LED Glow lamps */
+.led-profit {
+  box-shadow: 0 0 6px var(--profit), inset 0 1px 1px rgba(255, 255, 255, 0.7);
+}
+.led-loss {
+  box-shadow: 0 0 6px var(--loss), inset 0 1px 1px rgba(255, 255, 255, 0.7);
+}
+.led-warn {
+  box-shadow: 0 0 6px var(--warn), inset 0 1px 1px rgba(255, 255, 255, 0.7);
+}
+
 /* Legacy aliases kept so older components render while they migrate ------- */
-.text-glow { text-shadow: 0 0 10px rgba(0, 212, 255, 0.3); }
+.text-glow { text-shadow: 0 0 8px rgba(59, 130, 246, 0.4); }
 .glow-box { background: var(--surface-raised); border-radius: var(--r-lg); }
