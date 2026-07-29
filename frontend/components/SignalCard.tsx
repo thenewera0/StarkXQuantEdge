@@ -28,7 +28,7 @@ export function SignalCard({ s, livePrice }: { s: Signal; livePrice?: number | n
             <span className="text-xl font-semibold tracking-tight">{s.symbol}</span>
             <RegimeBadge regime={s.regime} />
             <TierBadge tier={s.tier} />
-            {s.strategy === "range-fade" && (
+            {s.strategy_family === "range-fade" && (
               <span className="rounded-full bg-[var(--warn-dim)] px-2 py-0.5 text-[10px] font-semibold text-amber-600">FADE</span>
             )}
           </div>

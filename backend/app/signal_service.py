@@ -339,7 +339,7 @@ def compute_signal(
         "confidence": result.confidence,
         "tier": tier,
         "agreement": result.agreement,
-        "strategy": "range-fade" if geo.get("is_fade") else "trend",
+        "strategy_family": "range-fade" if geo.get("is_fade") else "trend",
         "win_prob": round(win_prob, 4),
         "meta_p": round(meta_p, 4) if meta_p is not None else None,
         "htf_trend": raw_features["htf_trend"],

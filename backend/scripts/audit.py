@@ -43,8 +43,8 @@ for d in sigs:
     mp = d.get("meta_p")
     if mp is not None and not (0.02 <= mp <= 0.98):
         bad(f"{tag}: meta_p out of range: {mp}")
-    if d.get("strategy") not in ("trend", "range-fade"):
-        bad(f"{tag}: bad strategy {d.get('strategy')}")
+    if d.get("strategy_family") not in ("trend", "range-fade"):
+        bad(f"{tag}: bad strategy_family {d.get('strategy_family')}")
     rs = d.get("risk_state") or {}
     for k in ("drifting", "circuit_halted", "size_mult", "day_r"):
         if k not in rs:
