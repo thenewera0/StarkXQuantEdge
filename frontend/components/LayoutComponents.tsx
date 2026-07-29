@@ -40,7 +40,7 @@ export function Sidebar() {
   }, []);
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-[var(--line)] bg-[var(--bg-sidebar)]">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-white/10 bg-white/[0.01] backdrop-blur-2xl shadow-[4px_0_30px_rgba(0,0,0,0.3)]">
       <div className="flex h-20 items-center px-6">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-bright)] text-white ">
@@ -62,7 +62,7 @@ export function Sidebar() {
                   href={item.href}
                   className={`group flex items-center gap-4 rounded-xl px-4 py-3 text-sm font-medium transition-all ${
                     isActive 
-                      ? "bg-gradient-to-r from-[var(--accent-dim)] to-transparent text-white border-l-2 border-[var(--accent-bright)]" 
+                      ? "bg-white/10 text-white border-l-2 border-[var(--accent-bright)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_4px_20px_-5px_rgba(0,0,0,0.3)] backdrop-blur-md" 
                       : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
                   }`}
                 >
@@ -85,13 +85,13 @@ export function Sidebar() {
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-[var(--line)] bg-[#090b14]/60 px-8 backdrop-blur-md">
+    <header className="sticky top-0 z-30 flex h-20 items-center justify-between border-b border-white/10 bg-white/[0.01] px-8 backdrop-blur-xl shadow-[0_4px_30px_rgba(0,0,0,0.15)]">
       <div className="relative w-96">
         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
         <input 
           type="text" 
           placeholder="Search anything..." 
-          className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-10 pr-12 text-sm text-white placeholder:text-[var(--ink-muted)] outline-none focus:border-[rgba(0,102,255,0.5)] focus:bg-white/10 transition-all"
+          className="w-full rounded-xl border border-white/10 bg-white/[0.03] backdrop-blur-md py-2.5 pl-10 pr-12 text-sm text-white placeholder:text-[var(--ink-muted)] outline-none focus:border-[rgba(0,102,255,0.5)] focus:bg-white/[0.08] focus:shadow-[0_0_15px_rgba(47,127,255,0.1),inset_0_1px_1px_rgba(255,255,255,0.1)] transition-all"
         />
         <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-medium text-slate-400">
           <span className="text-[12px]">⌘</span>K
@@ -99,11 +99,11 @@ export function Header() {
       </div>
       
       <div className="flex items-center gap-4">
-        <button className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white">
+        <button className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-slate-300 transition-all hover:bg-white/[0.08] hover:text-white hover:scale-105 active:scale-95 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]">
           <Bell size={18} />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[var(--accent-bright)]" />
+          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[var(--accent-bright)] shadow-[0_0_8px_rgba(0,212,255,0.6)]" />
         </button>
-        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-slate-300 transition-colors hover:bg-white/10 hover:text-white">
+        <button className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-slate-300 transition-all hover:bg-white/[0.08] hover:text-white hover:scale-105 active:scale-95 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)]">
           <Mail size={18} />
         </button>
         
