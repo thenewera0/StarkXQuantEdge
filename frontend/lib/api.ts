@@ -615,3 +615,17 @@ export async function fetchUniverse(category?: string): Promise<UniverseResponse
   if (!res.ok) throw new Error(`Backend ${res.status}`);
   return res.json();
 }
+
+// ---- Live risk state: exposure ceiling + drawdown throttle -----------------
+export type RiskExposure = {
+  equity_usd: number; high_water_usd: number;
+  open_positions: number; open_by_market: Record<string, number>;
+  max_concurrent: number; class_cap: number;
+  open_notional_usd: number; gross_used: number; gross_ceiling: number;
+  throttle: number; budget_usd: number; remaining_usd: number; can_open: boolean;
+};
+export async function fetchRiskExposure(): Promise<RiskExposure> {
+  const res = await fetch(`${API_BASE}/risk/exposure`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}

@@ -17,7 +17,9 @@
       "Bash(cd \"/c/Users/Admin/Trading Bot app/frontend\" && npm run build 2>&1 | tail -25)",
       "Bash(sed -n '/def _open_slots/,/^def scan_once/p' app/scanner.py)",
       "Bash(cd \"/c/Users/Admin/Trading Bot app/backend\" && grep -rn \"_open_slots\" app/ scripts/ | grep -v \"def _open_slots\")",
-      "Bash(./.venv/Scripts/python.exe -m scripts.test_universe)"
+      "Bash(./.venv/Scripts/python.exe -m scripts.test_universe)",
+      "Bash(cd \"/c/Users/Admin/Trading Bot app/backend\" && grep -n \"TIERS\\\\|max_concurrent\" -A 3 app/sizing.py | head -50 && echo \"=== backtest module ===\" && ls app/backtest/)",
+      "Bash(cd \"/c/Users/Admin/Trading Bot app/backend\" && sed -n '20,35p' app/sizing.py && echo \"=== harness signature ===\" && grep -n \"^def \\\\|^class \" app/backtest/harness.py | head -20)"
     ]
   }
 }

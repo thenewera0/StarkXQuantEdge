@@ -301,6 +301,34 @@ def investments_model() -> dict:
     return investments.allocation_model()
 
 
+@app.get("/risk/exposure")
+def risk_exposure() -> dict:
+    """The live risk state: gross exposure, the ceiling, and the drawdown throttle.
+
+    Position COUNT is not what limits the book — capital is. This is the number that decides
+    whether a new setup can be taken, and how large.
+    """
+    from . import scanner, sizing
+    book = scanner._book_state(force=True)
+    b = book["budget"]
+    tier = sizing.tier_for_equity(book["equity"])
+    return {
+        "equity_usd": book["equity"],
+        "high_water_usd": book.get("high_water", book["equity"]),
+        "open_positions": sum(book["per_market"].values()),
+        "open_by_market": book["per_market"],
+        "max_concurrent": tier["max_concurrent"],
+        "class_cap": scanner._class_cap(),
+        "open_notional_usd": b["open_notional_usd"],
+        "gross_used": b["gross_used"],
+        "gross_ceiling": b["gross_ceiling"],
+        "throttle": b["throttle"],
+        "budget_usd": b["budget_usd"],
+        "remaining_usd": b["remaining_usd"],
+        "can_open": b["remaining_usd"] > 0 and book["slots"] > 0,
+    }
+
+
 @app.get("/universe")
 def universe_list(category: str | None = None, allocatable_only: bool = False,
                   crypto_limit: int = 150) -> dict:

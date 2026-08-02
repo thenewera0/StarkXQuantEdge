@@ -24,6 +24,7 @@ import { CombinedPnl } from "@/components/CombinedPnl";
 import { InvestmentsPanel } from "@/components/InvestmentsPanel";
 import { AllocationModelPanel } from "@/components/AllocationModelPanel";
 import { UniversePanel } from "@/components/UniversePanel";
+import { RiskPanel } from "@/components/RiskPanel";
 import { PortfolioPanel } from "@/components/PortfolioPanel";
 import { ViewHeader } from "@/components/PanelShell";
 import { Card } from "@/components/ui";
@@ -138,6 +139,7 @@ export default function Dashboard() {
               <div className="xl:col-span-2"><PortfolioOverview /></div>
               <CombinedPnl refreshKey={historyKey} />
             </div>
+            <RiskPanel refreshKey={historyKey} />
             <LiveTradesPanel refreshKey={historyKey} />
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <AssetAllocation />
@@ -164,6 +166,7 @@ export default function Dashboard() {
         <>
           <ViewHeader title="Live Trades" subtitle="Every open position, marked to the live price." />
           <div className="space-y-6">
+            <RiskPanel refreshKey={historyKey} />
             <LiveTradesPanel refreshKey={historyKey} />
             <CombinedPnl refreshKey={historyKey} />
           </div>

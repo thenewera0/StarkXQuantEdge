@@ -55,6 +55,11 @@ class Trade:
     mfe: float              # max favorable excursion, fraction of entry
     mae: float              # max adverse excursion, fraction of entry
     confidence: float
+    # Stop distance as a fraction of entry, known AT ENTRY. This is the trade's "R" and the only
+    # honest basis for position size. MAE is NOT a substitute: it says how far the trade actually
+    # went against us, which is future information — sizing on it makes winners look risk-free and
+    # produces fantasy equity curves.
+    risk_frac: float = 0.0
 
 
 @dataclass
@@ -254,6 +259,7 @@ def backtest(
                 mfe=round(mfe, 6),
                 mae=round(mae, 6),
                 confidence=sig.confidence,
+                risk_frac=round(abs(entry - stop) / entry, 6) if entry else 0.0,
             )
         )
 

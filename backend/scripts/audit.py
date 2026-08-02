@@ -91,14 +91,25 @@ for d in sigs:
     cap = sizing.tier_for_equity(settings.account_equity_usd)["risk_cap"]
     fam_mult = allocator.family_multiplier(ps.get("family", "trend"))
     expected = min(kf, rf, cap) * (d_state["size_mult"] * cal_mult) * fam_mult
-    if abs(ps["risk_fraction"] - expected) > 1e-4:
+    # The gross-exposure ceiling is a LATER, harder constraint than the per-trade chain: when the
+    # book has no notional room left, the trade is cut down (often to zero) regardless of how good
+    # its Kelly fraction is. So the composition invariant is an UPPER BOUND once "+exposure" has
+    # been applied, not an equality.
+    clamped = "exposure" in ps.get("bound_by", "")
+    if clamped:
+        if ps["risk_fraction"] > expected + 1e-4:
+            bad(f"{tag}: exposure-clamped risk_fraction {ps['risk_fraction']} EXCEEDS the "
+                f"unclamped composition {round(expected,5)} — the clamp must only ever reduce")
+    elif abs(ps["risk_fraction"] - expected) > 1e-4:
         bad(f"{tag}: risk_fraction {ps['risk_fraction']} != composed {round(expected,5)} "
             f"(kelly={kf} ruin={rf} cap={cap} drift={d_state['size_mult']} cal={cal_mult} alloc={round(fam_mult,3)})")
     if ps["risk_fraction"] > cap + 1e-9:
         bad(f"{tag}: risk_fraction exceeds tier cap")
     if ps["risk_fraction"] < 0:
         bad(f"{tag}: negative risk_fraction")
-ok(f"sizing composes drift({d_state['size_mult']}) x cal({cal_mult}) x allocator, tier-capped")
+_clamped_n = sum(1 for d in sigs if "exposure" in (d.get("position_sizing") or {}).get("bound_by", ""))
+ok(f"sizing composes drift({d_state['size_mult']}) x cal({cal_mult}) x allocator, tier-capped"
+   + (f"; {_clamped_n} further cut by the gross-exposure ceiling" if _clamped_n else ""))
 
 print("=== 4. Live == backtest geometry + cost consistency ===")
 # geometry: live _risk_geometry already delegates to trade_levels (unit-tested); re-confirm a range fade.

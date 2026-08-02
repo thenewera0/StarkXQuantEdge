@@ -86,28 +86,93 @@ SCAN_INTERVALS: dict[str, list[str]] = {
 _ACTIONABLE = {"Buy", "Strong Buy", "Sell", "Strong Sell"}
 
 
-def _open_slots() -> tuple[int, dict[str, int]]:
-    """(total slots left, open count per market) under the tier's concurrency cap.
+_book_cache: tuple[float, dict] | None = None
+_BOOK_TTL = 20.0     # seconds; a sweep computes hundreds of signals and the book barely moves
 
-    Counts live (non-paper) positions that have not yet resolved. Returns a large number when
-    persistence is off so local/backtest use is unaffected.
+
+def _book_state(force: bool = False) -> dict:
+    """What the live book currently holds: count per class, total notional, and equity room.
+
+    Position COUNT was never the real constraint — measured over 23,487 replayed trades, raising
+    the count cap from 6 to 30 changed the equity curve by nothing at all, because capital runs
+    out first. NOTIONAL is the constraint, and until 2026-08-02 nothing measured it: the live book
+    was carrying $16,160 of exposure on $1,000 of equity (16.2x) while every position individually
+    "only risked 2%".
     """
+    global _book_cache
+    import time as _time
+    now = _time.time()
+    if not force and _book_cache and now - _book_cache[0] < _BOOK_TTL:
+        return _book_cache[1]
+
     from . import db, sizing
+    equity = settings.account_equity_usd
+    cap = sizing.tier_for_equity(equity)["max_concurrent"]
     if not db.enabled():
-        return 99, {}
-    cap = sizing.tier_for_equity(settings.account_equity_usd)["max_concurrent"]
+        return {"slots": 99, "per_market": {}, "open_notional": 0.0,
+                "budget": sizing.exposure_budget(equity, 0.0), "equity": equity}
     try:
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
-                """select coalesce(s.market, 'crypto'), count(*) from signals s
+                """select coalesce(s.market, 'crypto') as mkt, count(*),
+                          coalesce(sum(
+                              case when s.entry is not null and s.stop is not null
+                                        and abs(s.entry - s.stop) > 0
+                                   then (%s * %s) / (abs(s.entry - s.stop) / abs(s.entry))
+                                   else 0 end), 0)
+                   from signals s
                    where not s.shadow and s.entry is not null and s.label <> 'Neutral'
                      and not exists (select 1 from outcomes o where o.signal_id = s.id)
-                   group by 1"""
+                   group by 1""",
+                (equity, settings.risk_per_trade_pct / 100.0),
             )
-            per_market = {str(m): int(n) for m, n in cur.fetchall()}
+            rows = cur.fetchall()
     except Exception:
-        return 0, {}  # cannot verify exposure -> do not add risk
-    return max(0, cap - sum(per_market.values())), per_market
+        # Cannot verify exposure -> add no risk. Failing closed is the only safe direction here.
+        return {"slots": 0, "per_market": {}, "open_notional": 0.0,
+                "budget": sizing.exposure_budget(equity, equity * 99), "equity": equity}
+
+    per_market = {str(r[0]): int(r[1]) for r in rows}
+    open_notional = float(sum(float(r[2]) for r in rows))
+    high_water = _high_water(equity)
+    state = {
+        "slots": max(0, cap - sum(per_market.values())),
+        "per_market": per_market,
+        "open_notional": open_notional,
+        "budget": sizing.exposure_budget(equity, open_notional, high_water),
+        "equity": equity,
+        "high_water": round(high_water, 2),
+    }
+    _book_cache = (now, state)
+    return state
+
+
+def _high_water(equity: float) -> float:
+    """Peak equity reached, from realised P&L. Drives the drawdown throttle.
+
+    Falls back to current equity (throttle inactive) when there is no history to measure against —
+    an unknown drawdown must not be treated as a large one, or a fresh account would start
+    de-risked for no reason.
+    """
+    from . import db
+    try:
+        with db.get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                """select o.pnl from outcomes o join signals s on s.id = o.signal_id
+                   where not s.shadow and o.pnl is not None order by o.resolved_at"""
+            )
+            pnls = [float(r[0]) for r in cur.fetchall()]
+    except Exception:
+        return equity
+    if not pnls:
+        return equity
+    # Walk the realised curve backwards from today's equity to recover its running peak.
+    start = equity - sum(pnls)
+    running, peak = start, start
+    for p in pnls:
+        running += p
+        peak = max(peak, running)
+    return max(peak, equity)
 
 
 def _class_cap() -> int:
@@ -137,12 +202,20 @@ def scan_once(min_confidence: float | None = None) -> dict:
     # closed UP that day. The direction was right; the position count was the failure. Crypto pairs
     # are ~0.8+ correlated, so N simultaneous longs is not N bets — it is one bet sized N times.
     # sizing.TIERS already declared max_concurrent and nothing ever enforced it. It does now.
-    room, open_by_market = _open_slots()
+    book = _book_state()
+    room, open_by_market, budget = book["slots"], book["per_market"], book["budget"]
     class_cap = _class_cap()
     if room <= 0:
         return {"scanned": 0, "errors": 0, "emitted": 0, "min_confidence": threshold,
-                "signals": [], "open_by_market": open_by_market,
+                "signals": [], "open_by_market": open_by_market, "exposure": budget,
                 "blocked": "position cap reached — already at max concurrent risk"}
+    if budget["remaining_usd"] <= 0:
+        return {"scanned": 0, "errors": 0, "emitted": 0, "min_confidence": threshold,
+                "signals": [], "open_by_market": open_by_market, "exposure": budget,
+                "blocked": (f"exposure budget spent — {budget['gross_used']:.2f}x gross against a "
+                            f"{budget['gross_ceiling']:.1f}x ceiling"
+                            + (f", throttled to {budget['throttle']:.0%} by drawdown"
+                               if budget["throttle"] < 1.0 else ""))}
 
     try:
         sweep = scan_universe()
@@ -163,9 +236,12 @@ def scan_once(min_confidence: float | None = None) -> dict:
 
     by_market: dict[str, int] = {}
     held: dict[str, int] = dict(open_by_market)   # already-open positions count against the class cap
+    remaining = budget["remaining_usd"]           # notional still available across the whole sweep
     for market, symbol in ordered:
         if len(emitted) >= room:
             break             # cap reached — stop adding risk, whatever is left unscanned
+        if remaining <= 0:
+            break             # capital, not slots, is what actually ran out
         if held.get(market, 0) >= class_cap:
             continue          # this class is full; its remaining slots belong to other drivers
         for interval in SCAN_INTERVALS.get(market, ["4h"]):
@@ -184,14 +260,31 @@ def scan_once(min_confidence: float | None = None) -> dict:
                 break     # concurrency cap reached mid-sweep — stop adding correlated risk
             if held.get(market, 0) >= class_cap:
                 break     # per-class cap — leave the rest of the book for uncorrelated drivers
-            sid = persistence.log_decision(sig)
+
+            # What this position would actually cost the book in NOTIONAL, not in "2% risk".
             lv = sig["levels"]
+            entry, stop = lv.get("entry"), lv.get("stop")
+            want = 0.0
+            if entry and stop and abs(float(entry)) > 0:
+                stop_frac = abs(float(entry) - float(stop)) / abs(float(entry))
+                if stop_frac > 0:
+                    want = (book["equity"] * settings.risk_per_trade_pct / 100.0) / stop_frac
+            if want > remaining:
+                # Take a SMALLER position rather than skipping a good setup. This is exactly what
+                # lets the count cap be generous while the capital ceiling stays hard.
+                want = remaining
+            if want <= 0:
+                break
+
+            sid = persistence.log_decision(sig)
+            remaining -= want
             by_market[market] = by_market.get(market, 0) + 1
             held[market] = held.get(market, 0) + 1
             emitted.append({
                 "id": sid, "symbol": sig["symbol"], "market": market, "interval": interval,
                 "label": sig["label"], "confidence": sig["confidence"], "regime": sig.get("regime"),
                 "entry": lv["entry"], "stop": lv["stop"], "target": lv["target"],
+                "notional_usd": round(want, 2),
             })
 
     return {
@@ -201,4 +294,5 @@ def scan_once(min_confidence: float | None = None) -> dict:
         "emitted_by_market": by_market,
         "open_by_market": held,
         "class_cap": class_cap,
+        "exposure": {**budget, "remaining_after_sweep_usd": round(remaining, 2)},
     }

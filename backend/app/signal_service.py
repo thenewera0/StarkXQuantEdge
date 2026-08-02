@@ -281,13 +281,22 @@ def compute_signal(
         family = "range-fade" if geo.get("is_fade") else "trend"
         alloc_mult = allocator.family_multiplier(family)
         derisk_mult = risk_state["size_mult"] * calibration.size_multiplier()
+        # Room left under the gross-exposure ceiling, after everything already open and after the
+        # drawdown throttle. Without this the recommended size ignores the rest of the book, which
+        # is how six positions each "risking 2%" added up to 16.2x gross on 2026-08-02.
+        try:
+            from . import scanner as _scanner
+            room = _scanner._book_state()["budget"]["remaining_usd"]
+        except Exception:
+            room = None
         position_sizing = sizing.position_size(
             settings.account_equity_usd, p_eff, rr, stop_frac,
             drift_mult=derisk_mult, alloc_mult=alloc_mult,
-            min_notional=settings.min_notional_usd,
+            min_notional=settings.min_notional_usd, room_usd=room,
         )
         position_sizing["family"] = family
         position_sizing["alloc_mult"] = round(alloc_mult, 3)
+        position_sizing["exposure_room_usd"] = round(room, 2) if room is not None else None
 
     # --- L5d autonomy: drift de-risk + circuit breaker (§4.2 / §4 safety rails) ---
     # EV floor = per-tier threshold (small accounts stricter), RAISED to the drift floor while
