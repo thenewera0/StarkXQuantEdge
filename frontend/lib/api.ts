@@ -572,3 +572,24 @@ export async function scanSolana(): Promise<SolanaScan> {
   if (!res.ok) throw new Error(`Backend ${res.status}`);
   return res.json();
 }
+
+// ---- Proven allocation model (mom252d top5 +MA200 +abs) ----------------
+export type ModelHolding = {
+  symbol: string; price: number; momentum_252d: number;
+  above_ma200: boolean; pct_vs_ma200: number; weight?: number; reason?: string;
+};
+export type AllocationModel = {
+  model: string; rules: string[];
+  holdings: ModelHolding[]; rejected: ModelHolding[];
+  cash_weight: number; invested_pct: number; screened: number; stance: string;
+  backtest: {
+    window_days: number; assets: number;
+    strategy_total: number; benchmark_total: number;
+    strategy_maxdd: number; benchmark_maxdd: number; note: string;
+  };
+};
+export async function fetchAllocationModel(): Promise<AllocationModel> {
+  const res = await fetch(`${API_BASE}/investments/model`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}

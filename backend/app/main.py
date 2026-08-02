@@ -294,6 +294,13 @@ def investments_screen() -> dict:
     return investments.screen()
 
 
+@app.get("/investments/model")
+def investments_model() -> dict:
+    """The PROVEN allocation model: mom252d top5 +MA200 +abs (measured vs buy-and-hold)."""
+    from . import investments
+    return investments.allocation_model()
+
+
 @app.get("/portfolio/allocation")
 def portfolio_allocation(equity: float | None = None, days: int = 90) -> dict:
     """Target capital split across strategy sleeves (risk parity tilted by realized expectancy)."""

@@ -22,6 +22,7 @@ import { FlashBotPanel } from "@/components/FlashBotPanel";
 import { LiveTradesPanel } from "@/components/LiveTradesPanel";
 import { CombinedPnl } from "@/components/CombinedPnl";
 import { InvestmentsPanel } from "@/components/InvestmentsPanel";
+import { AllocationModelPanel } from "@/components/AllocationModelPanel";
 import { PortfolioPanel } from "@/components/PortfolioPanel";
 import { ViewHeader } from "@/components/PanelShell";
 import { Card } from "@/components/ui";
@@ -172,7 +173,10 @@ export default function Dashboard() {
       {view === "invest" && (
         <>
           <ViewHeader title="Long-term Investments" subtitle="What deserves capital for months — screened on momentum, trend quality and risk-adjusted return." />
-          <InvestmentsPanel />
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <AllocationModelPanel />
+            <InvestmentsPanel />
+          </div>
         </>
       )}
 
