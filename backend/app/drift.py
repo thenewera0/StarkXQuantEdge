@@ -44,12 +44,24 @@ def _recent_r(limit: int = 80) -> list[float]:
             rows = cur.fetchall()
     except Exception:
         return []
-    out: list[float] = []
-    for pnl, entry, stop, _ in reversed(rows):  # oldest -> newest
+    # CLUSTER CORRELATED TRADES. Page-Hinkley assumes INDEPENDENT samples, but this engine opens
+    # several correlated crypto positions in the same sweep — on 07-28 it opened 19 longs in two
+    # hours and a single market dip stopped them all. Counted naively that reads as 19 independent
+    # failures and pins the drift alarm on for days; it was really ONE event. Trades resolved inside
+    # the same hour are therefore averaged into a single sample, so drift measures how many distinct
+    # times the edge failed rather than how many positions were open when it did.
+    buckets: dict[str, list[float]] = {}
+    order: list[str] = []
+    for pnl, entry, stop, resolved in reversed(rows):  # oldest -> newest
         risk_frac = abs(float(entry) - float(stop)) / abs(float(entry))
-        if risk_frac > 1e-9:
-            out.append(float(pnl) / risk_frac)
-    return out
+        if risk_frac <= 1e-9:
+            continue
+        key = resolved.strftime("%Y-%m-%d %H") if resolved else str(len(order))
+        if key not in buckets:
+            buckets[key] = []
+            order.append(key)
+        buckets[key].append(float(pnl) / risk_frac)
+    return [sum(v) / len(v) for k in order for v in (buckets[k],)]
 
 
 def page_hinkley(rs: list[float], delta: float, lam: float) -> tuple[bool, float]:
