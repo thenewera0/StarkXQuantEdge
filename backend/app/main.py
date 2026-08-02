@@ -296,9 +296,43 @@ def investments_screen() -> dict:
 
 @app.get("/investments/model")
 def investments_model() -> dict:
-    """The PROVEN allocation model: mom252d top5 +MA200 +abs (measured vs buy-and-hold)."""
+    """Cross-asset momentum, inverse-vol weighted, 20% vol target (measured vs buy-and-hold)."""
     from . import investments
     return investments.allocation_model()
+
+
+@app.get("/universe")
+def universe_list(category: str | None = None, allocatable_only: bool = False,
+                  crypto_limit: int = 150) -> dict:
+    """Every instrument the system can see, across all five asset classes.
+
+    `allocatable_only=true` hides the series that are visible but not ownable — yield indices,
+    spot VIX, and non-G10 FX where the interest differential cancels the spot trend.
+    """
+    from . import universe
+    cats = [c.strip() for c in category.split(",")] if category else None
+    items = universe.catalog(cats, crypto_limit=crypto_limit, allocatable_only=allocatable_only)
+    return {"counts": universe.counts(crypto_limit), "instruments": items}
+
+
+@app.get("/universe/quote")
+def universe_quote(symbol: str) -> dict:
+    """Last price + daily change for any catalog symbol, whichever provider serves it."""
+    from . import universe
+    entry = universe.resolve(symbol)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"'{symbol}' is not in the universe")
+    try:
+        df = universe.fetch(symbol, "1d", 3)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    if df.empty:
+        raise HTTPException(status_code=502, detail=f"no bars for {symbol}")
+    px = float(df["close"].iloc[-1])
+    prev = float(df["close"].iloc[-2]) if len(df) > 1 else px
+    return {**entry, "price": px,
+            "change_pct": round((px / prev - 1) * 100, 3) if prev else 0.0,
+            "as_of": df.index[-1].isoformat()}
 
 
 @app.get("/portfolio/allocation")

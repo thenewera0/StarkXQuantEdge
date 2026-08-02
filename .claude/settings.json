@@ -2,7 +2,22 @@
   "permissions": {
     "allow": [
       "Read(//c/Users/Admin/Trading Bot app/backend/**)",
-      "Bash(./.venv/Scripts/python.exe -c ' *)"
+      "Bash(./.venv/Scripts/python.exe -c ' *)",
+      "Bash(cd \"/c/Users/Admin/Trading Bot app/backend\" && grep -n \"_CRYPTO_MARKETS\\\\|def _fetch_ohlcv\" -A 20 app/signal_service.py | sed -n '1,45p')",
+      "Bash(cd \"/c/Users/Admin/Trading Bot app/backend\" && ./.venv/Scripts/python.exe -c \" *)",
+      "Bash(cd \"/c/Users/Admin/Trading Bot app/backend\" && sed -n '110,175p' app/scanner.py)",
+      "Bash(cd \"/c/Users/Admin/Trading Bot app/frontend\" && grep -rn \"invest\\\\|fund\\\\|arb\" components/Sidebar.tsx 2>/dev/null | head -20 || ls components/)",
+      "Read(//c/Users/Admin/Trading Bot app/frontend/**)",
+      "Bash(cd \"/c/Users/Admin/Trading Bot app/frontend\" && ls components/ && echo \"--- nav ---\" && grep -rln \"invest\" app/ components/ | head)",
+      "Bash(cd \"/c/Users/Admin/Trading Bot app/frontend\" && grep -n \"invest\\\\|NAV\\\\|href=\\\\|icon:\" components/LayoutComponents.tsx | head -30)",
+      "Bash(cd \"/c/Users/Admin/Trading Bot app/frontend\" && sed -n '1,30p' components/LayoutComponents.tsx)",
+      "Bash(cd \"/c/Users/Admin/Trading *)",
+      "Bash(cd \"/c/Users/Admin/Trading Bot app/frontend\" && grep -n \"AllocationModel = {\" -A 12 lib/api.ts)",
+      "Bash(cd \"/c/Users/Admin/Trading Bot app/frontend\" && grep -n \"ModelHolding = {\" -A 5 lib/api.ts && npm run build 2>&1 | grep -E \"✓ Compiled|Failed|Type error|error\" | head -6)",
+      "Bash(cd \"/c/Users/Admin/Trading Bot app/frontend\" && npm run build 2>&1 | tail -25)",
+      "Bash(sed -n '/def _open_slots/,/^def scan_once/p' app/scanner.py)",
+      "Bash(cd \"/c/Users/Admin/Trading Bot app/backend\" && grep -rn \"_open_slots\" app/ scripts/ | grep -v \"def _open_slots\")",
+      "Bash(./.venv/Scripts/python.exe -m scripts.test_universe)"
     ]
   }
 }

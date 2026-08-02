@@ -48,10 +48,13 @@ export function AllocationModelPanel() {
           <ShieldCheck size={15} className="mt-0.5 shrink-0 text-[var(--profit)]" />
           <div className="text-[11.5px] leading-relaxed text-[var(--ink-secondary)]">
             <span className="font-semibold text-[var(--profit)]">Measured, not assumed.</span>{" "}
-            Over {bt.window_days} days across {bt.assets} assets this model returned{" "}
-            <b className="text-[var(--ink)]">{pct(bt.strategy_total)}</b> versus buy-and-hold at{" "}
-            <b className="text-[var(--ink)]">{pct(bt.benchmark_total)}</b> — {edge.toFixed(1)} points
-            better, with max drawdown {pct(bt.strategy_maxdd)} vs {pct(bt.benchmark_maxdd)}. {bt.note}.
+            Over {bt.window_days} days across {bt.assets} allocatable instruments this returned{" "}
+            <b className="text-[var(--ink)]">{pct(bt.strategy_total)}</b> against buy-and-hold&rsquo;s{" "}
+            <b className="text-[var(--ink)]">{pct(bt.benchmark_total)}</b> ({edge >= 0 ? "+" : ""}
+            {edge.toFixed(1)} pts) with max drawdown{" "}
+            <b className="text-[var(--ink)]">{pct(bt.strategy_maxdd)}</b> against{" "}
+            <b className="text-[var(--ink)]">{pct(bt.benchmark_maxdd)}</b> — better on both axes.
+            Return per unit of drawdown {bt.strategy_calmar?.toFixed(2)} vs {bt.benchmark_calmar?.toFixed(2)}.
           </div>
         </div>
       )}
@@ -65,6 +68,30 @@ export function AllocationModelPanel() {
       <p className="mb-3 rounded-lg border border-[var(--line)] bg-[var(--surface-raised)] px-3 py-2 text-[11.5px] text-[var(--ink-secondary)]">
         {m?.stance}
       </p>
+
+      {m?.by_category && Object.keys(m.by_category).length > 0 && (
+        <div className="mb-3">
+          <div className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--ink-muted)]">
+            Spread across asset classes
+          </div>
+          <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-[var(--surface-raised)]">
+            {Object.entries(m.by_category).map(([c, w], idx) => (
+              <div
+                key={c}
+                title={`${c} ${(w * 100).toFixed(1)}%`}
+                style={{ width: `${w * 100}%`, opacity: 1 - idx * 0.16 }}
+                className="bg-[var(--accent-bright)]"
+              />
+            ))}
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10.5px] text-[var(--ink-muted)]">
+            {Object.entries(m.by_category).map(([c, w]) => (
+              <span key={c} className="capitalize">{c} {(w * 100).toFixed(1)}%</span>
+            ))}
+            <span>cash {((m.cash_weight ?? 0) * 100).toFixed(1)}%</span>
+          </div>
+        </div>
+      )}
 
       {(m?.holdings?.length ?? 0) > 0 ? (
         <>
@@ -110,6 +137,9 @@ function Row({ h, held }: { h: ModelHolding; held?: boolean }) {
   return (
     <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl px-3 py-2 ${held ? "border border-[var(--profit)]/25 bg-[var(--profit-dim)]" : "surface-raised"}`}>
       <span className="font-semibold text-[var(--ink)]">{h.symbol.replace("USDT", "")}</span>
+      <span className="rounded bg-[var(--surface-hover)] px-1.5 py-0.5 text-[9.5px] capitalize text-[var(--ink-muted)]">
+        {h.category}
+      </span>
       {held && h.weight != null && (
         <span className="rounded bg-[var(--accent-dim)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--accent-bright)]">
           {(h.weight * 100).toFixed(0)}%
@@ -121,6 +151,9 @@ function Row({ h, held }: { h: ModelHolding; held?: boolean }) {
       <span className={`text-[10.5px] tabular-nums ${h.above_ma200 ? "text-[var(--profit)]" : "text-[var(--loss)]"}`}>
         {h.above_ma200 ? "above" : "below"} 200d {pct(h.pct_vs_ma200, 1)}
       </span>
+      {held && h.ann_vol != null && (
+        <span className="text-[10.5px] tabular-nums text-[var(--ink-muted)]">vol {pct(h.ann_vol, 0)}</span>
+      )}
       {h.reason && <span className="ml-auto text-[10.5px] text-[var(--ink-muted)]">{h.reason}</span>}
     </div>
   );

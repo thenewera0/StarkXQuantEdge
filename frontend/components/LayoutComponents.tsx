@@ -14,7 +14,8 @@ import {
   Zap,
   Radio,
   Landmark,
-  PieChart
+  PieChart,
+  Globe
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -22,6 +23,7 @@ const navItems = [
   { icon: LayoutDashboard, label: "Overview", href: "#overview" },
   { icon: Zap, label: "Flash Bot", href: "#flash" },
   { icon: Radio, label: "Live Trades", href: "#live" },
+  { icon: Globe, label: "Markets", href: "#markets" },
   { icon: Landmark, label: "Investments", href: "#invest" },
   { icon: PieChart, label: "Fund", href: "#fund" },
   { icon: Activity, label: "Analytics", href: "#analytics" },

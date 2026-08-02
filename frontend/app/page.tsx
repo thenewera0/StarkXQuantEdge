@@ -23,15 +23,16 @@ import { LiveTradesPanel } from "@/components/LiveTradesPanel";
 import { CombinedPnl } from "@/components/CombinedPnl";
 import { InvestmentsPanel } from "@/components/InvestmentsPanel";
 import { AllocationModelPanel } from "@/components/AllocationModelPanel";
+import { UniversePanel } from "@/components/UniversePanel";
 import { PortfolioPanel } from "@/components/PortfolioPanel";
 import { ViewHeader } from "@/components/PanelShell";
 import { Card } from "@/components/ui";
 import { Activity, Bitcoin, DollarSign, Sparkles, RefreshCw } from "lucide-react";
 
 type Market = "crypto" | "forex";
-type View = "overview" | "flash" | "live" | "invest" | "fund" | "analytics" | "history" | "arb";
+type View = "overview" | "flash" | "live" | "markets" | "invest" | "fund" | "analytics" | "history" | "arb";
 
-const VIEWS: View[] = ["overview", "flash", "live", "invest", "fund", "analytics", "history", "arb"];
+const VIEWS: View[] = ["overview", "flash", "live", "markets", "invest", "fund", "analytics", "history", "arb"];
 
 const WATCHLISTS: Record<Market, string[]> = {
   crypto: ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"],
@@ -166,6 +167,17 @@ export default function Dashboard() {
             <LiveTradesPanel refreshKey={historyKey} />
             <CombinedPnl refreshKey={historyKey} />
           </div>
+        </>
+      )}
+
+      {/* ---------------- MARKETS ---------------- */}
+      {view === "markets" && (
+        <>
+          <ViewHeader
+            title="Markets"
+            subtitle="Every instrument the engine can see — crypto, forex, commodities, indices and rates, all on free keyless data."
+          />
+          <UniversePanel />
         </>
       )}
 

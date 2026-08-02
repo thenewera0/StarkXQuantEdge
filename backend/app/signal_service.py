@@ -111,10 +111,22 @@ def _zscore(current: float, history: list[float]) -> float:
 
 
 def _fetch_ohlcv(symbol: str, interval: str, limit: int, market: str):
+    """Bars for ANY instrument, routed to whichever free provider serves it.
+
+    Crypto goes straight to Binance. Everything else resolves through the universe catalog, which
+    routes to Yahoo — forex, commodity futures, equity indices and bond futures/ETFs all arrive in
+    the same OHLCV shape, so the indicator stack below never learns what asset class it is looking
+    at. Twelve Data is kept only as a fallback: its free tier allows 800 requests/day, which a
+    universe of this size would exhaust in a single sweep.
+    """
     if market in _CRYPTO_MARKETS:
         df = fetch_klines(symbol, interval, limit)
     else:
-        df = fetch_klines_td(symbol, interval, outputsize=limit)
+        from . import universe
+        try:
+            df = universe.fetch(symbol, interval, limit)
+        except Exception:
+            df = fetch_klines_td(symbol, interval, outputsize=limit)
     df, _ = validate_ohlcv(df, interval)  # drop dupes/NaN/inconsistent bars before scoring
     return df
 
