@@ -23,6 +23,7 @@ import { LiveTradesPanel } from "@/components/LiveTradesPanel";
 import { CombinedPnl } from "@/components/CombinedPnl";
 import { InvestmentsPanel } from "@/components/InvestmentsPanel";
 import { AllocationModelPanel } from "@/components/AllocationModelPanel";
+import { RebalancePanel } from "@/components/RebalancePanel";
 import { UniversePanel } from "@/components/UniversePanel";
 import { RiskPanel } from "@/components/RiskPanel";
 import { PortfolioPanel } from "@/components/PortfolioPanel";
@@ -188,9 +189,12 @@ export default function Dashboard() {
       {view === "invest" && (
         <>
           <ViewHeader title="Long-term Investments" subtitle="What deserves capital for months — screened on momentum, trend quality and risk-adjusted return." />
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <AllocationModelPanel />
-            <InvestmentsPanel />
+          <div className="space-y-6">
+            <RebalancePanel />
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <AllocationModelPanel />
+              <InvestmentsPanel />
+            </div>
           </div>
         </>
       )}

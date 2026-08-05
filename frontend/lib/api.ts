@@ -634,3 +634,27 @@ export async function fetchRiskExposure(): Promise<RiskExposure> {
   if (!res.ok) throw new Error(`Backend ${res.status}`);
   return res.json();
 }
+
+// ---- Rebalancing engine: the measured edge that forecasts nothing ---------
+export type RebalHolding = {
+  symbol: string; name: string; category: string; price: number;
+  target_weight: number; current_weight: number; class_weight: number;
+  drift_pct: number; action: "trim" | "add" | "hold"; ann_vol: number;
+};
+export type RebalanceModel = {
+  model: string; rules: string[]; stance: string; screened: number;
+  holdings: RebalHolding[]; by_category: Record<string, number>;
+  rebalance: { band_pct: number; trim: string[]; add: string[]; note: string };
+  backtest: {
+    window_days: number; baskets_tested: number;
+    median_total: number; worst_total: number; best_total: number;
+    median_maxdd: number; worst_maxdd: number; median_sharpe: number;
+    beat_benchmark: string; benchmark_total: number; benchmark_maxdd: number;
+    no_rebalance_total: number; note: string;
+  };
+};
+export async function fetchRebalanceModel(): Promise<RebalanceModel> {
+  const res = await fetch(`${API_BASE}/investments/rebalance`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}

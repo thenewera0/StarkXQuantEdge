@@ -301,6 +301,13 @@ def investments_model() -> dict:
     return investments.allocation_model()
 
 
+@app.get("/investments/rebalance")
+def investments_rebalance(per_class: int = 6) -> dict:
+    """The rebalancing engine — the most robust edge measured here, and it forecasts nothing."""
+    from . import investments
+    return investments.rebalance_model(per_class)
+
+
 @app.get("/risk/exposure")
 def risk_exposure() -> dict:
     """The live risk state: gross exposure, the ceiling, and the drawdown throttle.
