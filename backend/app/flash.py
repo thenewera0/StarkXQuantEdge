@@ -42,7 +42,27 @@ FLASH_SYMBOLS = [
 ]
 # 15m + 1h: fast enough to fire many times a day, but with enough ATR that the round-trip cost is a
 # SMALL fraction of risk. (5m was measured at ~69% cost-to-risk — mathematically unwinnable.)
-FLASH_INTERVALS = ["15m", "1h"]
+FLASH_INTERVALS = ["1h"]
+
+# WHY 15m WAS REMOVED (2026-08-05), and what it means for this bot.
+#
+# An exhaustive search settled the question. 88,964 candidate trades were generated at every bar
+# in both directions across the 18 deepest USDT pairs, labelled with their real net outcome, then
+# 11,024 combinations of 21 indicators were tested — discovered on the first 60% of the timeline
+# and scored on the last 40%, which they never saw. NOT ONE survived out of sample. The best
+# in-sample rule (+0.02%/trade) returned -0.45%/trade forward.
+#
+# The reason is arithmetic, not signal quality. Taking EVERY trade at this horizon averages
+# -0.26% after costs, and no geometry rescues it — stop 1.5-4.0 ATR, RR 2-3, hold 24-48 bars all
+# land between -0.16% and -0.32%. A filter would have to manufacture a quarter-point of edge on
+# every trade just to reach break-even. By contrast the same measurement at DAILY bars starts at
+# roughly -0.02%, i.e. costs stop dominating once the holding period is long enough to earn a
+# move worth paying the spread for.
+#
+# 15m was the worse of the two intervals and is retired. 1h stays on PAPER only, as an honest
+# live record rather than a hope: its 109 resolved trades sit at 23.9% hit and -0.53%/trade, and
+# nothing above suggests that improves. The engine's measured edge is in the core crypto strategy
+# (+0.648%/trade over 174 live trades) and in the rebalancing basket — not here.
 
 
 def _f(row: pd.Series, key: str) -> float | None:

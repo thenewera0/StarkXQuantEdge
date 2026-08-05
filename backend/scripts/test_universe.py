@@ -97,9 +97,18 @@ check("sweep is materially wider than the old 28 crypto pairs",
 check("non-crypto classes skip the 1h bar",
       all("1h" not in scanner.SCAN_INTERVALS.get(m, []) for m in sweep if m != "crypto"),
       "an hourly bar on a market that closes overnight spans a session gap")
-check("forex is restricted to the G10 probation list",
+# Forex was removed from the scanner on 2026-08-05 after failing probation on the live record:
+# 161 resolved trades, 26.7% hit, -0.105%/trade, against crypto's +0.648% over the same window.
+# Asserting the exclusion rather than the old "restricted to G10" rule, which now passes
+# vacuously on an empty list and would therefore never catch a regression.
+check("forex is excluded from the scanner (failed probation on live P&L)",
+      not sweep.get("forex"), f"forex is back in the sweep with {len(sweep.get('forex', []))} pairs")
+check("any forex that IS swept stays inside the G10 list",
       all(s in scanner._FX_PROBATION for s in sweep.get("forex", [])),
       "an exotic pair reached the scanner")
+check("forex remains available outside the scanner (analysis + rebalancing)",
+      len(universe.catalog(["forex"], allocatable_only=True)) > 0,
+      "forex was removed from the universe entirely, not just from the scanner")
 
 print("\n=== 6. Per-class cap reallocates risk without increasing it ===")
 cap = scanner._class_cap()

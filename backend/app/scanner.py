@@ -37,7 +37,15 @@ from .signal_service import compute_signal
 # crypto longs at 7-20% and froze the engine for weeks). Calibration is now conditioned on
 # (market, direction, regime), so forex is priced on forex's own history. If it is still bad, the
 # segment curve will say so and size it to nothing — which is the system working.
-_SCAN_CATEGORIES = ("commodities", "indices", "rates", "forex")
+# FOREX FAILED ITS PROBATION — removed 2026-08-05 on the live record, not on an opinion.
+# It was re-admitted on the argument that its earlier losses were measured while calibration
+# pooled every segment into one curve. Calibration has been segment-conditioned since, and forex
+# has now had a fair run with its own curve: 161 resolved real trades, 26.7% hit, -0.105% per
+# trade, -0.1685 cumulative. Over the same window crypto returned +0.648% per trade on 174 trades.
+# The engine's edge is in crypto; forex was a steady drag on the same capital and the same slots.
+# It stays fully available for on-demand analysis and in the rebalancing basket — it is only
+# barred from consuming the scanner's concurrency.
+_SCAN_CATEGORIES = ("commodities", "indices", "rates")
 
 
 def scan_universe() -> dict[str, list[str]]:
