@@ -441,12 +441,17 @@ export async function fetchArbAlerts(hours = 12): Promise<ArbAlert[]> {
 export type LiveTrade = {
   id: number; symbol: string; interval: string; market: string;
   strategy: string; paper: boolean; direction: string; regime: string | null;
-  entry: number; stop: number | null; target: number | null; price: number;
-  pnl_pct: number; pnl_usd: number; progress_pct: number | null;
+  entry: number; stop: number | null; target: number | null;
+  price: number | null; priced: boolean;
+  pnl_pct: number | null; pnl_usd: number | null; progress_pct: number | null;
   r_multiple: number | null; opened_at: string; win_prob: number | null; ev_r: number | null;
 };
 export type LiveTrades = {
-  enabled: boolean; count?: number; open_pnl_usd?: number;
+  enabled: boolean;
+  count?: number;            // REAL open positions only
+  open_pnl_usd?: number;     // floating P&L of those same real positions
+  paper_count?: number; paper_pnl_usd?: number;
+  unpriced?: number;         // open but no live quote — shown, never dropped
   core_open?: number; flash_open?: number; trades?: LiveTrade[];
 };
 export async function fetchLiveTrades(tradeSize = 1000): Promise<LiveTrades> {

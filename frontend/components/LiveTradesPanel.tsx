@@ -61,17 +61,28 @@ export function LiveTradesPanel({ refreshKey = 0 }: { refreshKey?: number }) {
       <div className="mb-4 grid grid-cols-3 gap-3">
         <div className="rounded-xl border surface-raised p-3">
           <div className="text-[10px] uppercase tracking-wide text-[var(--ink-muted)]">Open positions</div>
-          <div className="mt-1 text-xl font-bold tabular-nums text-white">{live.length}</div>
+          <div className="mt-1 text-xl font-bold tabular-nums text-white">{d?.count ?? live.length}</div>
+          <div className="text-[10px] text-[var(--ink-muted)]">real capital</div>
         </div>
         <div className="rounded-xl border surface-raised p-3">
           <div className="text-[10px] uppercase tracking-wide text-[var(--ink-muted)]">Floating P&L</div>
           <div className={`mt-1 text-xl font-bold tabular-nums ${tone(d?.open_pnl_usd ?? 0)}`}>{usd(d?.open_pnl_usd ?? 0)}</div>
+          <div className="text-[10px] text-[var(--ink-muted)]">those same positions</div>
         </div>
         <div className="rounded-xl border surface-raised p-3">
           <div className="text-[10px] uppercase tracking-wide text-[var(--ink-muted)]">Flash (paper)</div>
-          <div className="mt-1 text-xl font-bold tabular-nums text-[var(--accent-bright)]">{paper.length}</div>
+          <div className="mt-1 text-xl font-bold tabular-nums text-[var(--accent-bright)]">{d?.paper_count ?? paper.length}</div>
+          <div className={`text-[10px] tabular-nums ${tone(d?.paper_pnl_usd ?? 0)}`}>{usd(d?.paper_pnl_usd ?? 0)} not real</div>
         </div>
       </div>
+
+      {(d?.unpriced ?? 0) > 0 && (
+        <div className="mb-3 rounded-xl border border-[var(--warn)]/25 bg-[var(--warn-dim)] p-2.5 text-[11px] text-[var(--ink-secondary)]">
+          {d?.unpriced} open position{(d?.unpriced ?? 0) > 1 ? "s have" : " has"} no live quote right now.
+          They are listed below without a mark rather than hidden &mdash; an open risk is never dropped
+          from this view just because a price feed is unavailable.
+        </div>
+      )}
 
       {trades.length === 0 && (
         <div className="rounded-xl border surface-raised p-4 text-sm text-slate-400">
@@ -104,8 +115,14 @@ function TradeRow({ t }: { t: LiveTrade }) {
         )}
         {t.paper && <span className="rounded bg-[var(--warn-dim)]0/10 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--warn)] border border-amber-500/20">PAPER</span>}
         <span className="ml-auto text-right">
-          <span className={`text-base font-bold tabular-nums ${tone(t.pnl_usd)}`}>{usd(t.pnl_usd)}</span>
-          <span className={`ml-2 text-xs tabular-nums ${tone(t.pnl_pct)}`}>{t.pnl_pct > 0 ? "+" : ""}{t.pnl_pct}%</span>
+          <span className={`text-base font-bold tabular-nums ${tone(t.pnl_usd ?? 0)}`}>
+            {t.priced ? usd(t.pnl_usd ?? 0) : "—"}
+          </span>
+          {t.priced && t.pnl_pct != null && (
+            <span className={`ml-2 text-xs tabular-nums ${tone(t.pnl_pct)}`}>
+              {t.pnl_pct > 0 ? "+" : ""}{t.pnl_pct}%
+            </span>
+          )}
         </span>
       </div>
 
@@ -119,7 +136,7 @@ function TradeRow({ t }: { t: LiveTrade }) {
 
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--ink-muted)] tabular-nums">
         <span>entry <span className="text-slate-300">{t.entry}</span></span>
-        <span>now <span className="text-white font-medium">{t.price}</span></span>
+        <span>now <span className="text-white font-medium">{t.priced ? t.price : "no quote"}</span></span>
         {t.stop != null && <span className="flex items-center gap-0.5"><ShieldAlert size={10} className="text-[var(--loss)]" />{t.stop}</span>}
         {t.target != null && <span className="flex items-center gap-0.5"><Target size={10} className="text-[var(--profit)]" />{t.target}</span>}
         {t.r_multiple != null && <span>{t.r_multiple > 0 ? "+" : ""}{t.r_multiple}R</span>}

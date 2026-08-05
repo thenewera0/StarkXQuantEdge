@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { scanFlash, fetchByStrategy, type FlashScan, type ByStrategy, type FlashTrigger } from "@/lib/api";
+import { scanFlash, fetchFlashStatus, fetchByStrategy,
+  type FlashScan, type FlashStatus, type ByStrategy, type FlashTrigger } from "@/lib/api";
 import { Card } from "./ui";
 import { Zap, RefreshCw, ArrowUpRight, ArrowDownRight, AlertTriangle, Activity } from "lucide-react";
 
@@ -21,6 +22,7 @@ const KIND_TONE: Record<string, string> = {
 
 export function FlashBotPanel() {
   const [scan, setScan] = useState<FlashScan | null>(null);
+  const [status, setStatus] = useState<FlashStatus | null>(null);
   const [pnl, setPnl] = useState<ByStrategy | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +30,12 @@ export function FlashBotPanel() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, p] = await Promise.all([scanFlash(), fetchByStrategy(1000).catch(() => null)]);
+      const [st, s, p] = await Promise.all([
+        fetchFlashStatus().catch(() => null),
+        scanFlash(),
+        fetchByStrategy(1000).catch(() => null),
+      ]);
+      if (st) setStatus(st);
       setScan(s); if (p) setPnl(p); setError(null);
     } catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
@@ -75,9 +82,21 @@ export function FlashBotPanel() {
 
       {/* Stats row */}
       <div className="mb-4 grid grid-cols-4 gap-2.5">
-        <Stat label="Watching" value={`${scan?.scanned ?? 0}`} sub="pairs × TF" />
+        <Stat
+          label="Watching"
+          value={`${scan?.scanned ?? (status ? status.symbols * status.intervals.length : 0)}`}
+          sub={status ? `${status.symbols} pairs × ${status.intervals.join("/")}` : "pairs × TF"}
+        />
         <Stat label="Setups now" value={`${tradeable.length}`} sub={`${triggers.length} triggers`} accent />
-        <Stat label="Paper trades" value={`${flashPnl?.trades ?? 0}`} sub={flashPnl?.hit_rate != null ? `${Math.round(flashPnl.hit_rate * 100)}% hit` : "—"} />
+        <Stat
+          label="Paper trades"
+          value={`${flashPnl?.trades ?? scan?.stats?.trades ?? status?.stats?.trades ?? 0}`}
+          sub={
+            flashPnl?.hit_rate != null ? `${Math.round(flashPnl.hit_rate * 100)}% hit`
+            : scan?.stats?.hit_rate != null ? `${Math.round(scan.stats.hit_rate * 100)}% hit`
+            : "—"
+          }
+        />
         <Stat label="Paper P&L" value={usd(flashPnl?.realized_pnl_usd ?? 0)} sub="tracked apart" valueClass={tone(flashPnl?.realized_pnl_usd ?? 0)} />
       </div>
 

@@ -130,7 +130,14 @@ cs = calibration.calibration_status()
 from app import db
 if db.enabled():
     with db.get_conn() as conn, conn.cursor() as cur:
-        cur.execute("select count(*) filter (where pnl>0)::float/nullif(count(*),0) from outcomes where pnl is not null")
+        # Shadow rows must be excluded, exactly as calibration._load() excludes them. Comparing a
+        # real-capital base rate against a hit rate blended with flash PAPER trades is not a
+        # calibration failure, it is a measurement error — and it fired here the moment flash had
+        # accumulated enough paper history to drag the blend (335 real @ 36.7% + 115 paper @ 27.9%
+        # reads as 34.2%). Same mistake that made the dashboard contradict itself.
+        cur.execute("""select count(*) filter (where o.pnl>0)::float/nullif(count(*),0)
+                       from outcomes o join signals s on s.id = o.signal_id
+                       where o.pnl is not null and not s.shadow""")
         hit = cur.fetchone()[0]
     if hit is not None and cs.get("base_rate") is not None and abs(hit - cs["base_rate"]) > 0.02:
         bad(f"calibration base_rate {cs['base_rate']} != realized hit {round(hit,4)}")

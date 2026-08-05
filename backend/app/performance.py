@@ -23,11 +23,23 @@ def _direction(label: str) -> str:
 
 
 def _last_price(symbol: str, market: str, interval: str) -> float | None:
+    """Latest close for ANY instrument, routed the same way the signal engine routes it.
+
+    This used to send everything non-crypto to Twelve Data, which needs an API key and allows 800
+    requests/day. Once the scanner started opening forex, commodity, index and rates positions,
+    that path returned None for all of them — and live_trades silently DROPPED every position it
+    could not price. The dashboard then showed a position count that disagreed with the rows
+    beneath it, and a floating P&L that ignored real open risk.
+    """
     try:
         if (market or "crypto").lower() == "crypto":
             df = fetch_klines(symbol, interval, 2)
         else:
-            df = fetch_klines_td(symbol, interval, outputsize=2)
+            from . import universe
+            try:
+                df = universe.fetch(symbol, interval, 2)
+            except Exception:
+                df = fetch_klines_td(symbol, interval, outputsize=2)
         return float(df["close"].iloc[-1])
     except Exception:
         return None
@@ -141,19 +153,28 @@ def live_trades(trade_size: float | None = None) -> dict:
     price_cache: dict[tuple, float | None] = {}
     out: list[dict] = []
     total_open = 0.0
+    unpriced = 0
     for r in rows:
         key = (r["symbol"], r["market"], r["interval"])
         if key not in price_cache:
             price_cache[key] = _last_price(*key)
         last = price_cache[key]
         entry = float(r["entry"])
-        if last is None or entry <= 0:
+        if entry <= 0:
             continue
         direction = _direction(r["label"])
-        frac = (last - entry) / entry if direction == "long" else (entry - last) / entry
+        # A position we cannot price is still a position. Dropping it made the dashboard lie:
+        # the count came from one set of rows and the P&L from another. Surface it as unpriced
+        # instead, so an open risk can never become invisible just because a feed hiccuped.
+        priced = last is not None
+        frac = 0.0
+        if priced:
+            frac = (last - entry) / entry if direction == "long" else (entry - last) / entry
         pnl_usd = frac * size
-        if not r["shadow"]:
-            total_open += pnl_usd     # only REAL positions count toward live floating P&L
+        if not r["shadow"] and priced:
+            total_open += pnl_usd     # only REAL, priced positions count toward floating P&L
+        if not priced:
+            unpriced += 1
 
         stop = float(r["stop"]) if r["stop"] is not None else None
         target = float(r["target"]) if r["target"] is not None else None
@@ -168,19 +189,29 @@ def live_trades(trade_size: float | None = None) -> dict:
         out.append({
             "id": r["id"], "symbol": r["symbol"], "interval": r["interval"], "market": r["market"],
             "strategy": r["strategy"], "paper": bool(r["shadow"]), "direction": direction, "regime": r["regime"],
-            "entry": entry, "stop": stop, "target": target, "price": last,
-            "pnl_pct": round(frac * 100, 3), "pnl_usd": round(pnl_usd, 2),
+            "entry": entry, "stop": stop, "target": target, "price": last, "priced": priced,
+            "pnl_pct": round(frac * 100, 3) if priced else None,
+            "pnl_usd": round(pnl_usd, 2) if priced else None,
             "progress_pct": progress, "r_multiple": round(frac / (abs(entry - stop) / entry), 2) if stop and abs(entry - stop) > 1e-12 else None,
             "risk_used_pct": risk_used,
             "opened_at": str(r["created_at"]), "win_prob": float(r["win_prob"]) if r["win_prob"] is not None else None,
             "ev_r": float(r["ev_r"]) if r["ev_r"] is not None else None,
         })
 
+    # REAL and PAPER are counted separately and never summed into one headline. Flash runs in
+    # paper mode and writes its rows with shadow=true; folding those into "open positions" while
+    # the floating P&L deliberately ignored them is what made the dashboard contradict itself.
+    real = [t for t in out if not t["paper"]]
+    paper = [t for t in out if t["paper"]]
     return {
-        "enabled": True, "trade_size_usd": size, "count": len(out),
-        "open_pnl_usd": round(total_open, 2),
-        "core_open": sum(1 for t in out if t["strategy"] == "core"),
-        "flash_open": sum(1 for t in out if t["strategy"] == "flash"),
+        "enabled": True, "trade_size_usd": size,
+        "count": len(real),                    # REAL open positions — what risk actually cares about
+        "open_pnl_usd": round(total_open, 2),  # floating P&L of those same real positions
+        "paper_count": len(paper),
+        "paper_pnl_usd": round(sum(t["pnl_usd"] or 0.0 for t in paper), 2),
+        "unpriced": unpriced,                  # open but no live quote — shown, never dropped
+        "core_open": sum(1 for t in real if t["strategy"] == "core"),
+        "flash_open": len(paper),
         "trades": out,
     }
 
