@@ -250,6 +250,26 @@ def evaluate(symbol: str, interval: str) -> dict | None:
     p = kind_win_rate(trig["kind"])
     ev_r = p * settings.flash_rr - (1.0 - p) - cost_r
 
+    # --- cost-first gates. The measured cause of flash's losses is that the average trade cannot
+    # pay its own round trip, so these test that arithmetic BEFORE anything about direction. ---
+    cvd_z = _f(last, "cvd_z")
+    # How many times the target distance covers one round trip. Below ~3.5x the spread is a large
+    # fraction of the move being traded and the setup cannot win often enough to matter.
+    rt_cost = round_trip_cost("crypto", symbol, atr_pct)
+    cost_multiple = (tgt_dist / price) / rt_cost if rt_cost > 0 else float("inf")
+
+    blocks: list[str] = []
+    if ev_r <= settings.flash_min_ev_r:
+        blocks.append("negative EV after cost")
+    if atr_pct < settings.flash_min_atr_pct:
+        blocks.append(f"dead tape (ATR {atr_pct*100:.2f}% < {settings.flash_min_atr_pct*100:.2f}%)")
+    if cost_multiple < settings.flash_min_cost_multiple:
+        blocks.append(f"target only {cost_multiple:.1f}x the round trip")
+    if settings.flash_long_only and direction != "long":
+        blocks.append("short (long-only: shorts measured -0.31%/trade vs -0.21% long)")
+    if cvd_z is not None and cvd_z < settings.flash_min_cvd_z:
+        blocks.append(f"no taker aggression (cvd_z {cvd_z:.2f} < {settings.flash_min_cvd_z})")
+
     return {
         "symbol": symbol, "interval": interval, "market": "crypto",
         "direction": direction, "kind": trig["kind"], "strength": round(trig["strength"], 1),
@@ -258,7 +278,10 @@ def evaluate(symbol: str, interval: str) -> dict | None:
         "entry": round(entry, 8), "stop": round(stop, 8), "target": round(target, 8),
         "reward_risk": settings.flash_rr,
         "cost_r": round(cost_r, 4), "win_prob": round(p, 4), "ev_r": round(ev_r, 4),
-        "tradeable": bool(ev_r > settings.flash_min_ev_r and atr_pct >= settings.flash_min_atr_pct),
+        "cvd_z": round(cvd_z, 3) if cvd_z is not None else None,
+        "cost_multiple": round(cost_multiple, 2),
+        "blocked_by": "; ".join(blocks) if blocks else None,
+        "tradeable": not blocks,
     }
 
 
@@ -376,19 +399,41 @@ def kind_win_rate(kind: str) -> float:
 
 
 def promotion_status() -> dict:
-    """Should flash graduate from paper to real capital? Decided purely by its own record."""
-    s = flash_stats(settings.flash_perf_window_days)
+    """Should flash graduate from paper to real capital? Decided purely by its own record.
+
+    Judged on the LIFETIME paper record, not a rolling window. This used to read from
+    flash_stats(flash_perf_window_days), i.e. the last 7 days, and compare that count against a
+    120-trade lifetime threshold. Those are different quantities: old trades leave the window as
+    new ones arrive, so the progress bar could never accumulate — it read "55/120, needs 65 more"
+    while the actual record stood at 117. Promotion is a question about the whole record, so it
+    now asks the whole record.
+    """
+    s = flash_stats(36500)                       # lifetime
+    recent = flash_stats(settings.flash_perf_window_days)   # still shown, clearly labelled
     need = settings.flash_promote_min_trades
     ready = bool(s["trades"] >= need and s["pnl_frac"] > 0
                  and (s["hit_rate"] or 0) >= settings.flash_promote_min_hit)
+    # Report EVERY unmet condition, not just the first. Listing only the trade count read as
+    # "needs 3 more trades" while the record stood at -51.6% and a 30.8% hit rate — implying
+    # promotion was three trades away when in truth it is nowhere near, and would not promote
+    # even at 1,000 trades on this record.
+    unmet: list[str] = []
+    if s["trades"] < need:
+        unmet.append(f"{need - s['trades']} more trades")
+    if s["pnl_frac"] <= 0:
+        unmet.append(f"a profitable record (currently {s['pnl_frac']*100:+.1f}%)")
+    if (s["hit_rate"] or 0) < settings.flash_promote_min_hit:
+        unmet.append(f"a {settings.flash_promote_min_hit*100:.0f}% hit rate "
+                     f"(currently {(s['hit_rate'] or 0)*100:.1f}%)")
+    blocker = None if ready else "needs " + ", and ".join(unmet)
     return {
         "paper": settings.flash_paper_mode,
         "trades": s["trades"], "needed": need,
         "pnl_frac": s["pnl_frac"], "hit_rate": s["hit_rate"],
+        "recent_trades": recent["trades"], "recent_pnl_frac": recent["pnl_frac"],
+        "window_days": settings.flash_perf_window_days,
         "ready_to_promote": ready,
-        "blocker": None if ready else (
-            f"needs {need - s['trades']} more trades" if s["trades"] < need
-            else "record is not yet profitable"),
+        "blocker": blocker,
     }
 
 

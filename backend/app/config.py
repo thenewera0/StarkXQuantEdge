@@ -179,14 +179,28 @@ class Settings(BaseSettings):
     # the meta-model. Flip to False only when the flash P&L is genuinely positive.
     flash_paper_mode: bool = True
     flash_interval_minutes: int = 5        # scan cadence
-    flash_stop_atr: float = 2.2            # stop distance = this x ATR (wide enough to beat costs)
-    flash_rr: float = 2.0                  # target = flash_rr x stop
+    # --- flash geometry: the cost-first configuration (2026-08-07) ---------------------------
+    # Every measurement here says flash loses because the average trade cannot pay its own
+    # spread. These thresholds attack that directly rather than trying to predict better. They
+    # come from an external 120-config sweep; its own scorecard showed all 120 losing and it had
+    # no train/test split, so the numbers were not taken at face value — the GATES were re-tested
+    # out-of-sample here (scripts/test_report_gates.py). Result, honestly:
+    #     in-sample -0.47%/trade   out-of-sample +0.22%/trade   t=1.55 on 143 independent bets
+    # A sign flip between halves and t=1.55 after a 120-way search is NOT a proven edge. It is
+    # adopted anyway because flash is paper-only, the previous configuration is measurably worse
+    # (-0.53%/trade live), and running the better-reasoned rule builds a real forward record at
+    # zero cost. It does not move to real capital on this evidence.
+    flash_stop_atr: float = 1.5            # stop distance = this x ATR
+    flash_rr: float = 1.8                  # target = flash_rr x stop
     flash_min_ev_r: float = 0.0            # must be positive-EV after cost
-    flash_min_atr_pct: float = 0.0012      # skip dead tape (needs range to clear fees)
-    flash_vol_expansion: float = 1.15      # volume vs its 20-bar average for a burst
+    flash_min_atr_pct: float = 0.008       # dead tape below ~0.8% ATR cannot clear a round trip
+    flash_min_cvd_z: float = 0.40          # require real taker aggression, not drift
+    flash_long_only: bool = True           # measured: long -0.21%/trade vs short -0.31%
+    flash_min_cost_multiple: float = 3.5   # target distance must be >= this x round-trip cost
+    flash_vol_expansion: float = 1.20      # volume vs its 20-bar average for a burst
     flash_breakout_bars: int = 15          # N-bar extreme for the breakout trigger
     flash_snap_stretch: float = 0.0035     # VWAP distance that counts as stretched
-    flash_max_hold_bars: int = 30          # hard time-stop (a scalp never becomes a swing)
+    flash_max_hold_bars: int = 24          # hard time-stop (a scalp never becomes a swing)
     flash_risk_pct: float = 0.35           # advised risk per flash trade (smaller than core)
     flash_prior_win_rate: float = 0.42     # conservative prior until it has its own record
     flash_perf_window_days: int = 7
