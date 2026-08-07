@@ -49,9 +49,27 @@ TIERS = [
 # trades, leaving gross uncapped returned -93.6% with a -96.4% drawdown; capping it at 1x returned
 # -19.4% with -41.0%. Same signals, same fills — the leverage was doing the damage.
 #
-# 1.0x = fully invested, never borrowed. Larger accounts get slightly more room because they can
-# diversify across genuinely uncorrelated classes rather than stacking one bet.
-MAX_GROSS: dict[str, float] = {"micro": 1.0, "small": 1.0, "standard": 1.0, "growth": 1.5}
+# A 1.0x ceiling was the first attempt and it DEADLOCKED the engine (2026-08-07). At 0.75% risk
+# per trade, a stop 0.75% away implies exactly 1.0x of notional, so a single ordinary position
+# consumed the entire book. Two positions with sub-1% stops summed to 1.79x, the scanner correctly
+# refused all new risk, and nothing traded for 104 hours.
+#
+# The reasoning behind 1.0x was also confounded. It was measured on the RAW trade stream, which has
+# negative edge — and on a losing strategy less exposure is always better, so that test could only
+# ever conclude "trade smaller". It never showed 1.0x was right for the LIVE gated engine, which is
+# profitable on crypto (+0.648%/trade over 174 real trades).
+#
+# What gross exposure actually bounds is GAP risk: the loss when price jumps THROUGH the stop
+# rather than filling at it. At Nx gross a G% gap costs N*G. Crypto flash-crashes of 5-10% happen;
+# at 16x that is the account, at 3x it is a 15-30% drawdown — painful and survivable. So gross is
+# set to bound the disaster, and TOTAL HEAT below is what governs ordinary risk.
+MAX_GROSS: dict[str, float] = {"micro": 2.0, "small": 2.5, "standard": 3.0, "growth": 4.0}
+
+# TOTAL HEAT — the sum of what every open position loses if it stops out, as a fraction of equity.
+# This, not notional, is the honest measure of ordinary risk: 8 positions each risking 0.75% put
+# 6% of the account at stake, which is the real number an operator cares about. Heat binds first
+# in normal conditions; the gross ceiling only binds when stops are unusually tight.
+MAX_HEAT: dict[str, float] = {"micro": 0.04, "small": 0.05, "standard": 0.06, "growth": 0.06}
 
 # How hard the exposure budget contracts below the high-water mark. At -10% drawdown the book may
 # use 1 - 0.10*2.5 = 75% of its normal exposure; at -20%, 50%; floored at 25% so the engine keeps
@@ -135,7 +153,8 @@ def drawdown_throttle(equity: float, high_water: float) -> float:
     return max(DRAWDOWN_THROTTLE_FLOOR, 1.0 + dd * DRAWDOWN_THROTTLE_K)
 
 
-def exposure_budget(equity: float, open_notional: float, high_water: float | None = None) -> dict:
+def exposure_budget(equity: float, open_notional: float, high_water: float | None = None,
+                    open_heat: float = 0.0) -> dict:
     """How much NOTIONAL may still be opened, after the gross ceiling and drawdown throttle.
 
     `open_notional` is the summed notional of everything already live. Returns the budget, what is
@@ -143,17 +162,34 @@ def exposure_budget(equity: float, open_notional: float, high_water: float | Non
     silently declining to trade.
     """
     tier = tier_for_equity(equity)
-    ceiling = MAX_GROSS.get(tier["tier"], 1.0)
+    ceiling = MAX_GROSS.get(tier["tier"], 3.0)
+    heat_cap = MAX_HEAT.get(tier["tier"], 0.06)
     throttle = drawdown_throttle(equity, high_water if high_water is not None else equity)
-    budget = equity * ceiling * throttle
+
+    gross_budget = equity * ceiling * throttle
+    gross_left = max(0.0, gross_budget - open_notional)
+
+    # HEAT is the binding constraint in normal conditions; gross only bites when stops are tight.
+    # Both are reported so a refusal can name the one that actually stopped the trade.
+    heat_budget = heat_cap * throttle
+    heat_left = max(0.0, heat_budget - open_heat)
+
     return {
         "tier": tier["tier"],
         "gross_ceiling": ceiling,
         "throttle": round(throttle, 4),
-        "budget_usd": round(budget, 2),
+        "budget_usd": round(gross_budget, 2),
         "open_notional_usd": round(open_notional, 2),
-        "remaining_usd": round(max(0.0, budget - open_notional), 2),
+        "remaining_usd": round(gross_left, 2),
         "gross_used": round(open_notional / equity, 3) if equity > 0 else 0.0,
+        "heat_cap": round(heat_budget, 4),
+        "open_heat": round(open_heat, 4),
+        "heat_remaining": round(heat_left, 4),
+        "heat_used_pct": round(open_heat * 100, 2),
+        # What is actually stopping the next trade, or None when there is room.
+        "binding": ("heat" if heat_left <= 1e-9 and gross_left > 0 else
+                    "gross" if gross_left <= 0 and heat_left > 1e-9 else
+                    "both" if gross_left <= 0 and heat_left <= 1e-9 else None),
     }
 
 

@@ -138,16 +138,21 @@ def _book_state(force: bool = False) -> dict:
     except Exception:
         # Cannot verify exposure -> add no risk. Failing closed is the only safe direction here.
         return {"slots": 0, "per_market": {}, "open_notional": 0.0,
-                "budget": sizing.exposure_budget(equity, equity * 99), "equity": equity}
+                "budget": sizing.exposure_budget(equity, equity * 99, None, 99.0),
+                "equity": equity}
 
     per_market = {str(r[0]): int(r[1]) for r in rows}
     open_notional = float(sum(float(r[2]) for r in rows))
+    # Heat = what the whole book loses if every open position stops out. Each position was sized
+    # to risk risk_per_trade_pct, so heat is simply that times the number of open positions.
+    open_heat = sum(per_market.values()) * (settings.risk_per_trade_pct / 100.0)
     high_water = _high_water(equity)
     state = {
         "slots": max(0, cap - sum(per_market.values())),
         "per_market": per_market,
         "open_notional": open_notional,
-        "budget": sizing.exposure_budget(equity, open_notional, high_water),
+        "open_heat": open_heat,
+        "budget": sizing.exposure_budget(equity, open_notional, high_water, open_heat),
         "equity": equity,
         "high_water": round(high_water, 2),
     }
@@ -217,13 +222,21 @@ def scan_once(min_confidence: float | None = None) -> dict:
         return {"scanned": 0, "errors": 0, "emitted": 0, "min_confidence": threshold,
                 "signals": [], "open_by_market": open_by_market, "exposure": budget,
                 "blocked": "position cap reached — already at max concurrent risk"}
-    if budget["remaining_usd"] <= 0:
+    if budget["binding"] is not None:
+        # Name the constraint that actually bit. "Exposure budget spent" was ambiguous, and when
+        # the engine sat idle for 104 hours it gave no way to tell whether that was correct
+        # behaviour or a deadlock.
+        why = {"heat": (f"risk budget spent — {budget['heat_used_pct']:.1f}% of equity is already "
+                        f"at risk against a {budget['heat_cap']*100:.1f}% cap"),
+               "gross": (f"exposure ceiling — {budget['gross_used']:.2f}x gross against a "
+                         f"{budget['gross_ceiling']:.1f}x ceiling"),
+               "both": (f"both limits reached — {budget['heat_used_pct']:.1f}% heat and "
+                        f"{budget['gross_used']:.2f}x gross")}[budget["binding"]]
+        if budget["throttle"] < 1.0:
+            why += f", throttled to {budget['throttle']:.0%} by drawdown"
         return {"scanned": 0, "errors": 0, "emitted": 0, "min_confidence": threshold,
                 "signals": [], "open_by_market": open_by_market, "exposure": budget,
-                "blocked": (f"exposure budget spent — {budget['gross_used']:.2f}x gross against a "
-                            f"{budget['gross_ceiling']:.1f}x ceiling"
-                            + (f", throttled to {budget['throttle']:.0%} by drawdown"
-                               if budget["throttle"] < 1.0 else ""))}
+                "blocked": why}
 
     try:
         sweep = scan_universe()
@@ -245,11 +258,13 @@ def scan_once(min_confidence: float | None = None) -> dict:
     by_market: dict[str, int] = {}
     held: dict[str, int] = dict(open_by_market)   # already-open positions count against the class cap
     remaining = budget["remaining_usd"]           # notional still available across the whole sweep
+    heat_left = budget["heat_remaining"]          # risk still available across the whole sweep
+    per_trade_heat = settings.risk_per_trade_pct / 100.0
     for market, symbol in ordered:
         if len(emitted) >= room:
             break             # cap reached — stop adding risk, whatever is left unscanned
-        if remaining <= 0:
-            break             # capital, not slots, is what actually ran out
+        if remaining <= 0 or heat_left < per_trade_heat:
+            break             # capital or risk budget, not slots, is what actually ran out
         if held.get(market, 0) >= class_cap:
             continue          # this class is full; its remaining slots belong to other drivers
         for interval in SCAN_INTERVALS.get(market, ["4h"]):
@@ -286,6 +301,7 @@ def scan_once(min_confidence: float | None = None) -> dict:
 
             sid = persistence.log_decision(sig)
             remaining -= want
+            heat_left -= per_trade_heat
             by_market[market] = by_market.get(market, 0) + 1
             held[market] = held.get(market, 0) + 1
             emitted.append({

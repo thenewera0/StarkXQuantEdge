@@ -60,7 +60,7 @@ export function FlashBotPanel() {
           </div>
           <div>
             <div className="text-sm font-semibold tracking-tight text-white">Flash Bot</div>
-            <div className="text-[10px] text-[var(--ink-muted)]">fast 15m / 1h momentum · breakout · snap</div>
+            <div className="text-[10px] text-[var(--ink-muted)]">1h · long-only · cost-gated</div>
           </div>
         </div>
         <button onClick={load} className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors">
@@ -84,13 +84,13 @@ export function FlashBotPanel() {
       <div className="mb-4 grid grid-cols-4 gap-2.5">
         <Stat
           label="Watching"
-          value={`${scan?.scanned ?? (status ? status.symbols * status.intervals.length : 0)}`}
+          value={`${scan?.scanned || (status ? status.symbols * status.intervals.length : 0)}`}
           sub={status ? `${status.symbols} pairs × ${status.intervals.join("/")}` : "pairs × TF"}
         />
         <Stat label="Setups now" value={`${tradeable.length}`} sub={`${triggers.length} triggers`} accent />
         <Stat
           label="Paper trades"
-          value={`${flashPnl?.trades ?? scan?.stats?.trades ?? status?.stats?.trades ?? 0}`}
+          value={`${flashPnl?.trades || scan?.stats?.trades || status?.stats?.trades || 0}`}
           sub={
             flashPnl?.hit_rate != null ? `${Math.round(flashPnl.hit_rate * 100)}% hit`
             : scan?.stats?.hit_rate != null ? `${Math.round(scan.stats.hit_rate * 100)}% hit`
