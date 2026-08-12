@@ -209,10 +209,21 @@ class Settings(BaseSettings):
     flash_min_cvd_z: float = 0.40          # require real taker aggression, not drift
     flash_long_only: bool = True           # measured: long -0.21%/trade vs short -0.31%
     flash_min_cost_multiple: float = 3.5   # target distance must be >= this x round-trip cost
+    # MAKER EXECUTION — the finding that reframed this whole strategy (2026-08-07). Simulating
+    # every bar on the 20 deepest pairs found a REAL long-only edge (15m gross +0.060%/trade at
+    # t=4.50; 1h at a 96-bar hold gross +0.109% at t=4.35). It was never a signal problem: TAKER
+    # cost is 0.22-0.38% per round trip, four to eight times the edge, which is why 11,024
+    # indicator combinations all failed. A resting limit order pays ~0.04% and the arithmetic
+    # inverts. Entries MUST be sent as limit orders for this configuration to mean anything.
+    flash_execution: str = "maker"
     flash_vol_expansion: float = 1.20      # volume vs its 20-bar average for a burst
     flash_breakout_bars: int = 15          # N-bar extreme for the breakout trigger
     flash_snap_stretch: float = 0.0035     # VWAP distance that counts as stretched
-    flash_max_hold_bars: int = 24          # hard time-stop (a scalp never becomes a swing)
+    # 96 bars (~4 days on 1h) is where the gross edge peaks: it rises from -0.014% at 6 bars to
+    # +0.109% at 96, then plateaus. Cost is paid ONCE, so a longer hold amortises it. This stops
+    # being a "scalp" at that horizon, which is the honest conclusion — the fast version cannot
+    # work, and the data says so at every geometry tried.
+    flash_max_hold_bars: int = 96
     flash_risk_pct: float = 0.35           # advised risk per flash trade (smaller than core)
     flash_prior_win_rate: float = 0.42     # conservative prior until it has its own record
     flash_perf_window_days: int = 7

@@ -243,7 +243,7 @@ def evaluate(symbol: str, interval: str) -> dict | None:
         entry, stop, target = price, price + stop_dist, price - tgt_dist
 
     stop_frac = stop_dist / price
-    cost_r = cost_in_r("crypto", symbol, atr_pct, stop_frac)
+    cost_r = cost_in_r("crypto", symbol, atr_pct, stop_frac, settings.flash_execution)
     # EV uses the win rate LEARNED for this specific trigger kind (falls back to the overall flash
     # record, then a conservative prior). So as evidence accumulates, each family is judged on its
     # own merit rather than one blended number.
@@ -255,7 +255,7 @@ def evaluate(symbol: str, interval: str) -> dict | None:
     cvd_z = _f(last, "cvd_z")
     # How many times the target distance covers one round trip. Below ~3.5x the spread is a large
     # fraction of the move being traded and the setup cannot win often enough to matter.
-    rt_cost = round_trip_cost("crypto", symbol, atr_pct)
+    rt_cost = round_trip_cost("crypto", symbol, atr_pct, settings.flash_execution)
     cost_multiple = (tgt_dist / price) / rt_cost if rt_cost > 0 else float("inf")
 
     blocks: list[str] = []
