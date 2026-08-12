@@ -140,6 +140,10 @@ def _risk_geometry(row: pd.Series, direction: str, interval: str, regime: str) -
         pivot_r1=_num(row, "pivot_r1"), pivot_s1=_num(row, "pivot_s1"),
         bb_mid=_num(row, "bb_mid"), bb_upper=_num(row, "bb_upper"), bb_lower=_num(row, "bb_lower"),
         risk_per_trade_pct=settings.risk_per_trade_pct,
+        # Entries rest as limit orders: measured +0.39pp per signal vs market entry, already net
+        # of every order that never filled. See scripts.research_limit_orders.
+        limit_offset_atr=settings.limit_offset_atr if settings.limit_orders_enabled else None,
+        limit_expiry_bars=settings.limit_expiry_bars,
     )
 
 

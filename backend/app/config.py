@@ -125,6 +125,21 @@ class Settings(BaseSettings):
     # it has real evidence to act on (e.g. SOL 33% hit / -$26, DOGE 35% / -$25, while ADA runs 81%).
     symbol_perf_window_days: int = 30
 
+    # --- Limit-order (maker) entry --------------------------------------------------------
+    # Measured worth +0.34pp/trade on the core crypto long book purely from not crossing the
+    # spread. The catch is that a resting order only fills if price comes to it, so setups that
+    # run away are never entered — and those skew toward winners. Offset and expiry are the two
+    # knobs on that trade-off; both are MEASURED in scripts.research_limit_orders, not guessed.
+    limit_orders_enabled: bool = True
+    # MEASURED optimum over 14,047 signals x 15 configurations (scripts.research_limit_orders).
+    # Limit beat market entry in EVERY cell tested (+0.31 to +0.39pp per signal), which is a
+    # plateau rather than a lucky cell. Best: 0.20 ATR / 2 bars -> 78.8% fill, and it flips the
+    # unconditional population from -0.3822% to +0.0098% per signal.
+    #   larger offset  -> better fill price, LOWER fill rate (0.50 ATR fills only 50%)
+    #   longer expiry  -> higher fill rate, but fills later and worse (edge decays with expiry)
+    limit_offset_atr: float = 0.20     # rest this many ATR below the close (long) / above (short)
+    limit_expiry_bars: int = 2         # cancel if unfilled after this many bars
+
     # Performance / P&L (fixed notional per trade for the paper track record)
     standard_trade_size_usd: float = 1000.0
 
