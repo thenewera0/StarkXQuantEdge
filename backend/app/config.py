@@ -101,8 +101,20 @@ class Settings(BaseSettings):
     # expectancy over a SHORT rolling window; re-enables automatically as the losing trades age out
     # of the window (auto re-exploration) or it turns profitable again.
     direction_perf_gate_enabled: bool = True
-    direction_perf_min_sample: int = 10
-    direction_perf_window_days: int = 2
+    # THE DIRECTION GATE WAS DEAD CODE UNTIL 2026-08-07. It required 10 resolved trades within a
+    # 2-DAY window; the engine resolves ~7.6 core trades per 2 days across BOTH directions, and
+    # roughly 1 short. The sample threshold was therefore unreachable by construction, the gate
+    # silently defaulted to "allow everything", and it never fired once.
+    #
+    # What it was supposed to catch, and did not: crypto SHORTS went 2 wins in 45 trades — a 4.4%
+    # hit rate, -1.94% per trade, -0.87 cumulative — while longs over the same period ran 59.5%
+    # and +1.51% per trade. The short book alone erased 43% of what the long book earned.
+    #
+    # 60 days at a 20-trade minimum is reachable (~30 shorts per 60 days) while still being enough
+    # evidence to act on. A gate that cannot reach its own sample is worse than no gate, because it
+    # reads as protection that is not there.
+    direction_perf_min_sample: int = 20
+    direction_perf_window_days: int = 60
 
     # Per-symbol performance gate: pause any symbol with proven negative expectancy (e.g. forex
     # pairs that lack derivatives/on-chain data and lose). Re-tests as losing trades age out.

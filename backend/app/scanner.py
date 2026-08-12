@@ -84,7 +84,13 @@ POPULAR: dict[str, list[str]] = {
 # Crypto runs 24/7 so 1h is tradable; the rest close overnight and at weekends, where an hourly
 # bar spans a session gap and the "move" is just the reopen. Those trade on 4h and daily only.
 SCAN_INTERVALS: dict[str, list[str]] = {
-    "crypto": ["1h", "4h"],
+    # Crypto 1h dropped 2026-08-07. On the live record 4h returned +0.811%/trade over 156 trades
+    # while 1h returned -0.767% over 20 at a 20% hit rate. The 1h sample is thin on its own, but it
+    # points the same way as everything else measured here: at shorter horizons the round-trip cost
+    # is a larger fraction of the move, and the 15m/1h flash work (88,964 candidates, 11,024 filter
+    # combinations, zero survivors) established that the arithmetic does not recover with a better
+    # signal. 4h is where this engine's edge actually lives.
+    "crypto": ["4h"],
     "commodities": ["4h", "1d"],
     "indices": ["4h", "1d"],
     "rates": ["4h", "1d"],
