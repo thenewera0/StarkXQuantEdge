@@ -65,6 +65,32 @@ TIERS = [
 # set to bound the disaster, and TOTAL HEAT below is what governs ordinary risk.
 MAX_GROSS: dict[str, float] = {"micro": 2.0, "small": 2.5, "standard": 3.0, "growth": 4.0}
 
+# GAP RISK IS NOT THE SAME ACROSS ASSET CLASSES, and treating it as if it were is what kept
+# blocking the book. The ceiling above is calibrated for CRYPTO, where a 5-10% overnight gap is a
+# normal event. A 20-year Treasury does not do that; equity indices have circuit breakers; G10 FX
+# gaps a fraction of a percent outside a crisis.
+#
+# So exposure is measured in GAP-RISK-WEIGHTED dollars rather than raw notional: $1,000 of crypto
+# counts as $1,000, $1,000 of Treasuries counts as $333. The ceiling then means the same thing —
+# "how much can a gap take from me" — for every instrument, instead of applying a crypto-shaped
+# limit to a bond position.
+#
+# Observed 2026-08-07: a book of 3 index + 1 rates positions read 4.10x raw gross against a 3.0x
+# ceiling and refused all new trades, while HEAT sat at 3.0% of a 6.0% budget. The real gap
+# exposure of that book is well inside the limit; the measurement was wrong, not the risk.
+_GAP_FACTOR: dict[str, float] = {
+    "crypto": 1.00,        # baseline — 5-10% flash crashes are routine
+    "commodities": 0.65,   # futures gap on news but have exchange limits
+    "indices": 0.50,       # circuit breakers cap a single-session move
+    "forex": 0.35,         # G10 spot; gaps mostly at weekend reopen
+    "rates": 0.33,         # govvies are the least gappy thing in the book
+}
+
+
+def gap_weight(market: str | None) -> float:
+    """How much a dollar of notional in this market counts toward the gross ceiling."""
+    return _GAP_FACTOR.get((market or "crypto").lower(), 1.0)
+
 # TOTAL HEAT — the sum of what every open position loses if it stops out, as a fraction of equity.
 # This, not notional, is the honest measure of ordinary risk: 8 positions each risking 0.75% put
 # 6% of the account at stake, which is the real number an operator cares about. Heat binds first

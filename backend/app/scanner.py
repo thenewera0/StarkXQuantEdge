@@ -148,7 +148,10 @@ def _book_state(force: bool = False) -> dict:
                 "equity": equity}
 
     per_market = {str(r[0]): int(r[1]) for r in rows}
-    open_notional = float(sum(float(r[2]) for r in rows))
+    # Weight each class's notional by how hard it can gap, so the ceiling means the same thing
+    # ("what a gap can take from me") whether the position is Bitcoin or a Treasury future.
+    open_notional = float(sum(float(r[2]) * sizing.gap_weight(str(r[0])) for r in rows))
+    raw_notional = float(sum(float(r[2]) for r in rows))
     # Heat = what the whole book loses if every open position stops out. Each position was sized
     # to risk risk_per_trade_pct, so heat is simply that times the number of open positions.
     open_heat = sum(per_market.values()) * (settings.risk_per_trade_pct / 100.0)
@@ -157,6 +160,7 @@ def _book_state(force: bool = False) -> dict:
         "slots": max(0, cap - sum(per_market.values())),
         "per_market": per_market,
         "open_notional": open_notional,
+        "raw_notional": raw_notional,
         "open_heat": open_heat,
         "budget": sizing.exposure_budget(equity, open_notional, high_water, open_heat),
         "equity": equity,
