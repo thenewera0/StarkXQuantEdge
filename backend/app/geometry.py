@@ -71,6 +71,7 @@ def trade_levels(
     *, swing_high=None, swing_low=None, pivot_r1=None, pivot_s1=None,
     bb_mid=None, bb_upper=None, bb_lower=None, risk_per_trade_pct: float = 0.75,
     limit_offset_atr: float | None = None, limit_expiry_bars: int | None = None,
+    partial_book_at_r: float | None = None, partial_book_fraction: float | None = None,
 ) -> dict:
     """Plan a trade. Returns entry/stop/laddered targets/reward_risk/size/invalidation, or flat.
 
@@ -147,9 +148,21 @@ def trade_levels(
         risk_now = abs(entry_px - stop)
         rr = (abs(targets[0] - entry_px) / risk_now) if targets[0] and risk_now > 0 else rr
 
+    # PARTIAL BOOK level: where half the position comes off. Measured as the single most
+    # effective exit change (+0.242pp/signal at 0.20R); see config.partial_book_at_r.
+    partial_target = None
+    if partial_book_at_r:
+        risk_now = abs(entry_px - stop)
+        if risk_now > 0:
+            partial_target = _round_price(
+                entry_px + partial_book_at_r * risk_now if direction == "long"
+                else entry_px - partial_book_at_r * risk_now)
+
     return {
         "direction": direction, "entry": _round_price(entry_px), "stop": _round_price(stop),
         "target": targets[0], "targets": targets,
+        "partial_target": partial_target,
+        "partial_fraction": partial_book_fraction if partial_target else None,
         "reward_risk": round(rr, 2) if rr is not None else None,
         "size_pct": round(size_pct, 2), "invalidation": invalidation,
         "is_fade": fade is not None,

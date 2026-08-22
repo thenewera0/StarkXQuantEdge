@@ -140,6 +140,31 @@ class Settings(BaseSettings):
     limit_offset_atr: float = 0.20     # rest this many ATR below the close (long) / above (short)
     limit_expiry_bars: int = 2         # cancel if unfilled after this many bars
 
+    # --- PARTIAL PROFIT TAKING ------------------------------------------------------------
+    # Answers the "profit shows unrealised but never books" problem, measured: across 345 live
+    # trades the book reached +526.8% of cumulative PEAK unrealised and booked +91.0% — a 17.3%
+    # capture rate, 435.7 percentage points given back.
+    #
+    # Booking HALF the position at a small profit and letting the rest run to target is the only
+    # exit change that helps. Measured over 16,338 signals on the current config (long-only 4h,
+    # limit entry, maker cost):
+    #     book half at 0.05R  +0.129pp     0.20R  +0.242pp  <- peak
+    #                  0.10R  +0.187pp     0.25R  +0.220pp
+    #                  0.15R  +0.242pp     0.35R  +0.171pp
+    # A clean inverted-U with falloff on BOTH sides, so it is a real optimum rather than a
+    # degenerate "exit immediately". Holds out of sample: +0.296pp in-sample, +0.107pp out.
+    #
+    # What does NOT work, measured on the same signals — do not re-litigate without new evidence:
+    #     stop to breakeven after +0.5R   -0.365pp   (hit rate collapses to 5.1%)
+    #     trail 1.0 ATR once +1R          -0.276pp
+    #     trail 1.5 ATR once +1R          -0.316pp
+    # Both die the same way: crypto retraces through the moved stop and the trade never gets to
+    # finish. The giveback is mostly trades that never worked (68% of stops never reached +0.5%
+    # unrealised), not winners reversing — which is why tightening the stop cannot recover it.
+    partial_book_enabled: bool = True
+    partial_book_at_r: float = 0.20    # book when the trade is this many R in profit
+    partial_book_fraction: float = 0.5 # how much of the position to take off
+
     # Performance / P&L (fixed notional per trade for the paper track record)
     standard_trade_size_usd: float = 1000.0
 

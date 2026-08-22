@@ -144,6 +144,9 @@ def _risk_geometry(row: pd.Series, direction: str, interval: str, regime: str) -
         # of every order that never filled. See scripts.research_limit_orders.
         limit_offset_atr=settings.limit_offset_atr if settings.limit_orders_enabled else None,
         limit_expiry_bars=settings.limit_expiry_bars,
+        # Book half at +0.20R: measured +0.242pp/signal, the only exit change that helps.
+        partial_book_at_r=settings.partial_book_at_r if settings.partial_book_enabled else None,
+        partial_book_fraction=settings.partial_book_fraction,
     )
 
 

@@ -112,6 +112,53 @@ check("expiry is 2 bars", settings.limit_expiry_bars == 2, f"got {settings.limit
 check("a longer expiry would be a real change, not free",
       settings.limit_expiry_bars <= 6, "beyond 6 bars the measured edge decays")
 
+print("\n=== 7. PARTIAL PROFIT BOOKING (the 17.3% capture-rate fix) ===")
+# The live book captured only 17.3% of peak unrealised profit: 345 trades reached +526.8% of
+# aggregate MFE and booked +91.0%. Taking half off at +0.20R measured +0.242pp/signal, and the
+# curve is an inverted-U (peak 0.15-0.20R, falling either side) so it is a real optimum rather
+# than a degenerate "exit immediately".
+check("partial booking is enabled", settings.partial_book_enabled, "disabled")
+check("books at the MEASURED peak (0.20R)", abs(settings.partial_book_at_r - 0.20) < 1e-9,
+      f"got {settings.partial_book_at_r} — re-run scripts.research_exits before changing")
+check("takes half off", abs(settings.partial_book_fraction - 0.5) < 1e-9,
+      f"got {settings.partial_book_fraction}")
+
+g = trade_levels(100.0, 2.0, "long", "4h", "weak_trend",
+                 limit_offset_atr=0.20, limit_expiry_bars=2,
+                 partial_book_at_r=0.20, partial_book_fraction=0.5)
+risk = g["entry"] - g["stop"]
+check("partial level sits between entry and target",
+      g["entry"] < g["partial_target"] < g["target"],
+      f"entry {g['entry']} partial {g['partial_target']} target {g['target']}")
+check("partial level is exactly 0.20R above entry",
+      abs((g["partial_target"] - g["entry"]) / risk - 0.20) < 0.01,
+      f"got {(g['partial_target']-g['entry'])/risk:.3f}R")
+
+# THE POINT OF THE WHOLE CHANGE: a trade that shows profit then reverses must lose LESS.
+path = pd.DataFrame({"high": [100.0, 100.6, 100.2, 99.0],
+                     "low": [99.8, 100.0, 98.0, 97.0],
+                     "close": [99.9, 100.5, 98.5, 97.4]})
+with_p = resolver._resolve_one("BTCUSDT", "crypto", "4h", "long", 100.0, 97.6, 104.32, 0.02, path, 24)
+settings.partial_book_enabled = False
+without = resolver._resolve_one("BTCUSDT", "crypto", "4h", "long", 100.0, 97.6, 104.32, 0.02, path, 24)
+settings.partial_book_enabled = True
+check("a loser that showed profit loses LESS with partial booking",
+      with_p["pnl"] > without["pnl"], f"with {with_p['pnl']} vs without {without['pnl']}")
+check("the booked fraction is reported", with_p.get("partial_booked") == 0.5,
+      f"got {with_p.get('partial_booked')}")
+
+# And the honest other side: it MUST cost something on a clean winner, or the model is wrong.
+runup = pd.DataFrame({"high": [100.1, 101.0, 104.5, 105.0],
+                      "low": [99.9, 100.2, 101.0, 104.0],
+                      "close": [100.0, 100.9, 104.4, 104.9]})
+w_p = resolver._resolve_one("BTCUSDT", "crypto", "4h", "long", 100.0, 97.6, 104.32, 0.02, runup, 24)
+settings.partial_book_enabled = False
+w_n = resolver._resolve_one("BTCUSDT", "crypto", "4h", "long", 100.0, 97.6, 104.32, 0.02, runup, 24)
+settings.partial_book_enabled = True
+check("...and it COSTS something on a clean winner (the real trade-off)",
+      w_p["pnl"] < w_n["pnl"],
+      "partial booking looked free on a winner — the model is wrong somewhere")
+
 print()
 if failures:
     print(f"{len(failures)} FAILURE(S):")
