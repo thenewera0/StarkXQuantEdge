@@ -189,14 +189,25 @@ def _challenger_weights(rows: list[dict], bucket_interval: str) -> dict | None:
 # --- Walk-forward gate ------------------------------------------------------
 
 
+_basket_cache: dict[tuple[str, str], tuple[float, pd.DataFrame]] = {}
+_BASKET_CACHE_TTL = 300.0  # 5 minutes
+
+
 def _basket_holdout_return(interval: str, weights: dict) -> float:
     """Sum of OOS (last 40%) backtest returns across the basket with these weights."""
     total = 0.0
+    now = time.time()
     for symbol in _BASKET:
-        try:
-            ind = compute_indicators(fetch_klines_history(symbol, interval, 2000))
-        except Exception:
-            continue
+        key = (symbol, interval)
+        cached = _basket_cache.get(key)
+        if cached and (now - cached[0]) < _BASKET_CACHE_TTL:
+            ind = cached[1]
+        else:
+            try:
+                ind = compute_indicators(fetch_klines_history(symbol, interval, 2000))
+                _basket_cache[key] = (now, ind)
+            except Exception:
+                continue
         n = len(ind)
         start = int(n * 0.6)
         res = backtest(ind, symbol, interval, start_idx=start, end_idx=n, weights_override=weights)
@@ -329,59 +340,69 @@ def tradeable_regimes(min_sample: int = 12, window_days: int = 4) -> set[str]:
 
 
 _LONG_LABELS = ("Buy", "Strong Buy")
-_dir_perf_cache: tuple[float, dict] | None = None
-_sym_perf_cache: tuple[float, dict] | None = None
+_dir_perf_cache: dict[tuple, tuple[float, dict]] = {}
+_sym_perf_cache: dict[tuple, tuple[float, dict]] = {}
 
 
-def symbol_performance(window_days: int | None = None) -> dict[str, dict]:
+def symbol_performance(window_days: int | None = None, market: str | None = None) -> dict[str, dict]:
     """Per-symbol realized stats over a rolling window: {symbol: {trades, wins, pnl_frac}}. Cached."""
     from .config import settings as _s
     window_days = _s.symbol_perf_window_days if window_days is None else window_days
     global _sym_perf_cache
     now = time.time()
-    if _sym_perf_cache and now - _sym_perf_cache[0] < _REGIME_TTL:
-        return _sym_perf_cache[1]
+    cache_key = (int(window_days), market)
+    cached = _sym_perf_cache.get(cache_key)
+    if cached and now - cached[0] < _REGIME_TTL:
+        return cached[1]
     result: dict[str, dict] = {}
     if db.enabled():
         try:
             with db.get_conn() as conn, conn.cursor() as cur:
+                mkt_clause = "and coalesce(s.market, 'crypto') = %s" if market else ""
+                params = [market] if market else []
                 cur.execute(
                     f"""
                     select s.symbol, count(*), count(*) filter (where o.pnl > 0), coalesce(sum(o.pnl), 0)
                     from outcomes o join signals s on s.id = o.signal_id
                     where o.pnl is not null and s.shadow = false
                       and o.resolved_at > now() - interval '{int(window_days)} days'
+                      {mkt_clause}
                     group by s.symbol
-                    """
+                    """,
+                    params,
                 )
                 for sym, n, w, pnl in cur.fetchall():
                     result[sym] = {"trades": int(n), "wins": int(w), "pnl_frac": float(pnl)}
         except Exception:
             pass
-    _sym_perf_cache = (now, result)
+    _sym_perf_cache[cache_key] = (now, result)
     return result
 
 
-def is_symbol_tradeable(symbol: str, min_sample: int | None = None, window_days: int | None = None) -> bool:
+def is_symbol_tradeable(symbol: str, min_sample: int | None = None, window_days: int | None = None, market: str | None = None) -> bool:
     """A symbol is paused only if it has >= min_sample recent trades AND negative net P&L."""
     from .config import settings as _s
     min_sample = _s.symbol_perf_min_sample if min_sample is None else min_sample
-    p = symbol_performance(window_days).get(symbol)
+    p = symbol_performance(window_days, market=market).get(symbol)
     if p is None or p["trades"] < min_sample:
         return True  # thin -> benefit of the doubt (also lets a paused symbol re-explore)
     return p["pnl_frac"] > 0
 
 
-def direction_performance(window_days: int = 21) -> dict[str, dict]:
+def direction_performance(window_days: int = 21, market: str | None = None) -> dict[str, dict]:
     """Rolling per-direction stats {long/short: {trades, wins, pnl_frac}} over the last window."""
     global _dir_perf_cache
     now = time.time()
-    if _dir_perf_cache and now - _dir_perf_cache[0] < _REGIME_TTL:
-        return _dir_perf_cache[1]
+    cache_key = (int(window_days), market)
+    cached = _dir_perf_cache.get(cache_key)
+    if cached and now - cached[0] < _REGIME_TTL:
+        return cached[1]
     result: dict[str, dict] = {}
     if db.enabled():
         try:
             with db.get_conn() as conn, conn.cursor() as cur:
+                mkt_clause = "and coalesce(s.market, 'crypto') = %s" if market else ""
+                params = [market] if market else []
                 cur.execute(
                     f"""
                     select case when s.label in ('Buy','Strong Buy') then 'long' else 'short' end d,
@@ -389,30 +410,40 @@ def direction_performance(window_days: int = 21) -> dict[str, dict]:
                     from outcomes o join signals s on s.id = o.signal_id
                     where o.pnl is not null and s.label <> 'Neutral' and s.shadow = false
                       and o.resolved_at > now() - interval '{int(window_days)} days'
+                      {mkt_clause}
                     group by d
-                    """
+                    """,
+                    params,
                 )
                 for d, n, w, pnl in cur.fetchall():
                     result[d] = {"trades": int(n), "wins": int(w), "pnl_frac": float(pnl)}
         except Exception:
             pass
-    _dir_perf_cache = (now, result)
+    _dir_perf_cache[cache_key] = (now, result)
     return result
 
 
-def tradeable_directions(min_sample: int = 12, window_days: int = 21) -> set[str]:
-    """Directions allowed to trade: proven-positive, or thin (benefit of the doubt).
+def tradeable_directions(min_sample: int = 12, window_days: int = 21, market: str | None = None) -> set[str]:
+    """Directions allowed to trade: proven-positive, or thin with non-negative baseline.
 
     A direction with >= min_sample resolved trades and NEGATIVE rolling P&L is dropped until it
-    turns positive again. This cuts the persistent short (or long) bleed automatically.
+    turns positive again. When recent trades are thin (< min_sample), we check all-time record:
+    if all-time record is proven negative (< 0 P&L on >= min_sample trades), it remains blocked
+    rather than receiving blind benefit of the doubt. This stops chronic bleed (e.g. 4.4% crypto shorts).
     """
-    perf = direction_performance(window_days)
+    perf = direction_performance(window_days, market=market)
+    all_time = direction_performance(3650, market=market)
     out: set[str] = set()
     for d in ("long", "short"):
         p = perf.get(d)
-        if p is None or p["trades"] < min_sample:
-            out.add(d)
-        elif p["pnl_frac"] > 0:
+        at = all_time.get(d)
+        if p and p["trades"] >= min_sample:
+            if p["pnl_frac"] > 0:
+                out.add(d)
+        else:
+            # Thin recent sample: allow UNLESS lifetime record proves it is a chronic loser
+            if at and at["trades"] >= min_sample and at["pnl_frac"] <= 0:
+                continue  # chronic loser on record -> stay blocked
             out.add(d)
     # NO fallback: if BOTH directions have proven negative expectancy, stand down entirely
     # ("silence is a position"). Losing trades age out of the window -> auto re-test later.

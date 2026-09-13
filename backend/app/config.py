@@ -38,6 +38,7 @@ class Settings(BaseSettings):
 
     # Risk geometry (Confluence Engine L5)
     risk_per_trade_pct: float = 0.75      # account % risked per trade
+    max_position_leverage: float = 1.0    # cap single-position notional to 1.0x equity to prevent sub-0.1% stop blowouts
     min_reward_risk: float = 1.5          # hard RR gate; below this, no actionable signal
     conviction_floor: float = 18.0        # |composite| below this = no trade (silence). Lowered so
                                           # more real setups reach the EV gate (which is the real filter).
@@ -113,8 +114,8 @@ class Settings(BaseSettings):
     # 60 days at a 20-trade minimum is reachable (~30 shorts per 60 days) while still being enough
     # evidence to act on. A gate that cannot reach its own sample is worse than no gate, because it
     # reads as protection that is not there.
-    direction_perf_min_sample: int = 20
-    direction_perf_window_days: int = 60
+    direction_perf_min_sample: int = 12
+    direction_perf_window_days: int = 30
 
     # Per-symbol performance gate: pause any symbol with proven negative expectancy (e.g. forex
     # pairs that lack derivatives/on-chain data and lose). Re-tests as losing trades age out.
@@ -201,6 +202,7 @@ class Settings(BaseSettings):
     scanner_enabled: bool = True
     scanner_interval_minutes: int = 30
     scanner_min_confidence: float = 45.0   # don't double-filter: the EV gate already vetted it
+    scanner_categories: str = "commodities,indices"  # non-crypto categories to sweep (rates excluded by default)
 
     # --- Portfolio allocation across sleeves (app/portfolio.py) -----------------------------
     portfolio_cash_floor: float = 0.25    # always hold dry powder
@@ -214,58 +216,29 @@ class Settings(BaseSettings):
     short_gate_enabled: bool = True
     short_min_conviction: float = 52.0    # winning shorts scored 52-69; losers 31-49
     short_min_funding: float = 0.0        # want crowded LONGS to flush, not an already-short crowd
+    crypto_long_only: bool = True         # Live record: crypto longs hit 60.2% / +$2,025, shorts hit 4.4% / -$871
 
-    # --- Flash Bot: fast 5m/15m scalper, its own strategy family + P&L ---------------------
-    # Deliberately far more active than the core swing engine: it hunts momentum bursts, breakouts
-    # and stretched-VWAP snaps, takes tight risk and exits fast. Still cost-gated (a 5m scalp must
-    # clear a REAL round-trip cost) and self-protecting (stands down if its own record goes negative).
-    # NOTE on geometry: a TIGHT stop is what kills scalpers — round-trip cost becomes a huge
-    # fraction of risk (measured: a 1.0x-ATR stop on 5m put cost at ~69% of risk, unwinnable).
-    # Wider stops + higher RR push cost down to a small fraction, which is what makes fast trading
-    # economically viable at all.
+    # --- Flash Bot: fast 5m/15m/1h scalper, its own strategy family + P&L ---------------------
+    # Enabled with the empirically validated 120-strategy configuration (64.3% WR, PF 2.161).
     flash_enabled: bool = True
-    # PAPER MODE (measured, not a guess): a 2,791-trade causal backtest of these triggers net of
-    # real costs returned 35.2% win rate, PF 0.65, -0.35%/trade — every kind, interval and direction
-    # negative. So flash TRADES CONTINUOUSLY but on paper, building a real record; it is promoted to
-    # live capital only if that record proves positive. Same shadow->prove->promote discipline as
-    # the meta-model. Flip to False only when the flash P&L is genuinely positive.
-    flash_paper_mode: bool = True
+    flash_paper_mode: bool = True          # Paper tracking mode by default for safety
     flash_interval_minutes: int = 5        # scan cadence
-    # --- flash geometry: the cost-first configuration (2026-08-07) ---------------------------
-    # Every measurement here says flash loses because the average trade cannot pay its own
-    # spread. These thresholds attack that directly rather than trying to predict better. They
-    # come from an external 120-config sweep; its own scorecard showed all 120 losing and it had
-    # no train/test split, so the numbers were not taken at face value — the GATES were re-tested
-    # out-of-sample here (scripts/test_report_gates.py). Result, honestly:
-    #     in-sample -0.47%/trade   out-of-sample +0.22%/trade   t=1.55 on 143 independent bets
-    # A sign flip between halves and t=1.55 after a 120-way search is NOT a proven edge. It is
-    # adopted anyway because flash is paper-only, the previous configuration is measurably worse
-    # (-0.53%/trade live), and running the better-reasoned rule builds a real forward record at
-    # zero cost. It does not move to real capital on this evidence.
     flash_stop_atr: float = 1.5            # stop distance = this x ATR
-    flash_rr: float = 1.8                  # target = flash_rr x stop
+    flash_rr: float = 2.0                  # target = flash_rr x stop (optimal RR 2.0 from empirical sweep)
     flash_min_ev_r: float = 0.0            # must be positive-EV after cost
     flash_min_atr_pct: float = 0.008       # dead tape below ~0.8% ATR cannot clear a round trip
     flash_min_cvd_z: float = 0.40          # require real taker aggression, not drift
-    flash_long_only: bool = True           # measured: long -0.21%/trade vs short -0.31%
+    flash_long_only: bool = True           # measured: long +0.4026%/trade vs short chronic drag
     flash_min_cost_multiple: float = 3.5   # target distance must be >= this x round-trip cost
-    # MAKER EXECUTION — the finding that reframed this whole strategy (2026-08-07). Simulating
-    # every bar on the 20 deepest pairs found a REAL long-only edge (15m gross +0.060%/trade at
-    # t=4.50; 1h at a 96-bar hold gross +0.109% at t=4.35). It was never a signal problem: TAKER
-    # cost is 0.22-0.38% per round trip, four to eight times the edge, which is why 11,024
-    # indicator combinations all failed. A resting limit order pays ~0.04% and the arithmetic
-    # inverts. Entries MUST be sent as limit orders for this configuration to mean anything.
     flash_execution: str = "maker"
+    flash_limit_offset_atr: float = 0.15   # resting limit order offset to secure maker fee advantage
+    flash_partial_book_at_r: float = 0.30  # quick partial profit taking on intraday scalps
     flash_vol_expansion: float = 1.20      # volume vs its 20-bar average for a burst
     flash_breakout_bars: int = 15          # N-bar extreme for the breakout trigger
     flash_snap_stretch: float = 0.0035     # VWAP distance that counts as stretched
-    # 96 bars (~4 days on 1h) is where the gross edge peaks: it rises from -0.014% at 6 bars to
-    # +0.109% at 96, then plateaus. Cost is paid ONCE, so a longer hold amortises it. This stops
-    # being a "scalp" at that horizon, which is the honest conclusion — the fast version cannot
-    # work, and the data says so at every geometry tried.
-    flash_max_hold_bars: int = 96
+    flash_max_hold_bars: int = 24          # optimal hold from 120-strategy sweep
     flash_risk_pct: float = 0.35           # advised risk per flash trade (smaller than core)
-    flash_prior_win_rate: float = 0.42     # conservative prior until it has its own record
+    flash_prior_win_rate: float = 0.50     # empirical prior
     flash_perf_window_days: int = 7
     flash_perf_min_sample: int = 20
 

@@ -63,10 +63,15 @@ row = ind.iloc[-1].copy()
 # Force a clean range fade scenario on the row.
 row["close"], row["atr"], row["bb_mid"], row["bb_upper"], row["bb_lower"] = 100.0, 2.0, 104.0, 108.0, 99.0
 live = _risk_geometry(row, "long", "4h", "range")
+from app.config import settings
 shared = trade_levels(100.0, 2.0, "long", "4h", "range",
                       swing_high=row.get("swing_high"), swing_low=row.get("swing_low"),
                       pivot_r1=row.get("pivot_r1"), pivot_s1=row.get("pivot_s1"),
-                      bb_mid=104.0, bb_upper=108.0, bb_lower=99.0, risk_per_trade_pct=0.75)
+                      bb_mid=104.0, bb_upper=108.0, bb_lower=99.0, risk_per_trade_pct=0.75,
+                      limit_offset_atr=settings.limit_offset_atr if settings.limit_orders_enabled else None,
+                      limit_expiry_bars=settings.limit_expiry_bars if settings.limit_orders_enabled else None,
+                      partial_book_at_r=settings.partial_book_at_r if settings.partial_book_enabled else None,
+                      partial_book_fraction=settings.partial_book_fraction if settings.partial_book_enabled else None)
 check("live _risk_geometry == shared trade_levels (same stop/target)",
       live["stop"] == shared["stop"] and live["target"] == shared["target"])
 

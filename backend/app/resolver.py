@@ -44,7 +44,11 @@ def _future_candles(symbol: str, market: str, interval: str, after: datetime) ->
         if (market or "crypto").lower() == "crypto":
             df = fetch_klines(symbol, interval, 1000)
         else:
-            df = fetch_klines_td(symbol, interval, outputsize=1000)
+            from . import universe
+            try:
+                df = universe.fetch(symbol, interval, 1000)
+            except Exception:
+                df = fetch_klines_td(symbol, interval, outputsize=1000)
         df, _ = validate_ohlcv(df, interval)  # clean before resolving outcomes
     except Exception:
         return pd.DataFrame()

@@ -55,8 +55,10 @@ def scan_universe() -> dict[str, list[str]]:
     # Crypto: the deep end of the book only. A 15m-to-4h trade pays the spread against a small
     # move, so thin pairs are unwinnable regardless of signal quality.
     out["crypto"] = [c["symbol"] for c in universe.catalog(
-        ["crypto"], crypto_limit=60, min_volume=universe.MIN_VOLUME_SCAN)]
-    for cat in _SCAN_CATEGORIES:
+        ["crypto"], crypto_limit=60, min_volume=universe.MIN_VOLUME_SCAN)
+        if c["symbol"] not in _BLEEDER_SYMBOLS]
+    categories = [c.strip() for c in settings.scanner_categories.split(",") if c.strip() and c.strip() != "crypto"]
+    for cat in categories:
         syms = [c["symbol"] for c in universe.catalog([cat], allocatable_only=True)]
         if cat == "forex":
             syms = [s for s in syms if s in _FX_PROBATION]
@@ -72,13 +74,16 @@ _FX_PROBATION = frozenset({
     "EUR/GBP", "EUR/JPY", "GBP/JPY", "AUD/JPY", "EUR/CHF", "EUR/AUD", "CAD/JPY", "CHF/JPY",
 })
 
+_BLEEDER_SYMBOLS = frozenset({
+    "UNIUSDT", "ARBUSDT", "OPUSDT", "FILUSDT", "SEIUSDT", "RUNEUSDT", "APTUSDT", "TIAUSDT",
+})
+
 # Kept as the static fallback for tests and for when the venue/catalog is unreachable.
+# Refined to liquid, proven performers; chronic fee/wick bleeders removed.
 POPULAR: dict[str, list[str]] = {
     "crypto": [
-        "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "AVAXUSDT",
-        "LINKUSDT", "LTCUSDT", "DOTUSDT", "TRXUSDT", "ATOMUSDT", "UNIUSDT", "NEARUSDT", "APTUSDT",
-        "ARBUSDT", "OPUSDT", "FILUSDT", "INJUSDT", "SUIUSDT", "SEIUSDT", "TIAUSDT", "AAVEUSDT",
-        "ETCUSDT", "XLMUSDT", "RUNEUSDT", "GRTUSDT",
+        "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "AVAXUSDT",
+        "DOGEUSDT", "LINKUSDT", "LTCUSDT", "DOTUSDT", "NEARUSDT", "ATOMUSDT", "ETCUSDT",
     ],
 }
 # Crypto runs 24/7 so 1h is tradable; the rest close overnight and at weekends, where an hourly
@@ -132,13 +137,14 @@ def _book_state(force: bool = False) -> dict:
                           coalesce(sum(
                               case when s.entry is not null and s.stop is not null
                                         and abs(s.entry - s.stop) > 0
-                                   then (%s * %s) / (abs(s.entry - s.stop) / abs(s.entry))
+                                   then least(%s * %s, (%s * %s) / (abs(s.entry - s.stop) / abs(s.entry)))
                                    else 0 end), 0)
                    from signals s
                    where not s.shadow and s.entry is not null and s.label <> 'Neutral'
                      and not exists (select 1 from outcomes o where o.signal_id = s.id)
+                     and s.created_at > now() - interval '30 days'
                    group by 1""",
-                (equity, settings.risk_per_trade_pct / 100.0),
+                (equity, settings.max_position_leverage, equity, settings.risk_per_trade_pct / 100.0),
             )
             rows = cur.fetchall()
     except Exception:
@@ -302,6 +308,7 @@ def scan_once(min_confidence: float | None = None) -> dict:
                 stop_frac = abs(float(entry) - float(stop)) / abs(float(entry))
                 if stop_frac > 0:
                     want = (book["equity"] * settings.risk_per_trade_pct / 100.0) / stop_frac
+                    want = min(want, book["equity"] * settings.max_position_leverage)
             if want > remaining:
                 # Take a SMALLER position rather than skipping a good setup. This is exactly what
                 # lets the count cap be generous while the capital ceiling stays hard.

@@ -68,6 +68,37 @@ def _metrics(df: pd.DataFrame) -> dict | None:
     above = bool(px > float(ma200.iloc[-1]))
     slope = float(ma200.iloc[-1] / ma200.iloc[-21] - 1.0) if len(ma200.dropna()) > 21 else 0.0
 
+    # --- Kalman slope & Flow ratio (Quant Confluence Hybrid) ---
+    high = df["high"].astype(float) if "high" in df.columns else close
+    low = df["low"].astype(float) if "low" in df.columns else close
+    tr = pd.concat([
+        high - low,
+        (high - close.shift(1)).abs(),
+        (low - close.shift(1)).abs()
+    ], axis=1).max(axis=1)
+    atr_series = tr.rolling(14, min_periods=5).mean()
+
+    from .indicators.engine import kalman_slope as _ks_calc
+    ks_series = _ks_calc(close, atr_series)
+    ks_val = float(ks_series.iloc[-1]) if not pd.isna(ks_series.iloc[-1]) else 0.0
+
+    # Flow ratio (order flow / taker volume if present, or close position in high-low range)
+    if "taker_base" in df.columns and "volume" in df.columns:
+        v = df["volume"].astype(float)
+        tb = df["taker_base"].astype(float)
+        delta = 2.0 * tb - v
+        cum_delta = delta.rolling(21, min_periods=5).sum()
+        cum_vol = v.rolling(21, min_periods=5).sum()
+        flow_ratio = float((cum_delta / cum_vol.replace(0.0, float("nan"))).iloc[-1]) if len(cum_vol) > 0 else 0.0
+        if math.isnan(flow_ratio):
+            flow_ratio = 0.0
+    else:
+        roll_h = high.rolling(21).max()
+        roll_l = low.rolling(21).min()
+        denom = (roll_h - roll_l).replace(0.0, float("nan"))
+        loc = (close - roll_l) / denom
+        flow_ratio = float(loc.iloc[-1] * 2.0 - 1.0) if len(loc) > 0 and not pd.isna(loc.iloc[-1]) else 0.0
+
     # --- risk-adjusted return ---
     ann_ret = float(rets.mean() * _TRADING_YEAR)
     ann_vol = float(rets.std(ddof=0) * math.sqrt(_TRADING_YEAR))
@@ -86,6 +117,7 @@ def _metrics(df: pd.DataFrame) -> dict | None:
 
     return {
         "price": px, "momentum_12_1": mom_12_1, "above_ma200": above, "ma200_slope": slope,
+        "kalman_slope": ks_val, "flow_ratio": flow_ratio,
         "ann_return": ann_ret, "ann_vol": ann_vol, "sharpe": sharpe,
         "drawdown_from_high": dd_now, "max_drawdown": max_dd, "stability": stability,
     }
@@ -111,6 +143,20 @@ def _score(m: dict) -> tuple[float, list[str]]:
         s += 6.0; notes.append("above its 200-day average but the trend is flattening")
     else:
         s -= 18.0; notes.append("below its 200-day average (structurally weak)")
+
+    # Kalman Filter Trend Drift (Quant Confluence factor)
+    ks = m.get("kalman_slope", 0.0)
+    if ks > 0.0005:
+        s += 12.0; notes.append(f"positive Kalman trend drift ({ks:+.4f})")
+    elif ks < -0.0005:
+        s -= 14.0; notes.append(f"negative Kalman trend drift ({ks:+.4f})")
+
+    # Order flow / Accumulation ratio
+    fr = m.get("flow_ratio", 0.0)
+    if fr > 0.05:
+        s += 8.0; notes.append(f"institutional net accumulation flow ({fr:+.2f})")
+    elif fr < -0.10:
+        s -= 6.0; notes.append(f"institutional net distribution flow ({fr:+.2f})")
 
     # Risk-adjusted return.
     sh = max(-2.0, min(3.0, m["sharpe"]))
@@ -295,10 +341,24 @@ def _asset_stats(entry: dict) -> dict | None:
     rets = close.pct_change().dropna().iloc[-60:]
     vol = float(rets.std(ddof=0) * math.sqrt(_TRADING_YEAR)) if len(rets) > 20 else 1.0
 
+    # Kalman trend slope (adaptive, scale-free)
+    from .indicators.engine import kalman_slope as _ks_calc
+    high = df["high"].astype(float) if "high" in df.columns else close
+    low = df["low"].astype(float) if "low" in df.columns else close
+    tr = pd.concat([
+        high - low,
+        (high - close.shift(1)).abs(),
+        (low - close.shift(1)).abs()
+    ], axis=1).max(axis=1)
+    atr_series = tr.rolling(14, min_periods=5).mean()
+    ks_series = _ks_calc(close, atr_series)
+    ks_val = float(ks_series.iloc[-1]) if not pd.isna(ks_series.iloc[-1]) else 0.0
+
     return {"symbol": sym, "name": entry.get("name", sym), "category": entry["category"],
             "price": round(px, 6), "momentum_252d": round(mom, 4),
             "momentum_21d": round(mom21, 4),
             "above_ma200": px > ma200, "pct_vs_ma200": round(px / ma200 - 1, 4),
+            "kalman_slope": round(ks_val, 5),
             "ann_vol": round(max(vol, 0.05), 4)}
 
 
@@ -339,8 +399,9 @@ def allocation_model(symbols: list[str] | None = None) -> dict:
                     short-term reversal, which is why the academic factor is 12-1)
       2. ABSOLUTE   drop anything whose momentum is negative
       3. TREND      drop anything below its 200-day average
-      4. SIZE       weight survivors by 1/volatility, so each contributes similar risk
-      5. BUDGET     scale the whole book to a 20% vol target, never above 100% invested
+      4. KALMAN     drop anything with negative Kalman trend slope (prevents catching knives)
+      5. SIZE       weight survivors by 1/volatility, so each contributes similar risk
+      6. BUDGET     scale the whole book to a 20% vol target, never above 100% invested
     Cash is a position. In a broad downtrend the model holds mostly cash by construction.
     """
     from . import universe as _u
@@ -367,6 +428,9 @@ def allocation_model(symbols: list[str] | None = None) -> dict:
             rejected.append(row)
         elif not row["above_ma200"]:
             row["reason"] = f"below its 200-day average ({row['pct_vs_ma200']*100:+.1f}%)"
+            rejected.append(row)
+        elif row.get("kalman_slope", 0.0) < -0.001:
+            row["reason"] = f"negative Kalman trend drift ({row.get('kalman_slope', 0.0):+.4f})"
             rejected.append(row)
         else:
             picks.append(row)
@@ -399,10 +463,11 @@ def allocation_model(symbols: list[str] | None = None) -> dict:
         by_cat[h["category"]] = round(by_cat.get(h["category"], 0.0) + h["weight"], 4)
 
     return {
-        "model": f"cross-asset mom252d top{_TOP_N}, inverse-vol, {int(_VOL_TARGET*100)}% vol target",
+        "model": f"cross-asset mom252d top{_TOP_N}, Kalman trend filter, inverse-vol, {int(_VOL_TARGET*100)}% vol target",
         "rules": ["rank by 12-1 momentum (252d, skip 21d)",
                   "require POSITIVE absolute momentum",
                   "require price above the 200-day average",
+                  "require non-negative Kalman trend slope (Quant Confluence filter)",
                   f"weight survivors by 1/volatility, max {_TOP_N} names",
                   f"scale the book to a {int(_VOL_TARGET*100)}% volatility budget, never levered"],
         "holdings": held,
@@ -443,6 +508,8 @@ def screen(symbols: list[str] | None = None) -> dict:
             "symbol": sym, "score": round(score, 1), "tier": _tier(score, m),
             "price": round(m["price"], 6),
             "momentum_12_1": round(m["momentum_12_1"], 4),
+            "kalman_slope": round(m.get("kalman_slope", 0.0), 4),
+            "flow_ratio": round(m.get("flow_ratio", 0.0), 3),
             "ann_return": round(m["ann_return"], 4),
             "ann_vol": round(m["ann_vol"], 4),
             "sharpe": round(m["sharpe"], 3),

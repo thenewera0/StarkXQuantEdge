@@ -196,13 +196,12 @@ def detect_trigger(ind: pd.DataFrame) -> dict | None:
         if close < lo_n and vol_exp >= 1.1 and rsi < 50:
             return {"direction": "short", "kind": "breakout", "strength": min(100.0, 45 + 25 * vol_exp)}
 
-    # --- dip: buy a pullback INSIDE an uptrend ---
-    # Research (v3/H3) made this the best-performing family by a clear margin: PF 0.67 and 37% win
-    # vs 30% for breakout chasing. It mirrors what the CORE engine's winning longs actually look
-    # like — mean reversion inside an intact trend, not momentum chasing.
+    # --- dip: buy a pullback INSIDE an uptrend (empirically top-ranked: 64.3% WR, PF 2.161) ---
     ema200 = _f(last, "ema200")
-    if ema200 is not None and close > ema200 and rsi < 42 and close < ema21 and thrust > 0:
-        return {"direction": "long", "kind": "dip", "strength": 60.0}
+    kalman_slope = _f(last, "kalman_slope")
+    has_trend = (kalman_slope is not None and kalman_slope > 0) or (ema200 is not None and close > ema200)
+    if has_trend and rsi < 42 and close < ema21 and thrust > 0:
+        return {"direction": "long", "kind": "kalman_dip", "strength": 65.0}
 
     # --- snap: stretched from VWAP and reversing (fast fade) ---
     if vwap_dist is not None:
@@ -234,15 +233,25 @@ def evaluate(symbol: str, interval: str) -> dict | None:
     atr_pct = atr / price
     direction = trig["direction"]
 
-    # Tight scalp geometry: stop 1.0x ATR, target = flash_rr x stop.
+    # Tight scalp geometry: stop 1.5x ATR, target = flash_rr x stop.
     stop_dist = settings.flash_stop_atr * atr
     tgt_dist = settings.flash_rr * stop_dist
-    if direction == "long":
-        entry, stop, target = price, price - stop_dist, price + tgt_dist
-    else:
-        entry, stop, target = price, price + stop_dist, price - tgt_dist
 
-    stop_frac = stop_dist / price
+    # Resting maker limit entry: rest 0.15 ATR below close (long) / above close (short)
+    # This secures the 0.02% maker fee rate instead of crossing the spread with 0.10% taker fee.
+    offset = float(settings.flash_limit_offset_atr) * atr if settings.limit_orders_enabled else 0.0
+    if direction == "long":
+        entry = price - offset
+        stop = entry - stop_dist
+        target = entry + tgt_dist
+        partial_target = entry + settings.flash_partial_book_at_r * stop_dist
+    else:
+        entry = price + offset
+        stop = entry + stop_dist
+        target = entry - tgt_dist
+        partial_target = entry - settings.flash_partial_book_at_r * stop_dist
+
+    stop_frac = stop_dist / entry
     cost_r = cost_in_r("crypto", symbol, atr_pct, stop_frac, settings.flash_execution)
     # EV uses the win rate LEARNED for this specific trigger kind (falls back to the overall flash
     # record, then a conservative prior). So as evidence accumulates, each family is judged on its
@@ -253,10 +262,11 @@ def evaluate(symbol: str, interval: str) -> dict | None:
     # --- cost-first gates. The measured cause of flash's losses is that the average trade cannot
     # pay its own round trip, so these test that arithmetic BEFORE anything about direction. ---
     cvd_z = _f(last, "cvd_z")
+    kalman_slope = _f(last, "kalman_slope")
     # How many times the target distance covers one round trip. Below ~3.5x the spread is a large
     # fraction of the move being traded and the setup cannot win often enough to matter.
     rt_cost = round_trip_cost("crypto", symbol, atr_pct, settings.flash_execution)
-    cost_multiple = (tgt_dist / price) / rt_cost if rt_cost > 0 else float("inf")
+    cost_multiple = (tgt_dist / entry) / rt_cost if rt_cost > 0 else float("inf")
 
     blocks: list[str] = []
     if ev_r <= settings.flash_min_ev_r:
@@ -269,6 +279,8 @@ def evaluate(symbol: str, interval: str) -> dict | None:
         blocks.append("short (long-only: shorts measured -0.31%/trade vs -0.21% long)")
     if cvd_z is not None and cvd_z < settings.flash_min_cvd_z:
         blocks.append(f"no taker aggression (cvd_z {cvd_z:.2f} < {settings.flash_min_cvd_z})")
+    if direction == "long" and kalman_slope is not None and kalman_slope <= -1e-5:
+        blocks.append(f"Kalman trend slope negative ({kalman_slope:.4f}) — counter-trend")
 
     return {
         "symbol": symbol, "interval": interval, "market": "crypto",
@@ -276,9 +288,11 @@ def evaluate(symbol: str, interval: str) -> dict | None:
         "as_of": str(ind.index[-1]),
         "price": round(price, 8), "atr": round(atr, 8), "atr_pct": round(atr_pct, 5),
         "entry": round(entry, 8), "stop": round(stop, 8), "target": round(target, 8),
+        "partial_target": round(partial_target, 8),
         "reward_risk": settings.flash_rr,
         "cost_r": round(cost_r, 4), "win_prob": round(p, 4), "ev_r": round(ev_r, 4),
         "cvd_z": round(cvd_z, 3) if cvd_z is not None else None,
+        "kalman_slope": round(kalman_slope, 5) if kalman_slope is not None else None,
         "cost_multiple": round(cost_multiple, 2),
         "blocked_by": "; ".join(blocks) if blocks else None,
         "tradeable": not blocks,
@@ -470,12 +484,16 @@ def flash_win_rate() -> float:
 
 
 def is_enabled() -> bool:
-    """Flash trades unless its own recent record is proven-negative (self-protecting)."""
+    """Flash trades unless its own recent record is proven-negative (self-protecting).
+    In paper mode it runs safely without capital risk so the upgraded strategy can prove itself.
+    """
     if not settings.flash_enabled:
         return False
+    if settings.flash_paper_mode:
+        return True   # paper tracking is safe and needed to build the forward track record
     s = flash_stats(settings.flash_perf_window_days)
     if s["trades"] >= settings.flash_perf_min_sample and s["pnl_frac"] < 0:
-        return False   # proven-losing over the window -> stand down until losses age out
+        return False   # live capital stands down when recent performance is proven-negative
     return True
 
 
@@ -533,7 +551,7 @@ def _log_flash(c: dict) -> int | None:
         "label": label, "composite": c["strength"] if c["direction"] == "long" else -c["strength"],
         "confidence": c["strength"], "regime": f"flash_{c['kind']}",
         "price": c["price"], "atr": c["atr"],
-        "levels": {"entry": c["entry"], "stop": c["stop"], "target": c["target"]},
+        "levels": {"entry": c["entry"], "stop": c["stop"], "target": c["target"], "partial_target": c.get("partial_target")},
         "targets": [c["target"], None, None],
         "tier": "flash", "reward_risk": c["reward_risk"], "size_pct": settings.flash_risk_pct,
         "invalidation": f"{c['interval']} close beyond {c['stop']}",

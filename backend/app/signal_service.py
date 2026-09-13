@@ -54,10 +54,10 @@ def _allowed_regimes() -> set[str]:
     return _TRADEABLE_REGIMES
 
 
-def _allowed_directions() -> set[str]:
+def _allowed_directions(market: str = "crypto") -> set[str]:
     if settings.direction_perf_gate_enabled:
         return learning.tradeable_directions(
-            settings.direction_perf_min_sample, settings.direction_perf_window_days
+            settings.direction_perf_min_sample, settings.direction_perf_window_days, market=market
         )
     return {"long", "short"}
 _OI_PERIODS = {"5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d"}
@@ -326,8 +326,10 @@ def compute_signal(
         sig_symbol, settings.symbol_perf_min_sample, settings.symbol_perf_window_days
     ):
         silence_reason = "symbol_filter"  # this symbol has proven negative expectancy
-    elif candidate_dir != "flat" and candidate_dir not in _allowed_directions():
+    elif candidate_dir != "flat" and candidate_dir not in _allowed_directions(market):
         silence_reason = "direction_filter"  # this direction has proven negative expectancy
+    elif is_crypto and candidate_dir == "short" and getattr(settings, "crypto_long_only", True):
+        silence_reason = "crypto_long_only"  # crypto shorts measured 4.4% win rate / -$871 loss
     elif candidate_dir == "short" and not _short_ok(ind, composite, raw_features["htf_trend"],
                                                     (flow_extras or {}).get("funding_rate"))["ok"]:
         silence_reason = "short_not_qualified"  # counter-trend short — the thing that lost the money

@@ -72,7 +72,7 @@ def _load() -> dict:
                 """
                 select coalesce(s.regime,'unknown') regime, abs(s.composite) absc,
                        case when o.pnl > 0 then 1 else 0 end win,
-                       case when coalesce(s.market,'crypto') = 'crypto' then 'crypto' else 'forex' end mkt,
+                       coalesce(s.market,'crypto') mkt,
                        case when s.label in ('Buy','Strong Buy') then 'long' else 'short' end dir
                 from outcomes o join signals s on s.id = o.signal_id
                 where o.pnl is not null and s.composite is not null and s.shadow = false
@@ -157,7 +157,7 @@ def win_prob(regime: str | None, abs_composite: float,
     # broad -> specific, each level refining the one above it
     p = blend(p, c["regimes"].get(regime or ""))
     if market and direction:
-        mkt = "crypto" if market == "crypto" else "forex"
+        mkt = (market or "crypto").lower()
         p = blend(p, c["segments"].get(f"{mkt}|{direction}"))
         p = blend(p, c["segments"].get(f"{mkt}|{direction}|{regime}"))
     return float(min(0.98, max(0.02, p)))
