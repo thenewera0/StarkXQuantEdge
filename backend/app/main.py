@@ -485,6 +485,68 @@ def record_outcome(payload: OutcomeIn) -> dict:
     return {"recorded": True, "signal_id": payload.signal_id}
 
 
+@app.post("/trades/{signal_id}/close")
+def close_trade(signal_id: int) -> dict:
+    """Manually close an open trade at the live market price and lock in the profit/loss."""
+    from datetime import datetime, timezone
+    from . import costs, data
+    if not db.enabled():
+        raise HTTPException(status_code=409, detail="persistence not configured")
+    with db.get_conn() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            select s.id, s.symbol, coalesce(s.market,'crypto') market, s.interval, s.label,
+                   s.entry, s.stop, s.target, s.created_at, s.as_of, s.atr
+            from signals s
+            where s.id = %s and not exists (select 1 from outcomes o where o.signal_id = s.id)
+            """,
+            (signal_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Open trade {signal_id} not found or already closed")
+    
+    symbol, market, interval, label = row[1], row[2], row[3], row[4]
+    entry = float(row[5])
+    direction = resolver._direction(label)
+    if not direction or entry <= 0:
+        raise HTTPException(status_code=400, detail="Invalid trade direction or entry price")
+    
+    last_px = performance._last_price(symbol, market, interval)
+    if last_px is None or last_px <= 0:
+        raise HTTPException(status_code=502, detail=f"Cannot fetch live market quote for {symbol}")
+    
+    gross = (last_px - entry) / entry if direction == "long" else (entry - last_px) / entry
+    atr_pct = (abs(float(row[10])) / entry) if row[10] else 0.02
+    cost = costs.round_trip_cost(market, symbol, atr_pct, "taker")
+    net_ret = gross - cost
+    
+    as_of = row[9]
+    now = datetime.now(timezone.utc)
+    secs = (now - as_of).total_seconds() if as_of else 0
+    interval_sec = data.INTERVAL_SECONDS.get(interval, 14400)
+    bars_held = max(1, int(secs / max(interval_sec, 60)))
+    
+    ok = persistence.record_outcome(
+        signal_id, "manual_close", pnl=round(net_ret, 6),
+        mfe=round(max(0.0, gross), 6), mae=round(min(0.0, gross), 6),
+        bars_held=bars_held,
+    )
+    if not ok:
+        raise HTTPException(status_code=500, detail="Failed to record closed trade outcome")
+        
+    pnl_usd = round(net_ret * settings.standard_trade_size_usd, 2)
+    return {
+        "success": True,
+        "signal_id": signal_id,
+        "symbol": symbol,
+        "exit_price": last_px,
+        "pnl_pct": round(net_ret * 100, 3),
+        "pnl_usd": pnl_usd,
+        "result": "manual_close",
+    }
+
+
 class TradingViewAlert(BaseModel):
     token: str
     ticker: str

@@ -109,21 +109,28 @@ def trade_levels(
         if direction == "long":
             stop = price - atr_k * atr
             risk = price - stop
-            t1 = price + 1.8 * risk
-            res = [v for v in (sh, pr1) if v is not None and t1 < v < price + 3.0 * risk]
+            # Realistic Target Capping:
+            # When ATR / risk is wide (e.g. risk > 15% of price), 1.8x risk produces an absurd
+            # +80% to +130% target that almost never fills. Cap T1 at max 28-32% gain so profit is taken!
+            t1_dist = min(1.8 * risk, max(0.20 * price, 2.0 * atr))
+            t1 = price + t1_dist
+            res = [v for v in (sh, pr1) if v is not None and t1 < v < price + min(3.0 * risk, 0.45 * price)]
             if res:
                 t1 = min(res)
-            t2, t3 = price + 2.8 * risk, price + 4.5 * risk
+            t2 = price + min(2.8 * risk, 0.50 * price)
+            t3 = price + min(4.5 * risk, 0.85 * price)
             rr = (t1 - price) / risk if risk > 0 else None
             invalidation = f"{interval} close below {_round_price(stop)}"
         else:
             stop = price + atr_k * atr
             risk = stop - price
-            t1 = price - 1.8 * risk
-            sup = [v for v in (sl, ps1) if v is not None and price - 3.0 * risk < v < t1]
+            t1_dist = min(1.8 * risk, max(0.20 * price, 2.0 * atr))
+            t1 = price - t1_dist
+            sup = [v for v in (sl, ps1) if v is not None and price - min(3.0 * risk, 0.45 * price) < v < t1]
             if sup:
                 t1 = max(sup)
-            t2, t3 = price - 2.8 * risk, price - 4.5 * risk
+            t2 = price - min(2.8 * risk, 0.50 * price)
+            t3 = price - min(4.5 * risk, 0.85 * price)
             rr = (price - t1) / risk if risk > 0 else None
             invalidation = f"{interval} close above {_round_price(stop)}"
 

@@ -108,6 +108,19 @@ def record_outcome(
         return False
 
 
+def update_signal_stop(signal_id: int, new_stop: float) -> bool:
+    """Update an active signal's stop level in the database (e.g. trailing stop / breakeven)."""
+    if not db.enabled():
+        return False
+    try:
+        with db.get_conn() as conn, conn.cursor() as cur:
+            cur.execute("update signals set stop = %s where id = %s", (new_stop, signal_id))
+            conn.commit()
+            return True
+    except Exception:
+        return False
+
+
 def trade_history(result_filter: str = "all", limit: int = 50, offset: int = 0,
                   trade_size: float = 1000.0) -> dict:
     """Paginated closed-trade history with wins/losses/all counts. Newest first."""

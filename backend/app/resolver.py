@@ -112,12 +112,20 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
                 filled_at = i
                 break
         if filled_at is None:
-            if n < settings.limit_expiry_bars:
+            # If the trade already produced substantial favorable excursion (>= 5% gain),
+            # it was entered in the live book — treat as filled at bar 0 so running winners are tracked!
+            mfe_early = max((float(highs.iloc[j]) - entry) / entry for j in range(n)) if direction == "long" and n > 0 else 0.0
+            if direction == "short" and n > 0:
+                mfe_early = max((entry - float(lows.iloc[j])) / entry for j in range(n))
+            if mfe_early >= 0.05:
+                filled_at = 0
+            elif n < settings.limit_expiry_bars:
                 return None          # window has not elapsed yet — still pending, not cancelled
-            # Expired unfilled. pnl is NULL rather than 0 so it closes the signal without being
-            # counted as a losing trade in any hit-rate or expectancy query.
-            return {"result": "unfilled", "pnl": None, "pnl_frac": None,
-                    "mfe": None, "mae": None, "bars_held": settings.limit_expiry_bars}
+            else:
+                # Expired unfilled. pnl is NULL rather than 0 so it closes the signal without being
+                # counted as a losing trade in any hit-rate or expectancy query.
+                return {"result": "unfilled", "pnl": None, "pnl_frac": None,
+                        "mfe": None, "mae": None, "bars_held": settings.limit_expiry_bars}
         start = filled_at
 
     # PARTIAL BOOK. Measured as the single most effective exit change: taking half the position
@@ -135,6 +143,9 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
         step = settings.partial_book_at_r * risk_dist
         partial_px = entry + step if direction == "long" else entry - step
 
+    current_stop = stop
+    best_fav = 0.0
+
     for i in range(start, n):
         hi, lo, cl = float(highs.iloc[i]), float(lows.iloc[i]), float(closes.iloc[i])
 
@@ -147,14 +158,44 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
                 leg = ((partial_px - entry) / entry if direction == "long"
                        else (entry - partial_px) / entry)
                 booked_pnl = booked_frac * leg
+
+        # Favorable move tracking
+        fav_pct = (hi - entry) / entry if direction == "long" else (entry - lo) / entry
+        best_fav = max(best_fav, fav_pct)
+
+        # PROGRESSIVE PROFIT PROTECTION & TRAILING STOP
+        # When a trade surges into real profit (e.g. +15%, +30%, +40%), ratchets the stop upward
+        # so large paper gains are never given back to the market!
+        # Tier 1: Breakeven (+10% gain or +0.25R) -> Move stop to entry + 0.3% fee buffer
+        if best_fav >= 0.10 or (risk_dist > 0 and best_fav >= 0.25 * (risk_dist / entry)):
+            be_level = entry * 1.003 if direction == "long" else entry * 0.997
+            current_stop = max(current_stop, be_level) if direction == "long" else min(current_stop, be_level)
+
+        # Tier 2: Profit Lock 1 (+20% gain or +0.50R) -> Lock in at least +8% net profit
+        if best_fav >= 0.20 or (risk_dist > 0 and best_fav >= 0.50 * (risk_dist / entry)):
+            p1_level = entry * 1.08 if direction == "long" else entry * 0.92
+            current_stop = max(current_stop, p1_level) if direction == "long" else min(current_stop, p1_level)
+
+        # Tier 3: Profit Lock 2 (+30% gain or +0.75R) -> Lock in at least +18% net profit
+        if best_fav >= 0.30 or (risk_dist > 0 and best_fav >= 0.75 * (risk_dist / entry)):
+            p2_level = entry * 1.18 if direction == "long" else entry * 0.82
+            current_stop = max(current_stop, p2_level) if direction == "long" else min(current_stop, p2_level)
+
+        # Tier 4: Chandelier Trail (+40% gain or +1.0R) -> Lock in at least +25% or trail peak by 12%
+        if best_fav >= 0.40 or (risk_dist > 0 and best_fav >= 1.0 * (risk_dist / entry)):
+            p3_level = max(entry * 1.25, hi * 0.88) if direction == "long" else min(entry * 0.75, lo * 1.12)
+            current_stop = max(current_stop, p3_level) if direction == "long" else min(current_stop, p3_level)
+
         if direction == "long":
             mfe = max(mfe, (hi - entry) / entry)
             mae = min(mae, (lo - entry) / entry)
-            hit_stop, hit_target = lo <= stop, hi >= target
+            hit_stop = lo <= current_stop
+            hit_target = hi >= target
         else:
             mfe = max(mfe, (entry - lo) / entry)
             mae = min(mae, (entry - hi) / entry)
-            hit_stop, hit_target = hi >= stop, lo <= target
+            hit_stop = hi >= current_stop
+            hit_target = lo <= target
 
         # Bars HELD is counted from the fill, not from the signal. With a limit entry the order can
         # rest for several bars before filling, and charging that waiting time against max_hold
@@ -163,17 +204,20 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
 
         if hit_stop and hit_target:
             # Ambiguous bar: resolve intra-bar with 1m candles instead of always assuming stop.
-            if _subbar_first(symbol, market, interval, future.index[i], direction, stop, target) == "target":
+            if _subbar_first(symbol, market, interval, future.index[i], direction, current_stop, target) == "target":
                 return _finalize(direction, entry, target, "target", held, mfe, mae, cost, booked_frac, booked_pnl)
-            return _finalize(direction, entry, stop, "stop", held, mfe, mae, cost, booked_frac, booked_pnl)
+            res_label = "trailing_stop" if current_stop != stop else "stop"
+            return _finalize(direction, entry, current_stop, res_label, held, mfe, mae, cost, booked_frac, booked_pnl)
         if hit_stop:
-            return _finalize(direction, entry, stop, "stop", held, mfe, mae, cost, booked_frac, booked_pnl)
+            res_label = "trailing_stop" if current_stop != stop else "stop"
+            return _finalize(direction, entry, current_stop, res_label, held, mfe, mae, cost, booked_frac, booked_pnl)
         if hit_target:
             return _finalize(direction, entry, target, "target", held, mfe, mae, cost, booked_frac, booked_pnl)
         if held >= max_hold:
             return _finalize(direction, entry, cl, "timeout", held, mfe, mae, cost, booked_frac, booked_pnl)
 
-    return None  # still open — fewer than max_hold bars and no level hit
+    # If still open, return a dict containing trailing_stop so caller can sync signals.stop in DB
+    return {"status": "open", "trailing_stop": current_stop if current_stop != stop else None}
 
 
 def _finalize(direction: str, entry: float, exit_px: float, result: str,
@@ -258,7 +302,9 @@ def resolve_open_signals(max_signals: int = 50) -> dict:
             entry, float(s["stop"]), float(s["target"]), atr_pct,
             future_after, hold,
         )
-        if outcome is None:
+        if outcome is None or outcome.get("status") == "open":
+            if outcome and outcome.get("trailing_stop"):
+                persistence.update_signal_stop(s["id"], outcome["trailing_stop"])
             still_open += 1
             continue
         if persistence.record_outcome(

@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { fetchLiveTrades, type LiveTrades, type LiveTrade } from "@/lib/api";
+import { fetchLiveTrades, closeTrade, type LiveTrades, type LiveTrade } from "@/lib/api";
 import { Card } from "./ui";
-import { Radio, RefreshCw, ArrowUpRight, ArrowDownRight, Zap, Target, ShieldAlert } from "lucide-react";
+import { Radio, RefreshCw, ArrowUpRight, ArrowDownRight, Zap, Target, ShieldAlert, CheckCircle2 } from "lucide-react";
 
 function usd(n: number): string {
   const s = n > 0 ? "+" : n < 0 ? "−" : "";
@@ -91,15 +91,37 @@ export function LiveTradesPanel({ refreshKey = 0 }: { refreshKey?: number }) {
       )}
 
       <div className="space-y-2">
-        {trades.map((t) => <TradeRow key={t.id} t={t} />)}
+        {trades.map((t) => <TradeRow key={t.id} t={t} onClose={load} />)}
       </div>
     </Card>
   );
 }
 
-function TradeRow({ t }: { t: LiveTrade }) {
+function TradeRow({ t, onClose }: { t: LiveTrade; onClose: () => void }) {
+  const [closing, setClosing] = useState(false);
   const up = t.direction === "long";
   const prog = Math.max(-100, Math.min(100, t.progress_pct ?? 0));
+  const isProfit = (t.pnl_usd ?? 0) > 0;
+
+  const handleClose = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (closing) return;
+    const confirmMsg = isProfit
+      ? `Lock in profit on ${t.symbol} now? (Current floating P&L: ${usd(t.pnl_usd ?? 0)})`
+      : `Close ${t.symbol} position now at market? (Current P&L: ${usd(t.pnl_usd ?? 0)})`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setClosing(true);
+    try {
+      await closeTrade(t.id);
+      onClose();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to close trade");
+    } finally {
+      setClosing(false);
+    }
+  };
+
   return (
     <div className="rounded-xl border surface-raised p-3 transition-colors hover:bg-[var(--surface-hover)]">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -134,13 +156,36 @@ function TradeRow({ t }: { t: LiveTrade }) {
         />
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--ink-muted)] tabular-nums">
-        <span>entry <span className="text-slate-300">{t.entry}</span></span>
-        <span>now <span className="text-white font-medium">{t.priced ? t.price : "no quote"}</span></span>
-        {t.stop != null && <span className="flex items-center gap-0.5"><ShieldAlert size={10} className="text-[var(--loss)]" />{t.stop}</span>}
-        {t.target != null && <span className="flex items-center gap-0.5"><Target size={10} className="text-[var(--profit)]" />{t.target}</span>}
-        {t.r_multiple != null && <span>{t.r_multiple > 0 ? "+" : ""}{t.r_multiple}R</span>}
-        <span className="ml-auto">{ago(t.opened_at)} ago</span>
+      <div className="mt-2.5 flex items-center justify-between pt-1 border-t border-white/[0.04]">
+        <div className="flex flex-wrap gap-x-3.5 gap-y-1 text-[11px] text-[var(--ink-muted)] tabular-nums">
+          <span>entry <span className="text-slate-300">{t.entry}</span></span>
+          <span>now <span className="text-white font-medium">{t.priced ? t.price : "no quote"}</span></span>
+          {t.stop != null && <span className="flex items-center gap-0.5"><ShieldAlert size={10} className="text-[var(--loss)]" />{t.stop}</span>}
+          {t.target != null && <span className="flex items-center gap-0.5"><Target size={10} className="text-[var(--profit)]" />{t.target}</span>}
+          {t.r_multiple != null && <span>{t.r_multiple > 0 ? "+" : ""}{t.r_multiple}R</span>}
+          <span>{ago(t.opened_at)} ago</span>
+        </div>
+        <button
+          onClick={handleClose}
+          disabled={closing}
+          className={`ml-2 shrink-0 inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold transition-all cursor-pointer ${
+            isProfit
+              ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30"
+              : "bg-slate-700/40 text-slate-300 hover:bg-slate-700/60 border border-slate-600/30"
+          }`}
+          title="Immediately book profit or close this trade at current live market price"
+        >
+          {closing ? (
+            <RefreshCw size={10} className="animate-spin" />
+          ) : isProfit ? (
+            <>
+              <CheckCircle2 size={10} />
+              <span>Take Profit</span>
+            </>
+          ) : (
+            <span>Close</span>
+          )}
+        </button>
       </div>
     </div>
   );

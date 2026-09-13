@@ -460,6 +460,16 @@ export async function fetchLiveTrades(tradeSize = 1000): Promise<LiveTrades> {
   return res.json();
 }
 
+export async function closeTrade(signalId: number): Promise<{ ok: boolean; message: string; result?: string; pnl_pct?: number; pnl_usd?: number }> {
+  const res = await fetch(`${API_BASE}/trades/${signalId}/close`, { method: "POST" });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Failed to close trade: ${detail || res.statusText}`);
+  }
+  return res.json();
+}
+
+
 // ---- Flash Bot ----------------------------------------------------------
 export type FlashTrigger = {
   blocked_by?: string;
