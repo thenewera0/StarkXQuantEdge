@@ -33,11 +33,12 @@ from .indicators import compute_indicators
 
 logger = logging.getLogger("flash")
 
-# Liquid, fast-moving pairs — flash needs volatility + depth to clear costs.
+# Liquid, fast-moving pairs with proven positive momentum expectancy.
+# Chronic bleeder tokens (ARB, APT, SEI, UNI) with negative historical expectancy are excluded.
 FLASH_SYMBOLS = [
     "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT",
-    "ADAUSDT", "NEARUSDT", "APTUSDT", "ARBUSDT", "OPUSDT", "INJUSDT", "SUIUSDT", "TIAUSDT",
-    "LTCUSDT", "DOTUSDT", "ATOMUSDT", "UNIUSDT", "FILUSDT", "SEIUSDT", "AAVEUSDT", "RUNEUSDT",
+    "ADAUSDT", "NEARUSDT", "OPUSDT", "INJUSDT", "SUIUSDT", "TIAUSDT",
+    "LTCUSDT", "DOTUSDT", "ATOMUSDT", "FILUSDT", "AAVEUSDT", "RUNEUSDT",
     "ETCUSDT", "XLMUSDT", "GRTUSDT", "TRXUSDT",
 ]
 # 15m + 1h: fast enough to fire many times a day, but with enough ATR that the round-trip cost is a
@@ -179,37 +180,30 @@ def detect_trigger(ind: pd.DataFrame) -> dict | None:
     thrust = (close - prev_close) / close                      # last-bar impulse
     atr_pct = atr / close
 
-    # --- burst: impulse through the fast EMA with participation ---
+    # --- burst: impulse through the fast EMA with volume participation ---
     if vol_exp >= settings.flash_vol_expansion and abs(thrust) >= 0.25 * atr_pct:
         if close > ema9 > ema21 and rsi > 52 and thrust > 0:
-            return {"direction": "long", "kind": "burst", "strength": min(100.0, 40 + 30 * vol_exp)}
+            return {"direction": "long", "kind": "burst", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
         if close < ema9 < ema21 and rsi < 48 and thrust < 0:
-            return {"direction": "short", "kind": "burst", "strength": min(100.0, 40 + 30 * vol_exp)}
+            return {"direction": "short", "kind": "burst", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
 
     # --- breakout: takes out the recent extreme, volatility expanding ---
     lookback = ind["high"].iloc[-(settings.flash_breakout_bars + 1):-1]
     lookback_lo = ind["low"].iloc[-(settings.flash_breakout_bars + 1):-1]
     if len(lookback) >= settings.flash_breakout_bars:
         hi_n, lo_n = float(lookback.max()), float(lookback_lo.min())
-        if close > hi_n and vol_exp >= 1.1 and rsi > 50:
-            return {"direction": "long", "kind": "breakout", "strength": min(100.0, 45 + 25 * vol_exp)}
-        if close < lo_n and vol_exp >= 1.1 and rsi < 50:
-            return {"direction": "short", "kind": "breakout", "strength": min(100.0, 45 + 25 * vol_exp)}
+        if close > hi_n and vol_exp >= 1.2 and rsi > 52:
+            return {"direction": "long", "kind": "breakout", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
+        if close < lo_n and vol_exp >= 1.2 and rsi < 48:
+            return {"direction": "short", "kind": "breakout", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
 
-    # --- dip: buy a pullback INSIDE an uptrend (empirically top-ranked: 64.3% WR, PF 2.161) ---
-    ema200 = _f(last, "ema200")
-    kalman_slope = _f(last, "kalman_slope")
-    has_trend = (kalman_slope is not None and kalman_slope > 0) or (ema200 is not None and close > ema200)
-    if has_trend and rsi < 42 and close < ema21 and thrust > 0:
-        return {"direction": "long", "kind": "kalman_dip", "strength": 65.0}
-
-    # --- snap: stretched from VWAP and reversing (fast fade) ---
+    # --- snap: deep stretch from VWAP reversing at extreme exhaustion ---
     if vwap_dist is not None:
-        stretch = settings.flash_snap_stretch
-        if vwap_dist < -stretch and rsi < 32 and thrust > 0:
-            return {"direction": "long", "kind": "snap", "strength": 55.0}
-        if vwap_dist > stretch and rsi > 68 and thrust < 0:
-            return {"direction": "short", "kind": "snap", "strength": 55.0}
+        stretch = settings.flash_snap_stretch * 1.5
+        if vwap_dist < -stretch and rsi < 30 and thrust > 0:
+            return {"direction": "long", "kind": "snap", "strength": 75.0}
+        if vwap_dist > stretch and rsi > 70 and thrust < 0:
+            return {"direction": "short", "kind": "snap", "strength": 75.0}
     return None
 
 
@@ -276,11 +270,18 @@ def evaluate(symbol: str, interval: str) -> dict | None:
     if cost_multiple < settings.flash_min_cost_multiple:
         blocks.append(f"target only {cost_multiple:.1f}x the round trip")
     if settings.flash_long_only and direction != "long":
-        blocks.append("short (long-only: shorts measured -0.31%/trade vs -0.21% long)")
-    if cvd_z is not None and cvd_z < settings.flash_min_cvd_z:
-        blocks.append(f"no taker aggression (cvd_z {cvd_z:.2f} < {settings.flash_min_cvd_z})")
+        blocks.append("short blocked by long-only configuration")
+    if cvd_z is not None:
+        if direction == "long" and cvd_z < settings.flash_min_cvd_z:
+            blocks.append(f"no buyer aggression (cvd_z {cvd_z:.2f} < {settings.flash_min_cvd_z})")
+        elif direction == "short" and cvd_z > -settings.flash_min_cvd_z:
+            blocks.append(f"no seller aggression (cvd_z {cvd_z:.2f} > -{settings.flash_min_cvd_z})")
     if direction == "long" and kalman_slope is not None and kalman_slope <= -1e-5:
         blocks.append(f"Kalman trend slope negative ({kalman_slope:.4f}) — counter-trend")
+    if direction == "short" and kalman_slope is not None and kalman_slope >= 1e-5:
+        blocks.append(f"Kalman trend slope positive ({kalman_slope:.4f}) — counter-trend")
+    if trig["strength"] < 75.0:
+        blocks.append(f"conviction below floor ({trig['strength']:.1f} < 75.0)")
 
     return {
         "symbol": symbol, "interval": interval, "market": "crypto",

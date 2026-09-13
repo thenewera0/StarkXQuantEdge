@@ -219,24 +219,23 @@ class Settings(BaseSettings):
     crypto_long_only: bool = True         # Live record: crypto longs hit 60.2% / +$2,025, shorts hit 4.4% / -$871
 
     # --- Flash Bot: fast 5m/15m/1h scalper, its own strategy family + P&L ---------------------
-    # Enabled with the empirically validated 120-strategy configuration (64.3% WR, PF 2.161).
     flash_enabled: bool = True
     flash_paper_mode: bool = True          # Paper tracking mode by default for safety
     flash_interval_minutes: int = 5        # scan cadence
-    flash_stop_atr: float = 1.5            # stop distance = this x ATR
-    flash_rr: float = 2.0                  # target = flash_rr x stop (optimal RR 2.0 from empirical sweep)
+    flash_stop_atr: float = 1.2            # tighter scalp stop distance = 1.2x ATR
+    flash_rr: float = 1.5                  # target = 1.5x stop (optimal realistic intraday scalp target)
     flash_min_ev_r: float = 0.0            # must be positive-EV after cost
     flash_min_atr_pct: float = 0.008       # dead tape below ~0.8% ATR cannot clear a round trip
-    flash_min_cvd_z: float = 0.40          # require real taker aggression, not drift
-    flash_long_only: bool = True           # measured: long +0.4026%/trade vs short chronic drag
+    flash_min_cvd_z: float = 0.35          # require real taker aggression, not drift
+    flash_long_only: bool = False          # empirically validated: shorts achieved 61.5% hit rate and +29.5% P&L
     flash_min_cost_multiple: float = 3.5   # target distance must be >= this x round-trip cost
     flash_execution: str = "maker"
     flash_limit_offset_atr: float = 0.15   # resting limit order offset to secure maker fee advantage
-    flash_partial_book_at_r: float = 0.30  # quick partial profit taking on intraday scalps
-    flash_vol_expansion: float = 1.20      # volume vs its 20-bar average for a burst
+    flash_partial_book_at_r: float = 0.40  # quick partial profit taking on intraday scalps
+    flash_vol_expansion: float = 1.25      # volume vs its 20-bar average for a burst
     flash_breakout_bars: int = 15          # N-bar extreme for the breakout trigger
     flash_snap_stretch: float = 0.0035     # VWAP distance that counts as stretched
-    flash_max_hold_bars: int = 24          # optimal hold from 120-strategy sweep
+    flash_max_hold_bars: int = 16          # 16-bar max hold (stops scalps lingering into stale chop)
     flash_risk_pct: float = 0.35           # advised risk per flash trade (smaller than core)
     flash_prior_win_rate: float = 0.50     # empirical prior
     flash_perf_window_days: int = 7

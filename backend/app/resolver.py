@@ -164,27 +164,30 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
         best_fav = max(best_fav, fav_pct)
 
         # PROGRESSIVE PROFIT PROTECTION & TRAILING STOP
-        # When a trade surges into real profit (e.g. +15%, +30%, +40%), ratchets the stop upward
-        # so large paper gains are never given back to the market!
-        # Tier 1: Breakeven (+10% gain or +0.25R) -> Move stop to entry + 0.3% fee buffer
-        if best_fav >= 0.10 or (risk_dist > 0 and best_fav >= 0.25 * (risk_dist / entry)):
-            be_level = entry * 1.003 if direction == "long" else entry * 0.997
-            current_stop = max(current_stop, be_level) if direction == "long" else min(current_stop, be_level)
+        # Scale-invariant Risk-Unit (R) ladder: protects both tight scalps (15m/1h) and wide swings (4h/1d).
+        # R = risk_dist = abs(entry - stop)
+        if risk_dist > 0:
+            mfe_r = best_fav / (risk_dist / entry)
 
-        # Tier 2: Profit Lock 1 (+20% gain or +0.50R) -> Lock in at least +8% net profit
-        if best_fav >= 0.20 or (risk_dist > 0 and best_fav >= 0.50 * (risk_dist / entry)):
-            p1_level = entry * 1.08 if direction == "long" else entry * 0.92
-            current_stop = max(current_stop, p1_level) if direction == "long" else min(current_stop, p1_level)
+            # Tier 1: Breakeven (+0.40R gain) -> Move stop to entry + 0.2% fee cushion (guarantees zero loss)
+            if mfe_r >= 0.40:
+                be_level = entry * 1.002 if direction == "long" else entry * 0.998
+                current_stop = max(current_stop, be_level) if direction == "long" else min(current_stop, be_level)
 
-        # Tier 3: Profit Lock 2 (+30% gain or +0.75R) -> Lock in at least +18% net profit
-        if best_fav >= 0.30 or (risk_dist > 0 and best_fav >= 0.75 * (risk_dist / entry)):
-            p2_level = entry * 1.18 if direction == "long" else entry * 0.82
-            current_stop = max(current_stop, p2_level) if direction == "long" else min(current_stop, p2_level)
+            # Tier 2: Profit Lock 1 (+1.0R gain) -> Lock in +0.50R net profit
+            if mfe_r >= 1.0:
+                p1_level = entry + 0.50 * risk_dist if direction == "long" else entry - 0.50 * risk_dist
+                current_stop = max(current_stop, p1_level) if direction == "long" else min(current_stop, p1_level)
 
-        # Tier 4: Chandelier Trail (+40% gain or +1.0R) -> Lock in at least +25% or trail peak by 12%
-        if best_fav >= 0.40 or (risk_dist > 0 and best_fav >= 1.0 * (risk_dist / entry)):
-            p3_level = max(entry * 1.25, hi * 0.88) if direction == "long" else min(entry * 0.75, lo * 1.12)
-            current_stop = max(current_stop, p3_level) if direction == "long" else min(current_stop, p3_level)
+            # Tier 3: Profit Lock 2 (+1.5R gain) -> Lock in +1.0R net profit
+            if mfe_r >= 1.5:
+                p2_level = entry + 1.0 * risk_dist if direction == "long" else entry - 1.0 * risk_dist
+                current_stop = max(current_stop, p2_level) if direction == "long" else min(current_stop, p2_level)
+
+            # Tier 4: Chandelier Trail (above +1.5R) -> Trail peak price by 0.50 * risk_dist
+            if mfe_r >= 1.5:
+                trail_level = hi - 0.50 * risk_dist if direction == "long" else lo + 0.50 * risk_dist
+                current_stop = max(current_stop, trail_level) if direction == "long" else min(current_stop, trail_level)
 
         if direction == "long":
             mfe = max(mfe, (hi - entry) / entry)
