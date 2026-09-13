@@ -220,9 +220,21 @@ def trades_history(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     trade_size: float = Query(1000.0, ge=1.0, le=1_000_000.0),
+    strategy: str = Query("core"),
 ) -> dict:
-    """Paginated closed-trade history, filterable by result (all|wins|losses), with counts."""
-    return persistence.trade_history(result, limit, offset, trade_size)
+    """Paginated closed-trade history, filterable by result (all|wins|losses) and strategy (core|flash|all)."""
+    return persistence.trade_history(result, limit, offset, trade_size, strategy=strategy)
+
+
+@app.get("/flash/trades")
+def flash_trades_history(
+    result: str = Query("all"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    trade_size: float = Query(1000.0, ge=1.0, le=1_000_000.0),
+) -> dict:
+    """Paginated closed flash paper trades."""
+    return persistence.trade_history(result, limit, offset, trade_size, strategy="flash")
 
 
 @app.get("/trade")

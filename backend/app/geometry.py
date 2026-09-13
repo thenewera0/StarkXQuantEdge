@@ -106,31 +106,39 @@ def trade_levels(
             atr_k, size_pct = 1.8, size_pct * 0.5
         sh, sl = _num(swing_high) or price, _num(swing_low) or price
         pr1, ps1 = _num(pivot_r1), _num(pivot_s1)
+        # Realistic Target Calibration:
+        # Prevents wide ATR or daily candles from projecting unrealistic +15% to +80% targets.
+        # T1 is the high-probability milestone to bank profits / trigger breakeven protection.
+        # T2 and T3 capture multi-week trend extensions.
+        atr_pct = (atr / price) if price > 0 else 0.03
+        is_daily = interval in ("1d", "1w")
+        is_crypto = atr_pct > 0.065
+        cap_pct = (0.10 if is_daily else 0.065) if is_crypto else (0.060 if is_daily else 0.038)
+
         if direction == "long":
             stop = price - atr_k * atr
             risk = price - stop
-            # Realistic Target Capping:
-            # When ATR / risk is wide (e.g. risk > 15% of price), 1.8x risk produces an absurd
-            # +80% to +130% target that almost never fills. Cap T1 at max 28-32% gain so profit is taken!
-            t1_dist = min(1.8 * risk, max(0.20 * price, 2.0 * atr))
+            t1_dist = min(1.35 * risk, max(1.1 * atr, cap_pct * price))
+            t1_dist = min(t1_dist, 1.40 * risk)
             t1 = price + t1_dist
-            res = [v for v in (sh, pr1) if v is not None and t1 < v < price + min(3.0 * risk, 0.45 * price)]
+            res = [v for v in (sh, pr1) if v is not None and t1 < v < price + min(2.5 * risk, 2.0 * t1_dist)]
             if res:
                 t1 = min(res)
-            t2 = price + min(2.8 * risk, 0.50 * price)
-            t3 = price + min(4.5 * risk, 0.85 * price)
+            t2 = price + min(2.0 * risk, 2.0 * t1_dist)
+            t3 = price + min(3.5 * risk, 3.5 * t1_dist)
             rr = (t1 - price) / risk if risk > 0 else None
             invalidation = f"{interval} close below {_round_price(stop)}"
         else:
             stop = price + atr_k * atr
             risk = stop - price
-            t1_dist = min(1.8 * risk, max(0.20 * price, 2.0 * atr))
+            t1_dist = min(1.35 * risk, max(1.1 * atr, cap_pct * price))
+            t1_dist = min(t1_dist, 1.40 * risk)
             t1 = price - t1_dist
-            sup = [v for v in (sl, ps1) if v is not None and price - min(3.0 * risk, 0.45 * price) < v < t1]
+            sup = [v for v in (sl, ps1) if v is not None and price - min(2.5 * risk, 2.0 * t1_dist) < v < t1]
             if sup:
                 t1 = max(sup)
-            t2 = price - min(2.8 * risk, 0.50 * price)
-            t3 = price - min(4.5 * risk, 0.85 * price)
+            t2 = price - min(2.0 * risk, 2.0 * t1_dist)
+            t3 = price - min(3.5 * risk, 3.5 * t1_dist)
             rr = (price - t1) / risk if risk > 0 else None
             invalidation = f"{interval} close above {_round_price(stop)}"
 

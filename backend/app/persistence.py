@@ -122,11 +122,19 @@ def update_signal_stop(signal_id: int, new_stop: float) -> bool:
 
 
 def trade_history(result_filter: str = "all", limit: int = 50, offset: int = 0,
-                  trade_size: float = 1000.0) -> dict:
+                  trade_size: float = 1000.0, strategy: str = "core") -> dict:
     """Paginated closed-trade history with wins/losses/all counts. Newest first."""
     if not db.enabled():
         return {"trades": [], "counts": {"all": 0, "wins": 0, "losses": 0}, "limit": limit, "offset": offset}
-    where = "o.pnl is not null and s.shadow = false"  # live trades only (shadow = paper-learning)
+    
+    if strategy == "flash":
+        strat_clause = "s.strategy = 'flash'"
+    elif strategy == "all":
+        strat_clause = "1=1"
+    else:  # "core"
+        strat_clause = "(s.strategy = 'core' or s.strategy is null) and s.shadow = false"
+
+    where = f"o.pnl is not null and {strat_clause}"
     if result_filter == "wins":
         where += " and o.pnl > 0"
     elif result_filter == "losses":
@@ -134,15 +142,15 @@ def trade_history(result_filter: str = "all", limit: int = 50, offset: int = 0,
     try:
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
-                """select count(*) filter (where o.pnl is not null),
+                f"""select count(*) filter (where o.pnl is not null),
                           count(*) filter (where o.pnl > 0),
                           count(*) filter (where o.pnl <= 0)
-                   from outcomes o join signals s on s.id = o.signal_id where s.shadow = false"""
+                   from outcomes o join signals s on s.id = o.signal_id where {strat_clause}"""
             )
             all_c, wins, losses = cur.fetchone()
             cur.execute(
                 f"""select s.id, s.symbol, s.interval, s.label, coalesce(s.regime,'unknown') regime,
-                          o.result, o.pnl, o.bars_held, o.resolved_at
+                          s.entry, o.result, o.pnl, o.bars_held, o.resolved_at
                     from outcomes o join signals s on s.id = o.signal_id
                     where {where}
                     order by o.resolved_at desc
@@ -157,6 +165,7 @@ def trade_history(result_filter: str = "all", limit: int = 50, offset: int = 0,
     trades = [{
         "id": r["id"], "symbol": r["symbol"], "interval": r["interval"], "regime": r["regime"],
         "direction": "long" if r["label"] in ("Buy", "Strong Buy") else "short", "result": r["result"],
+        "entry": float(r["entry"]) if r.get("entry") is not None else None,
         "pnl_pct": round(float(r["pnl"]) * 100, 2), "pnl_usd": round(float(r["pnl"]) * trade_size, 2),
         "bars_held": r["bars_held"], "resolved_at": str(r["resolved_at"]),
     } for r in rows]

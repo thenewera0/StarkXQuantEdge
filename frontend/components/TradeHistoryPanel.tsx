@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchTrades, type PnlTrade } from "@/lib/api";
 import { Card } from "./ui";
 import { TradeDetailModal } from "./TradeDetailModal";
-import { History, Search, ChevronDown } from "lucide-react";
+import { History, Search, ChevronDown, Zap } from "lucide-react";
 
 type Tab = "all" | "wins" | "losses";
+type Strat = "core" | "flash" | "all";
 const PAGE = 50;
 
 function usd(n: number): string {
@@ -19,6 +20,7 @@ function tone(n: number): string {
 
 export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
   const [tab, setTab] = useState<Tab>("all");
+  const [strat, setStrat] = useState<Strat>("core");
   const [rows, setRows] = useState<PnlTrade[]>([]);
   const [counts, setCounts] = useState({ all: 0, wins: 0, losses: 0 });
   const [offset, setOffset] = useState(0);
@@ -26,11 +28,11 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
 
-  const load = useCallback(async (t: Tab, off: number, append: boolean) => {
+  const load = useCallback(async (t: Tab, s: Strat, off: number, append: boolean) => {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetchTrades(t, PAGE, off);
+      const r = await fetchTrades(t, PAGE, off, s);
       setCounts(r.counts);
       setRows((prev) => (append ? [...prev, ...r.trades] : r.trades));
     } catch (e) {
@@ -40,7 +42,10 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
     }
   }, []);
 
-  useEffect(() => { setOffset(0); load(tab, 0, false); }, [tab, load, refreshKey]);
+  useEffect(() => {
+    setOffset(0);
+    load(tab, strat, 0, false);
+  }, [tab, strat, load, refreshKey]);
 
   const shown = tab === "all" ? counts.all : tab === "wins" ? counts.wins : counts.losses;
   const hasMore = rows.length < shown;
@@ -53,12 +58,21 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
           <span className="text-sm font-semibold tracking-tight">Trade History</span>
           <span className="text-xs text-slate-400">click any trade for full details</span>
         </div>
-        <div className="seg">
-          {(["all", "wins", "losses"] as Tab[]).map((t) => (
-            <button key={t} data-active={tab === t} onClick={() => setTab(t)} className="capitalize">
-              {t} <span className="opacity-60">{t === "all" ? counts.all : t === "wins" ? counts.wins : counts.losses}</span>
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="seg">
+            {(["core", "flash", "all"] as Strat[]).map((s) => (
+              <button key={s} data-active={strat === s} onClick={() => setStrat(s)} className="capitalize text-xs">
+                {s === "core" ? "Core (Live)" : s === "flash" ? "Flash (Paper)" : "All Strategies"}
+              </button>
+            ))}
+          </div>
+          <div className="seg">
+            {(["all", "wins", "losses"] as Tab[]).map((t) => (
+              <button key={t} data-active={tab === t} onClick={() => setTab(t)} className="capitalize text-xs">
+                {t} <span className="opacity-60">{t === "all" ? counts.all : t === "wins" ? counts.wins : counts.losses}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -70,7 +84,7 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
             <tr className="text-left text-[11px] uppercase tracking-wide text-slate-400">
               <th className="py-1.5 pr-3 font-medium">Asset</th>
               <th className="py-1.5 pr-3 font-medium">Dir</th>
-              <th className="py-1.5 pr-3 font-medium">Regime</th>
+              <th className="py-1.5 pr-3 font-medium">Strategy / Regime</th>
               <th className="py-1.5 pr-3 font-medium">Result</th>
               <th className="py-1.5 pr-3 font-medium text-right">P&amp;L %</th>
               <th className="py-1.5 pr-3 font-medium text-right">P&amp;L $</th>
@@ -78,29 +92,78 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((t, i) => (
-              <tr key={t.id ?? i} onClick={() => t.id && setOpenId(t.id)}
-                  className={`group border-t border-white/5 ${t.id ? "cursor-pointer hover:bg-white/5" : ""}`}>
-                <td className="py-2 pr-3 font-medium text-white">{t.symbol} <span className="text-[11px] text-slate-400">{t.interval}</span></td>
-                <td className="py-2 pr-3 capitalize text-slate-300">{t.direction}</td>
-                <td className="py-2 pr-3 text-[11px] capitalize text-slate-400">{t.regime?.replace("_", " ") ?? "—"}</td>
-                <td className="py-2 pr-3"><span className={t.result === "target" ? "text-[var(--profit)]" : t.result === "stop" ? "text-[var(--loss)]" : "text-slate-400"}>{t.result}</span></td>
-                <td className={`py-2 pr-3 text-right tabular-nums ${tone(t.pnl_pct)}`}>{t.pnl_pct > 0 ? "+" : ""}{t.pnl_pct}%</td>
-                <td className={`py-2 pr-3 text-right font-medium tabular-nums ${tone(t.pnl_usd)}`}>{usd(t.pnl_usd)}</td>
-                <td className="py-2 text-right">{t.id && <Search size={13} className="ml-auto text-slate-400 group-hover:text-[var(--accent-bright)]" />}</td>
-              </tr>
-            ))}
+            {rows.map((t, i) => {
+              const isFlash = t.regime?.startsWith("flash_") || strat === "flash";
+              return (
+                <tr
+                  key={t.id ?? i}
+                  onClick={() => t.id && setOpenId(t.id)}
+                  className={`group border-t border-white/5 ${t.id ? "cursor-pointer hover:bg-white/5" : ""}`}
+                >
+                  <td className="py-2 pr-3 font-medium text-white">
+                    {t.symbol} <span className="text-[11px] text-slate-400">{t.interval}</span>
+                  </td>
+                  <td className="py-2 pr-3 capitalize text-slate-300">{t.direction}</td>
+                  <td className="py-2 pr-3 text-[11px] capitalize text-slate-400">
+                    <div className="flex items-center gap-1.5">
+                      {isFlash && (
+                        <span className="inline-flex items-center gap-0.5 rounded bg-[var(--accent-bright)]/10 px-1.5 py-0.5 text-[9px] font-semibold text-[var(--accent-bright)] border border-[var(--accent-bright)]/20">
+                          <Zap size={9} /> FLASH
+                        </span>
+                      )}
+                      <span>{t.regime?.replace("flash_", "").replace("_", " ") ?? "—"}</span>
+                    </div>
+                  </td>
+                  <td className="py-2 pr-3">
+                    <span
+                      className={
+                        t.result === "target" || t.result === "trailing_stop"
+                          ? "text-[var(--profit)]"
+                          : t.result === "stop"
+                          ? "text-[var(--loss)]"
+                          : "text-slate-400"
+                      }
+                    >
+                      {t.result?.replace("_", " ")}
+                    </span>
+                  </td>
+                  <td className={`py-2 pr-3 text-right tabular-nums ${tone(t.pnl_pct)}`}>
+                    {t.pnl_pct > 0 ? "+" : ""}
+                    {t.pnl_pct}%
+                  </td>
+                  <td className={`py-2 pr-3 text-right font-medium tabular-nums ${tone(t.pnl_usd)}`}>
+                    {usd(t.pnl_usd)}
+                  </td>
+                  <td className="py-2 text-right">
+                    {t.id && (
+                      <Search
+                        size={13}
+                        className="ml-auto text-slate-400 group-hover:text-[var(--accent-bright)]"
+                      />
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      {rows.length === 0 && !loading && <div className="py-4 text-center text-sm text-slate-400">No trades in this view yet.</div>}
+      {rows.length === 0 && !loading && (
+        <div className="py-4 text-center text-sm text-slate-400">No trades in this view yet.</div>
+      )}
 
       {hasMore && (
         <div className="mt-3 text-center">
-          <button onClick={() => { const off = offset + PAGE; setOffset(off); load(tab, off, true); }}
-                  disabled={loading}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-60">
+          <button
+            onClick={() => {
+              const off = offset + PAGE;
+              setOffset(off);
+              load(tab, strat, off, true);
+            }}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-60"
+          >
             <ChevronDown size={14} /> {loading ? "Loading…" : `Load more (${rows.length}/${shown})`}
           </button>
         </div>

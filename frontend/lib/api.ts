@@ -286,9 +286,25 @@ export type TradeHistory = {
   offset: number;
 };
 
-export async function fetchTrades(result: "all" | "wins" | "losses", limit = 50, offset = 0): Promise<TradeHistory> {
-  const params = new URLSearchParams({ result, limit: String(limit), offset: String(offset) });
+export async function fetchTrades(
+  result: "all" | "wins" | "losses" = "all",
+  limit = 50,
+  offset = 0,
+  strategy = "core"
+): Promise<TradeHistory> {
+  const params = new URLSearchParams({ result, limit: String(limit), offset: String(offset), strategy });
   const res = await fetch(`${API_BASE}/trades?${params.toString()}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
+export async function fetchFlashTrades(
+  limit = 50,
+  offset = 0,
+  result: "all" | "wins" | "losses" = "all"
+): Promise<TradeHistory> {
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset), result });
+  const res = await fetch(`${API_BASE}/flash/trades?${params.toString()}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Backend ${res.status}`);
   return res.json();
 }
