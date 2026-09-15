@@ -117,16 +117,16 @@ export function FlashBotPanel() {
   const tradeable = triggers.filter((t) => t.tradeable);
   const flashPnl = pnl?.strategies?.["flash (paper)"] ?? pnl?.strategies?.["flash"];
 
-  const totalTrades = flashPnl?.trades || scan?.promotion?.trades || tradeCounts.all || 301;
+  const totalTrades = flashPnl?.trades || tradeCounts.all || scan?.promotion?.trades || 0;
   const hitRate =
     flashPnl?.hit_rate != null
       ? flashPnl.hit_rate
-      : scan?.promotion?.hit_rate != null
-      ? scan.promotion.hit_rate
-      : 0.6013;
+      : tradeCounts.all > 0
+      ? tradeCounts.wins / tradeCounts.all
+      : scan?.promotion?.hit_rate ?? 0;
   const realizedPnlUsd =
     flashPnl?.realized_pnl_usd ??
-    (scan?.promotion?.pnl_frac != null ? scan.promotion.pnl_frac * 1000 : 61.63);
+    (scan?.promotion?.pnl_frac != null ? Number((scan.promotion.pnl_frac * 1000).toFixed(2)) : 0);
 
   const shownCount =
     tradeFilter === "all" ? tradeCounts.all : tradeFilter === "wins" ? tradeCounts.wins : tradeCounts.losses;

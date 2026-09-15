@@ -25,7 +25,7 @@ export function LiveTradesPanel({ refreshKey = 0 }: { refreshKey?: number }) {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    try { setD(await fetchLiveTrades(1000)); setError(null); }
+    try { setD(await fetchLiveTrades(1000, "core")); setError(null); }
     catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
   }, []);
 
@@ -38,7 +38,6 @@ export function LiveTradesPanel({ refreshKey = 0 }: { refreshKey?: number }) {
 
   const trades = d?.trades ?? [];
   const live = trades.filter((t) => !t.paper);
-  const paper = trades.filter((t) => t.paper);
 
   return (
     <Card className="card-pad" >
@@ -57,22 +56,24 @@ export function LiveTradesPanel({ refreshKey = 0 }: { refreshKey?: number }) {
 
       {error && <div className="mb-3 text-sm text-[var(--loss)]">{error}</div>}
 
-      {/* Floating P&L summary */}
+      {/* Floating P&L summary - Core Real Capital */}
       <div className="mb-4 grid grid-cols-3 gap-3">
         <div className="rounded-xl border surface-raised p-3">
           <div className="text-[10px] uppercase tracking-wide text-[var(--ink-muted)]">Open positions</div>
           <div className="mt-1 text-xl font-bold tabular-nums text-white">{d?.count ?? live.length}</div>
-          <div className="text-[10px] text-[var(--ink-muted)]">real capital</div>
+          <div className="text-[10px] text-[var(--ink-muted)]">real capital execution</div>
         </div>
         <div className="rounded-xl border surface-raised p-3">
           <div className="text-[10px] uppercase tracking-wide text-[var(--ink-muted)]">Floating P&L</div>
           <div className={`mt-1 text-xl font-bold tabular-nums ${tone(d?.open_pnl_usd ?? 0)}`}>{usd(d?.open_pnl_usd ?? 0)}</div>
-          <div className="text-[10px] text-[var(--ink-muted)]">those same positions</div>
+          <div className="text-[10px] text-[var(--ink-muted)]">marked to live price</div>
         </div>
         <div className="rounded-xl border surface-raised p-3">
-          <div className="text-[10px] uppercase tracking-wide text-[var(--ink-muted)]">Flash (paper)</div>
-          <div className="mt-1 text-xl font-bold tabular-nums text-[var(--accent-bright)]">{d?.paper_count ?? paper.length}</div>
-          <div className={`text-[10px] tabular-nums ${tone(d?.paper_pnl_usd ?? 0)}`}>{usd(d?.paper_pnl_usd ?? 0)} not real</div>
+          <div className="text-[10px] uppercase tracking-wide text-[var(--ink-muted)]">Active Capital Risk</div>
+          <div className="mt-1 text-xl font-bold tabular-nums text-emerald-400">
+            {(d?.count ?? live.length) > 0 ? `$${((d?.count ?? live.length) * 1000).toLocaleString()}` : "$0"}
+          </div>
+          <div className="text-[10px] text-[var(--ink-muted)]">$1,000/trade fixed risk</div>
         </div>
       </div>
 

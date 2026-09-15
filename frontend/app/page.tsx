@@ -154,10 +154,12 @@ export default function Dashboard() {
       {/* ---------------- FLASH BOT ---------------- */}
       {view === "flash" && (
         <>
-          <ViewHeader title="Flash Bot" subtitle="Fast 1h hunter on paper — cost-gated: needs real taker flow, 0.8%+ ATR, and a target worth 3.5x the round trip." />
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <ViewHeader
+            title="Flash Bot (Paper Incubator)"
+            subtitle="Autonomous 1h crypto scalper testing environment. Runs 100% on paper — completely isolated from real capital balance."
+          />
+          <div className="w-full">
             <FlashBotPanel />
-            <LiveTradesPanel refreshKey={historyKey} />
           </div>
         </>
       )}

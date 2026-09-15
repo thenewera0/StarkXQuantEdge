@@ -414,9 +414,9 @@ def flash_status() -> dict:
 
 
 @app.get("/live/trades")
-def live_trades(trade_size: float = 1000.0) -> dict:
+def live_trades(trade_size: float = 1000.0, strategy: str = Query("core")) -> dict:
     """Running trades marked to live price — unrealized P&L and progress to target."""
-    return performance.live_trades(trade_size)
+    return performance.live_trades(trade_size, strategy=strategy)
 
 
 @app.get("/performance/by-strategy")

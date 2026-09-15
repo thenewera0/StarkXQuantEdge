@@ -470,8 +470,8 @@ export type LiveTrades = {
   unpriced?: number;         // open but no live quote — shown, never dropped
   core_open?: number; flash_open?: number; trades?: LiveTrade[];
 };
-export async function fetchLiveTrades(tradeSize = 1000): Promise<LiveTrades> {
-  const res = await fetch(`${API_BASE}/live/trades?trade_size=${tradeSize}`, { cache: "no-store" });
+export async function fetchLiveTrades(tradeSize = 1000, strategy = "core"): Promise<LiveTrades> {
+  const res = await fetch(`${API_BASE}/live/trades?trade_size=${tradeSize}&strategy=${strategy}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Backend ${res.status}`);
   return res.json();
 }

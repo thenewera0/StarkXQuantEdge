@@ -276,7 +276,7 @@ def recent_signals(limit: int = 20) -> list[dict]:
 
 
 def accuracy_stats() -> dict:
-    """Hit-rate + average P&L over resolved outcomes (the learning-loop scoreboard)."""
+    """Hit-rate + average P&L over resolved outcomes for core real-capital trades."""
     if not db.enabled():
         return {"enabled": False}
     try:
@@ -284,10 +284,10 @@ def accuracy_stats() -> dict:
             cur.execute(
                 """
                 select count(*) as resolved,
-                       count(*) filter (where o.result = 'target') as wins,
+                       count(*) filter (where o.pnl > 0) as wins,
                        avg(o.pnl) as avg_pnl
                 from outcomes o join signals s on s.id = o.signal_id
-                where o.result is not null and s.shadow = false
+                where o.pnl is not null and s.shadow = false and (s.strategy = 'core' or s.strategy is null)
                 """
             )
             resolved, wins, avg_pnl = cur.fetchone()

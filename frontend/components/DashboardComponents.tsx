@@ -42,18 +42,18 @@ export function MetricCards() {
 
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-      {/* Total Assets */}
+      {/* Realized Capital PnL */}
       <Card className="relative overflow-hidden p-6 hover:-translate-y-1 transition-transform cursor-pointer group">
         <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#0066ff] opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
         <div className="flex items-center gap-3 mb-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0066ff]/20 to-[#00d4ff]/20 border border-[#00d4ff]/20 text-[#00d4ff]">
             <Box size={20} fill="currentColor" className="opacity-80" />
           </div>
-          <span className="text-sm font-medium text-slate-400">Total Realized PnL</span>
+          <span className="text-sm font-medium text-slate-400">Core Realized PnL</span>
         </div>
         <div className="text-3xl font-bold tracking-tight text-white mb-2">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(totalRealizedPnl)}</div>
         <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-emerald-400 font-medium bg-emerald-400/10 px-1.5 py-0.5 rounded">Realized</span>
+          <span className="text-emerald-400 font-medium bg-emerald-400/10 px-1.5 py-0.5 rounded">Real Capital</span>
           <span className="text-[var(--ink-muted)]">all time</span>
         </div>
       </Card>
@@ -65,11 +65,11 @@ export function MetricCards() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0066ff]/20 to-[#00d4ff]/20 border border-[#00d4ff]/20 text-[#00d4ff]">
             <TrendingUp size={20} className="opacity-80" />
           </div>
-          <span className="text-sm font-medium text-slate-400">Total PnL (incl. Open)</span>
+          <span className="text-sm font-medium text-slate-400">Core Total PnL</span>
         </div>
         <div className="text-3xl font-bold tracking-tight text-white mb-2">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(totalPnl)}</div>
         <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-[var(--ink-muted)]">Live performance</span>
+          <span className="text-emerald-400 font-medium bg-emerald-400/10 px-1.5 py-0.5 rounded">Live Incl. Open</span>
         </div>
       </Card>
 
@@ -80,11 +80,11 @@ export function MetricCards() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0066ff]/20 to-[#00d4ff]/20 border border-[#00d4ff]/20 text-[#00d4ff]">
             <Target size={20} className="opacity-80" />
           </div>
-          <span className="text-sm font-medium text-slate-400">Active Signals</span>
+          <span className="text-sm font-medium text-slate-400">Open Core Positions</span>
         </div>
         <div className="text-3xl font-bold tracking-tight text-white mb-2">{activeSignals}</div>
         <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-[var(--ink-muted)]">Open trades</span>
+          <span className="text-[var(--ink-muted)]">Real capital at risk</span>
         </div>
       </Card>
 
@@ -101,7 +101,7 @@ export function MetricCards() {
         <div className="flex items-end justify-between">
           <div>
             <div className="text-2xl font-bold tracking-tight text-white mb-1">{riskLabel}</div>
-            <div className="text-xs text-[var(--ink-muted)]">System Win Rate: <span className="text-slate-300">{hitRate}%</span></div>
+            <div className="text-xs text-[var(--ink-muted)]">Core Win Rate: <span className="text-slate-300">{hitRate}%</span></div>
           </div>
           
           <div className="relative h-14 w-14 rounded-full border-4 border-white/5 flex items-center justify-center">

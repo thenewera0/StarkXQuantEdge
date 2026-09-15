@@ -123,25 +123,30 @@ def summary(trade_size: float | None = None) -> dict:
     }
 
 
-def live_trades(trade_size: float | None = None) -> dict:
-    """RUNNING trades marked to the live price: unrealized P&L, progress toward target/stop.
-
-    Covers both strategy families (core swing + flash scalps) so the dashboard can show one
-    'what am I in right now' view with live profit/loss."""
+def live_trades(trade_size: float | None = None, strategy: str = "core") -> dict:
+    """Running trades marked to the latest available price (floating P&L)."""
     size = trade_size or settings.standard_trade_size_usd
     if not db.enabled():
         return {"enabled": False, "trades": []}
+
+    if strategy == "flash":
+        strat_clause = "s.strategy = 'flash'"
+    elif strategy == "all":
+        strat_clause = "(s.shadow = false or coalesce(s.strategy,'core') = 'flash')"
+    else:  # "core"
+        strat_clause = "(s.strategy = 'core' or s.strategy is null) and s.shadow = false"
+
     try:
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
-                """
+                f"""
                 select s.id, s.symbol, coalesce(s.market,'crypto') market, s.interval, s.label,
                        s.entry, s.stop, s.target, s.created_at, coalesce(s.strategy,'core') strategy,
                        s.regime, s.win_prob, s.ev_r, s.shadow
                 from signals s
                 where not exists (select 1 from outcomes o where o.signal_id = s.id)
                   and s.entry is not null and s.label <> 'Neutral'
-                  and (s.shadow = false or coalesce(s.strategy,'core') = 'flash')
+                  and {strat_clause}
                 order by s.created_at desc
                 """
             )
