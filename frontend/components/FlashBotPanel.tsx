@@ -11,6 +11,7 @@ import {
   type ByStrategy,
   type FlashTrigger,
   type PnlTrade,
+  type TradeCounts,
 } from "@/lib/api";
 import { Card } from "./ui";
 import {
@@ -25,6 +26,10 @@ import {
   Target,
   ChevronDown,
   CheckCircle2,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  Scale,
 } from "lucide-react";
 
 function usd(n: number): string {
@@ -63,7 +68,7 @@ export function FlashBotPanel() {
   const [viewTab, setViewTab] = useState<"trades" | "feed">("trades");
   const [tradeFilter, setTradeFilter] = useState<"all" | "wins" | "losses">("all");
   const [trades, setTrades] = useState<PnlTrade[]>([]);
-  const [tradeCounts, setTradeCounts] = useState({ all: 0, wins: 0, losses: 0 });
+  const [tradeCounts, setTradeCounts] = useState<TradeCounts>({ all: 0, wins: 0, losses: 0 });
   const [tradeOffset, setTradeOffset] = useState(0);
   const [tradesLoading, setTradesLoading] = useState(false);
 
@@ -128,6 +133,25 @@ export function FlashBotPanel() {
     flashPnl?.realized_pnl_usd ??
     (scan?.promotion?.pnl_frac != null ? Number((scan.promotion.pnl_frac * 1000).toFixed(2)) : 0);
 
+  const grossProfitUsd =
+    flashPnl?.gross_profit_usd ?? tradeCounts.gross_profit_usd ?? 0;
+  const grossLossUsd =
+    flashPnl?.gross_loss_usd ?? tradeCounts.gross_loss_usd ?? 0;
+  const profitFactor =
+    flashPnl?.profit_factor ??
+    tradeCounts.profit_factor ??
+    (grossLossUsd !== 0 ? Math.abs(grossProfitUsd / grossLossUsd) : null);
+  const winCount = flashPnl?.wins ?? tradeCounts.wins ?? 0;
+  const lossCount = flashPnl?.losses ?? tradeCounts.losses ?? 0;
+  const avgWinUsd =
+    flashPnl?.avg_win_usd ??
+    tradeCounts.avg_win_usd ??
+    (winCount > 0 ? grossProfitUsd / winCount : 0);
+  const avgLossUsd =
+    flashPnl?.avg_loss_usd ??
+    tradeCounts.avg_loss_usd ??
+    (lossCount > 0 ? grossLossUsd / lossCount : 0);
+
   const shownCount =
     tradeFilter === "all" ? tradeCounts.all : tradeFilter === "wins" ? tradeCounts.wins : tradeCounts.losses;
   const hasMoreTrades = trades.length < shownCount;
@@ -163,8 +187,100 @@ export function FlashBotPanel() {
           <span className="font-semibold text-white">{totalTrades} paper trades</span> completed with{" "}
           <span className="font-semibold text-emerald-300">{(hitRate * 100).toFixed(1)}% win rate</span> and{" "}
           <span className="font-semibold text-emerald-300">{usd(realizedPnlUsd)} net profit</span>. Outfitted with
-          1.2R trailing profit-locks while lossy setup buckets (e.g. dips) are automatically deactivated.
+          1.0R trailing profit-locks while lossy setup buckets (e.g. dips) are automatically deactivated.
         </div>
+      </div>
+
+      {/* Detailed Financial Performance Scoreboard */}
+      <div className="mb-4 rounded-xl border border-white/10 bg-black/20 p-3.5 backdrop-blur-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
+            <BarChart3 size={14} className="text-[var(--accent-bright)]" />
+            <span>Actual Performance Breakdown</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10.5px] text-slate-400">Profit Factor:</span>
+            <span
+              className={`rounded px-1.5 py-0.5 text-[11px] font-bold tabular-nums border ${
+                (profitFactor ?? 1) >= 1.5
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                  : (profitFactor ?? 1) >= 1.0
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                  : "border-rose-500/30 bg-rose-500/10 text-rose-400"
+              }`}
+            >
+              {profitFactor != null ? `${profitFactor.toFixed(2)}x` : "—"}
+            </span>
+          </div>
+        </div>
+
+        {/* 3-Column Made vs Lost vs Net breakdown */}
+        <div className="grid grid-cols-3 gap-2.5">
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-2.5">
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-emerald-400 font-medium">
+              <span className="flex items-center gap-1">
+                <TrendingUp size={12} /> Total Made
+              </span>
+              <span className="text-[9.5px] opacity-75">{winCount} wins</span>
+            </div>
+            <div className="mt-1 text-base font-bold tabular-nums text-emerald-400">
+              +{usd(grossProfitUsd).replace("+", "")}
+            </div>
+            <div className="text-[10px] text-emerald-300/70 mt-0.5">
+              Avg win: +${avgWinUsd.toFixed(2)}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.04] p-2.5">
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-rose-400 font-medium">
+              <span className="flex items-center gap-1">
+                <TrendingDown size={12} /> Total Lost
+              </span>
+              <span className="text-[9.5px] opacity-75">{lossCount} stops</span>
+            </div>
+            <div className="mt-1 text-base font-bold tabular-nums text-rose-400">
+              {usd(grossLossUsd)}
+            </div>
+            <div className="text-[10px] text-rose-300/70 mt-0.5">
+              Avg loss: {usd(avgLossUsd)}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[var(--accent-bright)]/20 bg-[var(--accent-bright)]/[0.04] p-2.5">
+            <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-[var(--ink-muted)] font-medium">
+              <span className="flex items-center gap-1">
+                <Activity size={12} /> Net Profit
+              </span>
+              <span className="text-[9.5px] opacity-75">{(hitRate * 100).toFixed(1)}% hit</span>
+            </div>
+            <div className={`mt-1 text-base font-bold tabular-nums ${tone(realizedPnlUsd)}`}>
+              {usd(realizedPnlUsd)}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">
+              Across {totalTrades} paper trades
+            </div>
+          </div>
+        </div>
+
+        {/* Visual Profit Retention Ratio Bar */}
+        {grossProfitUsd > 0 && Math.abs(grossLossUsd) > 0 && (
+          <div className="mt-3 pt-2.5 border-t border-white/5">
+            <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+              <span className="text-emerald-400 font-medium">Gross Wins: +${grossProfitUsd.toFixed(0)} ({((grossProfitUsd / (grossProfitUsd + Math.abs(grossLossUsd))) * 100).toFixed(0)}%)</span>
+              <span className="text-rose-400 font-medium">Gross Losses: -${Math.abs(grossLossUsd).toFixed(0)} ({((Math.abs(grossLossUsd) / (grossProfitUsd + Math.abs(grossLossUsd))) * 100).toFixed(0)}%)</span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden flex">
+              <div
+                className="bg-emerald-400 h-full rounded-l-full"
+                style={{ width: `${(grossProfitUsd / (grossProfitUsd + Math.abs(grossLossUsd))) * 100}%` }}
+              />
+              <div
+                className="bg-rose-500 h-full rounded-r-full"
+                style={{ width: `${(Math.abs(grossLossUsd) / (grossProfitUsd + Math.abs(grossLossUsd))) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {error && <div className="mb-3 text-sm text-[var(--loss)]">{error}</div>}
@@ -290,8 +406,12 @@ export function FlashBotPanel() {
                 className="capitalize text-[11px]"
               >
                 {t}{" "}
-                <span className="opacity-60">
-                  {t === "all" ? tradeCounts.all : t === "wins" ? tradeCounts.wins : tradeCounts.losses}
+                <span className="opacity-75">
+                  {t === "all"
+                    ? `${tradeCounts.all} (${usd(realizedPnlUsd)})`
+                    : t === "wins"
+                    ? `${tradeCounts.wins} (+${grossProfitUsd.toFixed(0)}$)`
+                    : `${tradeCounts.losses} (${grossLossUsd.toFixed(0)}$)`}
                 </span>
               </button>
             ))}

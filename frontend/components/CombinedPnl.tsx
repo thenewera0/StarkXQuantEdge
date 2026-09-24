@@ -88,7 +88,27 @@ export function CombinedPnl({ refreshKey = 0 }: { refreshKey?: number }) {
             {core?.trades ?? 0} trades ·{" "}
             {core?.hit_rate != null ? `${(core.hit_rate * 100).toFixed(1)}%` : "—"} hit
           </span>
+          {core?.profit_factor != null && (
+            <span>
+              PF: <span className="font-semibold text-emerald-400">{core.profit_factor.toFixed(2)}x</span>
+            </span>
+          )}
         </div>
+
+        {/* Core Gross Made vs Lost summary */}
+        {((core?.gross_profit_usd ?? 0) > 0 || (core?.gross_loss_usd ?? 0) < 0) && (
+          <div className="mt-2.5 pt-2 border-t border-emerald-500/15 flex items-center justify-between text-[11px] text-slate-400">
+            <span className="flex items-center gap-1">
+              Made: <span className="font-bold text-emerald-400">+{usd(core?.gross_profit_usd ?? 0).replace("+", "")}</span>
+            </span>
+            <span className="flex items-center gap-1">
+              Lost: <span className="font-bold text-rose-400">{usd(core?.gross_loss_usd ?? 0)}</span>
+            </span>
+            <span>
+              Win/Loss: <span className="text-white font-medium">{core?.wins ?? 0}W / {core?.losses ?? 0}L</span>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Account 2: Flash Paper Incubator (Strictly Separated) */}
@@ -111,12 +131,28 @@ export function CombinedPnl({ refreshKey = 0 }: { refreshKey?: number }) {
         <div className="mt-2 flex items-center justify-between pt-1 border-t border-white/5">
           <div className="text-[11px] text-slate-400">
             {flash?.trades ?? 0} paper trades ·{" "}
-            {flash?.hit_rate != null ? `${(flash.hit_rate * 100).toFixed(1)}%` : "—"} hit
+            {flash?.hit_rate != null ? `${(flash.hit_rate * 100).toFixed(1)}%` : "—"} hit ·{" "}
+            {flash?.profit_factor != null ? `PF ${flash.profit_factor.toFixed(2)}x` : ""}
           </div>
           <span className={`text-base font-bold tabular-nums ${tone(flash?.realized_pnl_usd ?? 0)}`}>
             {usd(flash?.realized_pnl_usd ?? 0)}
           </span>
         </div>
+
+        {/* Flash Gross Made vs Lost summary */}
+        {((flash?.gross_profit_usd ?? 0) > 0 || (flash?.gross_loss_usd ?? 0) < 0) && (
+          <div className="mt-2 pt-2 border-t border-amber-500/15 flex items-center justify-between text-[11px] text-slate-400">
+            <span className="flex items-center gap-1">
+              Made: <span className="font-bold text-emerald-400">+{usd(flash?.gross_profit_usd ?? 0).replace("+", "")}</span>
+            </span>
+            <span className="flex items-center gap-1">
+              Lost: <span className="font-bold text-rose-400">{usd(flash?.gross_loss_usd ?? 0)}</span>
+            </span>
+            <span>
+              Win/Loss: <span className="text-white font-medium">{flash?.wins ?? 0}W / {flash?.losses ?? 0}L</span>
+            </span>
+          </div>
+        )}
       </div>
 
       <p className="mt-3 text-[10.5px] leading-relaxed text-slate-400">

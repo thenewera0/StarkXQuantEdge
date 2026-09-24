@@ -163,8 +163,8 @@ class Settings(BaseSettings):
     # finish. The giveback is mostly trades that never worked (68% of stops never reached +0.5%
     # unrealised), not winners reversing — which is why tightening the stop cannot recover it.
     partial_book_enabled: bool = True
-    partial_book_at_r: float = 0.20    # book when the trade is this many R in profit
-    partial_book_fraction: float = 0.5 # how much of the position to take off
+    partial_book_at_r: float = 0.40    # book when the trade is this many R in profit (0.40R preserves runner momentum)
+    partial_book_fraction: float = 0.35 # take 35% off, leaving 65% to run to full target
 
     # Performance / P&L (fixed notional per trade for the paper track record)
     standard_trade_size_usd: float = 1000.0
@@ -222,7 +222,7 @@ class Settings(BaseSettings):
     flash_enabled: bool = True
     flash_paper_mode: bool = True          # Paper tracking mode by default for safety
     flash_interval_minutes: int = 5        # scan cadence
-    flash_stop_atr: float = 1.2            # tighter scalp stop distance = 1.2x ATR
+    flash_stop_atr: float = 1.0            # tighter scalp stop distance = 1.0x ATR (eliminates deep -$17 tails)
     flash_rr: float = 1.5                  # target = 1.5x stop (optimal realistic intraday scalp target)
     flash_min_ev_r: float = 0.0            # must be positive-EV after cost
     flash_min_atr_pct: float = 0.008       # dead tape below ~0.8% ATR cannot clear a round trip
@@ -231,7 +231,8 @@ class Settings(BaseSettings):
     flash_min_cost_multiple: float = 3.5   # target distance must be >= this x round-trip cost
     flash_execution: str = "maker"
     flash_limit_offset_atr: float = 0.15   # resting limit order offset to secure maker fee advantage
-    flash_partial_book_at_r: float = 0.40  # quick partial profit taking on intraday scalps
+    flash_partial_book_at_r: float = 0.30  # quick partial profit taking on intraday scalps
+    flash_partial_book_fraction: float = 0.35 # take 35% off, leaving 65% for 1.5R target runner
     flash_vol_expansion: float = 1.25      # volume vs its 20-bar average for a burst
     flash_breakout_bars: int = 15          # N-bar extreme for the breakout trigger
     flash_snap_stretch: float = 0.0035     # VWAP distance that counts as stretched

@@ -230,7 +230,10 @@ def by_strategy(trade_size: float | None = None) -> dict:
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
                 """select coalesce(s.strategy,'core') strat, s.shadow, count(*),
-                          count(*) filter (where o.pnl > 0), coalesce(sum(o.pnl),0)
+                          count(*) filter (where o.pnl > 0),
+                          coalesce(sum(o.pnl) filter (where o.pnl > 0), 0),
+                          coalesce(sum(o.pnl) filter (where o.pnl <= 0), 0),
+                          coalesce(sum(o.pnl), 0)
                    from outcomes o join signals s on s.id = o.signal_id
                    where o.pnl is not null
                    group by strat, s.shadow"""
@@ -242,24 +245,64 @@ def by_strategy(trade_size: float | None = None) -> dict:
     fams: dict[str, dict] = {}
     tot_n = tot_w = 0
     tot_pnl = 0.0
-    for strat, shadow, n, w, pnl in rows:
-        n, w, pnl = int(n), int(w), float(pnl)
+    tot_gross_profit = 0.0
+    tot_gross_loss = 0.0
+    for strat, shadow, n, w, win_pnl, loss_pnl, pnl in rows:
+        n, w = int(n), int(w)
+        win_pnl, loss_pnl, pnl = float(win_pnl), float(loss_pnl), float(pnl)
         # 'core' shadow rows are legacy silenced candidates — not a strategy, skip them.
         if shadow and strat != "flash":
             continue
         key = "flash (paper)" if (shadow and strat == "flash") else strat
-        f = fams.setdefault(key, {"trades": 0, "wins": 0, "losses": 0, "realized_pnl_usd": 0.0,
-                                  "paper": bool(shadow)})
-        f["trades"] += n; f["wins"] += w; f["losses"] += n - w
-        f["realized_pnl_usd"] = round(f["realized_pnl_usd"] + pnl * size, 2)
+        gross_profit_usd = round(win_pnl * size, 2)
+        gross_loss_usd = round(loss_pnl * size, 2)
+        realized_pnl_usd = round(pnl * size, 2)
+        losses = n - w
+
+        f = fams.setdefault(key, {
+            "trades": 0, "wins": 0, "losses": 0,
+            "realized_pnl_usd": 0.0,
+            "gross_profit_usd": 0.0,
+            "gross_loss_usd": 0.0,
+            "profit_factor": None,
+            "avg_win_usd": 0.0,
+            "avg_loss_usd": 0.0,
+            "hit_rate": None,
+            "paper": bool(shadow),
+        })
+        f["trades"] += n
+        f["wins"] += w
+        f["losses"] += losses
+        f["realized_pnl_usd"] = round(f["realized_pnl_usd"] + realized_pnl_usd, 2)
+        f["gross_profit_usd"] = round(f["gross_profit_usd"] + gross_profit_usd, 2)
+        f["gross_loss_usd"] = round(f["gross_loss_usd"] + gross_loss_usd, 2)
         f["hit_rate"] = round(f["wins"] / f["trades"], 4) if f["trades"] else None
+        f["profit_factor"] = round(abs(f["gross_profit_usd"] / f["gross_loss_usd"]), 2) if f["gross_loss_usd"] != 0 else None
+        f["avg_win_usd"] = round(f["gross_profit_usd"] / f["wins"], 2) if f["wins"] else 0.0
+        f["avg_loss_usd"] = round(f["gross_loss_usd"] / f["losses"], 2) if f["losses"] else 0.0
+
         if not shadow:                       # only REAL money counts in the combined total
-            tot_n += n; tot_w += w; tot_pnl += pnl
+            tot_n += n
+            tot_w += w
+            tot_pnl += pnl
+            tot_gross_profit += gross_profit_usd
+            tot_gross_loss += gross_loss_usd
+
+    tot_losses = tot_n - tot_w
+    tot_pf = round(abs(tot_gross_profit / tot_gross_loss), 2) if tot_gross_loss != 0 else None
+    tot_avg_w = round(tot_gross_profit / tot_w, 2) if tot_w else 0.0
+    tot_avg_l = round(tot_gross_loss / tot_losses, 2) if tot_losses else 0.0
+
     return {
         "enabled": True, "trade_size_usd": size, "strategies": fams,
-        "combined": {"trades": tot_n, "wins": tot_w, "losses": tot_n - tot_w,
+        "combined": {"trades": tot_n, "wins": tot_w, "losses": tot_losses,
                      "hit_rate": round(tot_w / tot_n, 4) if tot_n else None,
                      "realized_pnl_usd": round(tot_pnl * size, 2),
+                     "gross_profit_usd": round(tot_gross_profit, 2),
+                     "gross_loss_usd": round(tot_gross_loss, 2),
+                     "profit_factor": tot_pf,
+                     "avg_win_usd": tot_avg_w,
+                     "avg_loss_usd": tot_avg_l,
                      "note": "live capital only — flash paper P&L is tracked separately"},
     }
 

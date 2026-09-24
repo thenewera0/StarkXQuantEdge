@@ -86,7 +86,7 @@ def _subbar_first(symbol: str, market: str, interval: str, bar_close: datetime,
 
 def _resolve_one(symbol: str, market: str, interval: str, direction: str,
                  entry: float, stop: float, target: float, atr_pct: float,
-                 future: pd.DataFrame, max_hold: int) -> dict | None:
+                 future: pd.DataFrame, max_hold: int, strategy: str = "core") -> dict | None:
     """Return an outcome dict, or None if the trade is still open (not enough data yet)."""
     # EXECUTION. With limit entries the stored `entry` is a RESTING price, not a fill: the trade
     # only exists if the market trades through it within the expiry window. Measured on 14,047
@@ -95,7 +95,8 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
     # judge it. Modelling the fill is therefore not optional; assuming it would book the 21% of
     # orders that never filled as free trades.
     use_limit = settings.limit_orders_enabled
-    cost = round_trip_cost(market, symbol, atr_pct, "maker" if use_limit else "taker")
+    cost_exec = settings.flash_execution if strategy == "flash" else ("maker" if use_limit else "taker")
+    cost = round_trip_cost(market, symbol, atr_pct, cost_exec)
     mfe = mae = 0.0
     highs, lows, closes = future["high"], future["low"], future["close"]
     n = len(future)
@@ -128,19 +129,21 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
                         "mfe": None, "mae": None, "bars_held": settings.limit_expiry_bars}
         start = filled_at
 
-    # PARTIAL BOOK. Measured as the single most effective exit change: taking half the position
-    # off at +0.20R is worth +0.242pp per signal (16,338 signals, holds out of sample). It exists
-    # because the live book captured only 17.3% of its peak unrealised profit — 345 trades reached
-    # +526.8% of MFE in aggregate and booked +91.0%.
-    #
-    # The level is DERIVED from entry and stop rather than stored, so it needs no migration and
-    # cannot drift out of sync with the geometry that produced the signal.
+    # PARTIAL BOOK.
+    # Calibrated to secure early profit while leaving 65% of the position running for the big target.
+    # Flash scalps take partial at flash_partial_book_at_r (0.30R), while core swings take partial at partial_book_at_r (0.40R).
     risk_dist = abs(entry - stop)
     partial_px = None
     booked_frac = 0.0
     booked_pnl = 0.0
     if settings.partial_book_enabled and risk_dist > 0:
-        step = settings.partial_book_at_r * risk_dist
+        if strategy == "flash":
+            partial_at_r = settings.flash_partial_book_at_r
+            partial_frac = getattr(settings, "flash_partial_book_fraction", 0.35)
+        else:
+            partial_at_r = settings.partial_book_at_r
+            partial_frac = settings.partial_book_fraction
+        step = partial_at_r * risk_dist
         partial_px = entry + step if direction == "long" else entry - step
 
     current_stop = stop
@@ -148,13 +151,14 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
 
     for i in range(start, n):
         hi, lo, cl = float(highs.iloc[i]), float(lows.iloc[i]), float(closes.iloc[i])
+        held = i - start + 1
 
         # Book the partial the first time price trades through the level. Checked BEFORE stop and
         # target so a bar that spans both books the partial rather than losing it.
         if partial_px is not None and booked_frac == 0.0:
             reached = hi >= partial_px if direction == "long" else lo <= partial_px
             if reached:
-                booked_frac = settings.partial_book_fraction
+                booked_frac = partial_frac
                 leg = ((partial_px - entry) / entry if direction == "long"
                        else (entry - partial_px) / entry)
                 booked_pnl = booked_frac * leg
@@ -162,32 +166,53 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
         # Favorable move tracking
         fav_pct = (hi - entry) / entry if direction == "long" else (entry - lo) / entry
         best_fav = max(best_fav, fav_pct)
+        mfe_r = (best_fav / (risk_dist / entry)) if risk_dist > 0 else 0.0
 
         # PROGRESSIVE PROFIT PROTECTION & TRAILING STOP
-        # Scale-invariant Risk-Unit (R) ladder: protects both tight scalps (15m/1h) and wide swings (4h/1d).
-        # R = risk_dist = abs(entry - stop)
+        # Strategy-aware R-ladder:
+        # - Flash (1h fast scalps): locks in profit at +0.80R (0.40R profit lock) without choking initial wave.
+        # - Core (4h/1d patient swings): gives 4h candles room to breathe, locking profit progressively.
         if risk_dist > 0:
-            mfe_r = best_fav / (risk_dist / entry)
+            if strategy == "flash":
+                # Tier 1: Breakeven (+0.40R gain) -> Move stop to entry + 0.15% fee cushion
+                if mfe_r >= 0.40:
+                    be_level = entry * 1.0015 if direction == "long" else entry * 0.9985
+                    current_stop = max(current_stop, be_level) if direction == "long" else min(current_stop, be_level)
 
-            # Tier 1: Breakeven (+0.40R gain) -> Move stop to entry + 0.2% fee cushion (guarantees zero loss)
-            if mfe_r >= 0.40:
-                be_level = entry * 1.002 if direction == "long" else entry * 0.998
-                current_stop = max(current_stop, be_level) if direction == "long" else min(current_stop, be_level)
+                # Tier 2: Profit Lock 1 (+0.80R gain) -> Lock in +0.40R net profit (guarantees real win)
+                if mfe_r >= 0.80:
+                    p1_level = entry + 0.40 * risk_dist if direction == "long" else entry - 0.40 * risk_dist
+                    current_stop = max(current_stop, p1_level) if direction == "long" else min(current_stop, p1_level)
 
-            # Tier 2: Profit Lock 1 (+1.0R gain) -> Lock in +0.50R net profit
-            if mfe_r >= 1.0:
-                p1_level = entry + 0.50 * risk_dist if direction == "long" else entry - 0.50 * risk_dist
-                current_stop = max(current_stop, p1_level) if direction == "long" else min(current_stop, p1_level)
+                # Tier 3: Profit Lock 2 (+1.25R gain) -> Lock in +0.85R net profit
+                if mfe_r >= 1.25:
+                    p2_level = entry + 0.85 * risk_dist if direction == "long" else entry - 0.85 * risk_dist
+                    current_stop = max(current_stop, p2_level) if direction == "long" else min(current_stop, p2_level)
 
-            # Tier 3: Profit Lock 2 (+1.5R gain) -> Lock in +1.0R net profit
-            if mfe_r >= 1.5:
-                p2_level = entry + 1.0 * risk_dist if direction == "long" else entry - 1.0 * risk_dist
-                current_stop = max(current_stop, p2_level) if direction == "long" else min(current_stop, p2_level)
+                # Tier 4: Chandelier Trail (above +1.50R target) -> Trail peak price by 0.50 * risk_dist
+                if mfe_r >= 1.50:
+                    trail_level = hi - 0.50 * risk_dist if direction == "long" else lo + 0.50 * risk_dist
+                    current_stop = max(current_stop, trail_level) if direction == "long" else min(current_stop, trail_level)
+            else:
+                # Tier 1: Breakeven (+0.55R gain) -> Move stop to entry + 0.2% fee cushion
+                if mfe_r >= 0.55:
+                    be_level = entry * 1.002 if direction == "long" else entry * 0.998
+                    current_stop = max(current_stop, be_level) if direction == "long" else min(current_stop, be_level)
 
-            # Tier 4: Chandelier Trail (above +1.5R) -> Trail peak price by 0.50 * risk_dist
-            if mfe_r >= 1.5:
-                trail_level = hi - 0.50 * risk_dist if direction == "long" else lo + 0.50 * risk_dist
-                current_stop = max(current_stop, trail_level) if direction == "long" else min(current_stop, trail_level)
+                # Tier 2: Profit Lock 1 (+1.0R gain) -> Lock in +0.50R net profit
+                if mfe_r >= 1.00:
+                    p1_level = entry + 0.50 * risk_dist if direction == "long" else entry - 0.50 * risk_dist
+                    current_stop = max(current_stop, p1_level) if direction == "long" else min(current_stop, p1_level)
+
+                # Tier 3: Profit Lock 2 (+1.5R gain) -> Lock in +1.0R net profit
+                if mfe_r >= 1.50:
+                    p2_level = entry + 1.0 * risk_dist if direction == "long" else entry - 1.0 * risk_dist
+                    current_stop = max(current_stop, p2_level) if direction == "long" else min(current_stop, p2_level)
+
+                # Tier 4: Chandelier Trail (above +1.5R) -> Trail peak price by 0.50 * risk_dist
+                if mfe_r >= 1.50:
+                    trail_level = hi - 0.50 * risk_dist if direction == "long" else lo + 0.50 * risk_dist
+                    current_stop = max(current_stop, trail_level) if direction == "long" else min(current_stop, trail_level)
 
         if direction == "long":
             mfe = max(mfe, (hi - entry) / entry)
@@ -203,8 +228,6 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
         # Bars HELD is counted from the fill, not from the signal. With a limit entry the order can
         # rest for several bars before filling, and charging that waiting time against max_hold
         # would cut trades short by however long they queued.
-        held = i - start + 1
-
         if hit_stop and hit_target:
             # Ambiguous bar: resolve intra-bar with 1m candles instead of always assuming stop.
             if _subbar_first(symbol, market, interval, future.index[i], direction, current_stop, target) == "target":
@@ -216,6 +239,15 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
             return _finalize(direction, entry, current_stop, res_label, held, mfe, mae, cost, booked_frac, booked_pnl)
         if hit_target:
             return _finalize(direction, entry, target, "target", held, mfe, mae, cost, booked_frac, booked_pnl)
+
+        # Stagnation exit for Flash momentum scalps:
+        # If held >= 12 bars (out of 16) and pnl is negative with zero forward progress (< 0.25R MFE),
+        # close out early to cut the loss in half rather than waiting for full stop.
+        if strategy == "flash" and held >= 12:
+            cur_pnl_r = ((cl - entry) / entry if direction == "long" else (entry - cl) / entry) / (risk_dist / entry)
+            if cur_pnl_r <= -0.50 and mfe_r < 0.25:
+                return _finalize(direction, entry, cl, "stagnation_stop", held, mfe, mae, cost, booked_frac, booked_pnl)
+
         if held >= max_hold:
             return _finalize(direction, entry, cl, "timeout", held, mfe, mae, cost, booked_frac, booked_pnl)
 
@@ -304,6 +336,7 @@ def resolve_open_signals(max_signals: int = 50) -> dict:
             s["symbol"], s["market"], s["interval"], direction,
             entry, float(s["stop"]), float(s["target"]), atr_pct,
             future_after, hold,
+            strategy=s.get("strategy") or "core",
         )
         if outcome is None or outcome.get("status") == "open":
             if outcome and outcome.get("trailing_stop"):

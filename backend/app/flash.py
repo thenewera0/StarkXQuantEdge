@@ -455,22 +455,47 @@ def promotion_status() -> dict:
 # --- flash performance (its own gate + its own P&L) -------------------------
 
 def flash_stats(window_days: int = 7) -> dict:
-    """Rolling flash-only performance: {trades, wins, hit_rate, pnl_frac}."""
-    out = {"trades": 0, "wins": 0, "hit_rate": None, "pnl_frac": 0.0}
+    """Rolling flash-only performance: {trades, wins, losses, hit_rate, pnl_frac, gross_profit_usd, gross_loss_usd, profit_factor}."""
+    out = {
+        "trades": 0, "wins": 0, "losses": 0, "hit_rate": None, "pnl_frac": 0.0,
+        "gross_profit_usd": 0.0, "gross_loss_usd": 0.0, "realized_pnl_usd": 0.0,
+        "profit_factor": None, "avg_win_usd": 0.0, "avg_loss_usd": 0.0,
+    }
     if not db.enabled():
         return out
+    size = settings.standard_trade_size_usd
     try:
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
-                f"""select count(*), count(*) filter (where o.pnl > 0), coalesce(sum(o.pnl), 0)
+                f"""select count(*),
+                           count(*) filter (where o.pnl > 0),
+                           count(*) filter (where o.pnl <= 0),
+                           coalesce(sum(o.pnl) filter (where o.pnl > 0), 0),
+                           coalesce(sum(o.pnl) filter (where o.pnl <= 0), 0),
+                           coalesce(sum(o.pnl), 0)
                     from outcomes o join signals s on s.id = o.signal_id
                     where o.pnl is not null and s.strategy = 'flash'
                       and o.resolved_at > now() - interval '{int(window_days)} days'"""
             )
-            n, w, p = cur.fetchone()
-        n, w = int(n or 0), int(w or 0)
-        out = {"trades": n, "wins": w, "hit_rate": round(w / n, 4) if n else None,
-               "pnl_frac": float(p or 0.0)}
+            n, w, l, gw, gl, p = cur.fetchone()
+        n, w, l = int(n or 0), int(w or 0), int(l or 0)
+        gw_usd = round(float(gw or 0.0) * size, 2)
+        gl_usd = round(float(gl or 0.0) * size, 2)
+        net_usd = round(float(p or 0.0) * size, 2)
+        pf = round(abs(gw_usd / gl_usd), 2) if gl_usd != 0 else None
+        avg_w = round(gw_usd / w, 2) if w else 0.0
+        avg_l = round(gl_usd / l, 2) if l else 0.0
+        out = {
+            "trades": n, "wins": w, "losses": l,
+            "hit_rate": round(w / n, 4) if n else None,
+            "pnl_frac": float(p or 0.0),
+            "gross_profit_usd": gw_usd,
+            "gross_loss_usd": gl_usd,
+            "realized_pnl_usd": net_usd,
+            "profit_factor": pf,
+            "avg_win_usd": avg_w,
+            "avg_loss_usd": avg_l,
+        }
     except Exception:
         pass
     return out

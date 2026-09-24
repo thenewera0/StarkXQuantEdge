@@ -279,9 +279,23 @@ export async function fetchTrade(id: number): Promise<TradeDetail> {
   return res.json();
 }
 
+export type TradeCounts = {
+  all: number;
+  wins: number;
+  losses: number;
+  gross_profit_usd?: number;
+  gross_loss_usd?: number;
+  net_pnl_usd?: number;
+  profit_factor?: number | null;
+  avg_win_usd?: number;
+  avg_loss_usd?: number;
+  win_rate?: number;
+};
+
 export type TradeHistory = {
   trades: PnlTrade[];
-  counts: { all: number; wins: number; losses: number };
+  counts: TradeCounts;
+  performance?: TradeCounts;
   limit: number;
   offset: number;
 };
@@ -529,8 +543,17 @@ export async function fetchFlashStatus(): Promise<FlashStatus> {
 
 // ---- P&L by strategy family --------------------------------------------
 export type StrategyStats = {
-  trades: number; wins: number; losses: number; hit_rate: number | null;
-  realized_pnl_usd: number; paper?: boolean;
+  trades: number;
+  wins: number;
+  losses: number;
+  hit_rate: number | null;
+  realized_pnl_usd: number;
+  gross_profit_usd?: number;
+  gross_loss_usd?: number;
+  profit_factor?: number | null;
+  avg_win_usd?: number;
+  avg_loss_usd?: number;
+  paper?: boolean;
 };
 export type ByStrategy = {
   enabled: boolean; trade_size_usd?: number;

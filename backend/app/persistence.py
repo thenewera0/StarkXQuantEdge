@@ -144,10 +144,24 @@ def trade_history(result_filter: str = "all", limit: int = 50, offset: int = 0,
             cur.execute(
                 f"""select count(*) filter (where o.pnl is not null),
                           count(*) filter (where o.pnl > 0),
-                          count(*) filter (where o.pnl <= 0)
+                          count(*) filter (where o.pnl <= 0),
+                          coalesce(sum(o.pnl) filter (where o.pnl > 0), 0),
+                          coalesce(sum(o.pnl) filter (where o.pnl <= 0), 0),
+                          coalesce(sum(o.pnl), 0)
                    from outcomes o join signals s on s.id = o.signal_id where {strat_clause}"""
             )
-            all_c, wins, losses = cur.fetchone()
+            all_c, wins, losses, gross_win_frac, gross_loss_frac, net_pnl_frac = cur.fetchone()
+            all_c = int(all_c or 0)
+            wins = int(wins or 0)
+            losses = int(losses or 0)
+            gross_profit_usd = round(float(gross_win_frac or 0.0) * trade_size, 2)
+            gross_loss_usd = round(float(gross_loss_frac or 0.0) * trade_size, 2)
+            net_pnl_usd = round(float(net_pnl_frac or 0.0) * trade_size, 2)
+            profit_factor = round(abs(gross_profit_usd / gross_loss_usd), 2) if gross_loss_usd != 0 else None
+            avg_win_usd = round(gross_profit_usd / wins, 2) if wins else 0.0
+            avg_loss_usd = round(gross_loss_usd / losses, 2) if losses else 0.0
+            win_rate = round(wins / all_c, 4) if all_c else 0.0
+
             cur.execute(
                 f"""select s.id, s.symbol, s.interval, s.label, coalesce(s.regime,'unknown') regime,
                           s.entry, o.result, o.pnl, o.bars_held, o.resolved_at
@@ -169,9 +183,21 @@ def trade_history(result_filter: str = "all", limit: int = 50, offset: int = 0,
         "pnl_pct": round(float(r["pnl"]) * 100, 2), "pnl_usd": round(float(r["pnl"]) * trade_size, 2),
         "bars_held": r["bars_held"], "resolved_at": str(r["resolved_at"]),
     } for r in rows]
+
+    perf_stats = {
+        "all": all_c, "wins": wins, "losses": losses,
+        "gross_profit_usd": gross_profit_usd,
+        "gross_loss_usd": gross_loss_usd,
+        "net_pnl_usd": net_pnl_usd,
+        "profit_factor": profit_factor,
+        "avg_win_usd": avg_win_usd,
+        "avg_loss_usd": avg_loss_usd,
+        "win_rate": win_rate,
+    }
     return {
         "trades": trades,
-        "counts": {"all": int(all_c or 0), "wins": int(wins or 0), "losses": int(losses or 0)},
+        "counts": perf_stats,
+        "performance": perf_stats,
         "limit": limit, "offset": offset,
     }
 
