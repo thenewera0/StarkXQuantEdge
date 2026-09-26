@@ -277,6 +277,57 @@ def signal_exists(symbol: str, interval: str, as_of: str) -> bool:
         return False
 
 
+def has_active_signal(symbol: str, strategy: str = "flash") -> bool:
+    """True if this symbol currently has an open (unresolved) signal in this strategy."""
+    if not db.enabled():
+        return False
+    try:
+        with db.get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                select 1 from signals s
+                left join outcomes o on o.signal_id = s.id
+                where s.symbol = %s and s.strategy = %s and o.id is null
+                  and s.created_at > now() - interval '24 hours'
+                limit 1
+                """,
+                (symbol, strategy),
+            )
+            return cur.fetchone() is not None
+    except Exception:
+        return False
+
+
+def active_signals_count(strategy: str = "flash") -> dict:
+    """Count of currently open (unresolved) signals by direction."""
+    out = {"total": 0, "longs": 0, "shorts": 0}
+    if not db.enabled():
+        return out
+    try:
+        with db.get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                select count(*),
+                       count(*) filter (where s.label like '%Buy%'),
+                       count(*) filter (where s.label like '%Sell%')
+                from signals s
+                left join outcomes o on o.signal_id = s.id
+                where s.strategy = %s and o.id is null
+                  and s.created_at > now() - interval '24 hours'
+                """,
+                (strategy,),
+            )
+            row = cur.fetchone()
+            if row:
+                out["total"] = int(row[0] or 0)
+                out["longs"] = int(row[1] or 0)
+                out["shorts"] = int(row[2] or 0)
+    except Exception:
+        pass
+    return out
+
+
+
 def recent_signals(limit: int = 20) -> list[dict]:
     """Recent signals joined with any resolved outcome (for an accuracy view)."""
     if not db.enabled():

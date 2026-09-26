@@ -34,16 +34,43 @@ from .indicators import compute_indicators
 logger = logging.getLogger("flash")
 
 # Liquid, fast-moving pairs with proven positive momentum expectancy.
-# Chronic bleeder tokens (ARB, APT, SEI, UNI) with negative historical expectancy are excluded.
+# Chronic bleeders (ARB, APT, SEI, UNI, ADA, OP, LINK, AAVE, ETC, DOT) with negative historical expectancy are excluded.
 FLASH_SYMBOLS = [
-    "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT",
-    "ADAUSDT", "NEARUSDT", "OPUSDT", "INJUSDT", "SUIUSDT", "TIAUSDT",
-    "LTCUSDT", "DOTUSDT", "ATOMUSDT", "FILUSDT", "AAVEUSDT", "RUNEUSDT",
-    "ETCUSDT", "XLMUSDT", "GRTUSDT", "TRXUSDT",
+    "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "INJUSDT", "NEARUSDT",
+    "FILUSDT", "ATOMUSDT", "AVAXUSDT", "SUIUSDT", "GRTUSDT", "LTCUSDT",
+    "TIAUSDT", "RUNEUSDT", "DOGEUSDT",
 ]
-# 15m + 1h: fast enough to fire many times a day, but with enough ATR that the round-trip cost is a
-# SMALL fraction of risk. (5m was measured at ~69% cost-to-risk — mathematically unwinnable.)
+# 1h: fast enough to fire multiple times a day with low relative transaction cost.
 FLASH_INTERVALS = ["1h"]
+
+_btc_trend_cache: tuple[float, dict] | None = None
+
+def get_btc_trend_context() -> dict:
+    """Cached 1h BTC trend context (60s TTL) to prevent trading altcoins counter to the market trend."""
+    global _btc_trend_cache
+    import time as _t
+    now = _t.time()
+    if _btc_trend_cache and now - _btc_trend_cache[0] < 60.0:
+        return _btc_trend_cache[1]
+    try:
+        df = fetch_klines("BTCUSDT", "1h", 100)
+        df, _ = validate_ohlcv(df, "1h")
+        ind = compute_indicators(df)
+        last = ind.iloc[-1]
+        c = _f(last, "close")
+        ema50 = _f(last, "ema50")
+        rsi = _f(last, "rsi")
+        ks = _f(last, "kalman_slope")
+        res = {
+            "close": c, "ema50": ema50, "rsi": rsi, "kalman_slope": ks,
+            "is_bearish": (c < ema50 and rsi < 46) if (c and ema50 and rsi) else False,
+            "is_bullish": (c > ema50 and rsi > 54) if (c and ema50 and rsi) else False,
+        }
+        _btc_trend_cache = (now, res)
+        return res
+    except Exception:
+        return {"is_bearish": False, "is_bullish": False}
+
 
 # WHY 15m WAS REMOVED (2026-08-05), and what it means for this bot.
 #
@@ -180,11 +207,15 @@ def detect_trigger(ind: pd.DataFrame) -> dict | None:
     thrust = (close - prev_close) / close                      # last-bar impulse
     atr_pct = atr / close
 
+    # Anti-chasing: do not enter on exhausted climax impulses (> 1.8x ATR)
+    if abs(thrust) > 1.8 * atr_pct:
+        return None
+
     # --- burst: impulse through the fast EMA with volume participation ---
     if vol_exp >= settings.flash_vol_expansion and abs(thrust) >= 0.25 * atr_pct:
-        if close > ema9 > ema21 and rsi > 52 and thrust > 0:
+        if close > ema9 > ema21 and 52 < rsi <= settings.flash_max_rsi_long and thrust > 0:
             return {"direction": "long", "kind": "burst", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
-        if close < ema9 < ema21 and rsi < 48 and thrust < 0:
+        if close < ema9 < ema21 and settings.flash_min_rsi_short <= rsi < 48 and thrust < 0:
             return {"direction": "short", "kind": "burst", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
 
     # --- breakout: takes out the recent extreme, volatility expanding ---
@@ -192,10 +223,11 @@ def detect_trigger(ind: pd.DataFrame) -> dict | None:
     lookback_lo = ind["low"].iloc[-(settings.flash_breakout_bars + 1):-1]
     if len(lookback) >= settings.flash_breakout_bars:
         hi_n, lo_n = float(lookback.max()), float(lookback_lo.min())
-        if close > hi_n and vol_exp >= 1.2 and rsi > 52:
+        if close > hi_n and vol_exp >= 1.2 and 52 < rsi <= settings.flash_max_rsi_long:
             return {"direction": "long", "kind": "breakout", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
-        if close < lo_n and vol_exp >= 1.2 and rsi < 48:
+        if close < lo_n and vol_exp >= 1.2 and settings.flash_min_rsi_short <= rsi < 48:
             return {"direction": "short", "kind": "breakout", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
+
 
     # --- snap: deep stretch from VWAP reversing at extreme exhaustion ---
     if vwap_dist is not None:
@@ -282,6 +314,31 @@ def evaluate(symbol: str, interval: str) -> dict | None:
         blocks.append(f"Kalman trend slope positive ({kalman_slope:.4f}) — counter-trend")
     if trig["strength"] < 75.0:
         blocks.append(f"conviction below floor ({trig['strength']:.1f} < 75.0)")
+
+    # Anti-chasing: VWAP stretch ceiling (prevents buying blow-off tops)
+    vwap_dist = _f(last, "vwap_dist")
+    if vwap_dist is not None:
+        if direction == "long" and vwap_dist > settings.flash_max_vwap_stretch_pct:
+            blocks.append(f"overextended above VWAP (+{vwap_dist*100:.1f}% > +{settings.flash_max_vwap_stretch_pct*100:.1f}%)")
+        elif direction == "short" and vwap_dist < -settings.flash_max_vwap_stretch_pct:
+            blocks.append(f"overextended below VWAP ({vwap_dist*100:.1f}% < -{settings.flash_max_vwap_stretch_pct*100:.1f}%)")
+
+    # Anti-chasing: RSI ceiling/floor guard
+    rsi_val = _f(last, "rsi")
+    if rsi_val is not None:
+        if direction == "long" and rsi_val > settings.flash_max_rsi_long:
+            blocks.append(f"overbought RSI ({rsi_val:.1f} > {settings.flash_max_rsi_long}) — chasing top")
+        elif direction == "short" and rsi_val < settings.flash_min_rsi_short:
+            blocks.append(f"oversold RSI ({rsi_val:.1f} < {settings.flash_min_rsi_short}) — shorting bottom")
+
+    # Market regime: BTC 1h trend alignment (never buy high-beta altcoins into a dumping BTC market)
+    if settings.flash_btc_trend_filter and symbol != "BTCUSDT":
+        btc_ctx = get_btc_trend_context()
+        if direction == "long" and btc_ctx.get("is_bearish"):
+            blocks.append("BTC 1h in active downtrend (< EMA50 & RSI < 46) — altcoin long blocked")
+        elif direction == "short" and btc_ctx.get("is_bullish"):
+            blocks.append("BTC 1h in active uptrend (> EMA50 & RSI > 54) — altcoin short blocked")
+
 
     return {
         "symbol": symbol, "interval": interval, "market": "crypto",
@@ -536,6 +593,11 @@ def scan(log: bool = True) -> dict:
     emitted = 0
     gated = 0
 
+    active_counts = persistence.active_signals_count("flash")
+    open_total = active_counts["total"]
+    open_longs = active_counts["longs"]
+    open_shorts = active_counts["shorts"]
+
     for symbol in FLASH_SYMBOLS:
         # Learned gate: a pair that has proven negative for FAST trading is skipped entirely.
         if learn and _is_blocked(learn, "symbols", symbol):
@@ -556,9 +618,35 @@ def scan(log: bool = True) -> dict:
             if log and active and c["tradeable"]:
                 if persistence.signal_exists(symbol, interval, c["as_of"]):
                     continue
+                # Concurrency Guard 1: Never pyramid into an already open signal on the same symbol
+                if persistence.has_active_signal(symbol, "flash"):
+                    c["tradeable"] = False
+                    c["blocked_by"] = f"{symbol} already has an active open flash position"
+                    continue
+                # Concurrency Guard 2: Max total concurrent open flash trades
+                if open_total >= settings.flash_max_open_trades:
+                    c["tradeable"] = False
+                    c["blocked_by"] = f"max open flash trades reached ({open_total}/{settings.flash_max_open_trades})"
+                    continue
+                # Concurrency Guard 3: Max concurrent same-direction trades (e.g. max 2 Longs)
+                if c["direction"] == "long" and open_longs >= settings.flash_max_open_same_direction:
+                    c["tradeable"] = False
+                    c["blocked_by"] = f"max open longs reached ({open_longs}/{settings.flash_max_open_same_direction})"
+                    continue
+                if c["direction"] == "short" and open_shorts >= settings.flash_max_open_same_direction:
+                    c["tradeable"] = False
+                    c["blocked_by"] = f"max open shorts reached ({open_shorts}/{settings.flash_max_open_same_direction})"
+                    continue
+
                 if _log_flash(c) is not None:
                     emitted += 1
+                    open_total += 1
+                    if c["direction"] == "long":
+                        open_longs += 1
+                    else:
+                        open_shorts += 1
                     logger.info("FLASH %s %s %s %s ev=%.3f", c["kind"], c["direction"], symbol, interval, c["ev_r"])
+
 
     triggers.sort(key=lambda x: x["ev_r"], reverse=True)
     return {

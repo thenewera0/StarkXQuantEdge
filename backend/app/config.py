@@ -242,6 +242,15 @@ class Settings(BaseSettings):
     flash_perf_window_days: int = 7
     flash_perf_min_sample: int = 20
 
+    # Risk & Concurrency Guards (protects against correlated multi-token wipeouts & overbought chasing)
+    flash_max_open_trades: int = 3          # Max concurrent open flash trades (prevents 8-altcoin simultaneous drawdowns)
+    flash_max_open_same_direction: int = 2  # Max concurrent trades in same direction (e.g. max 2 Longs)
+    flash_max_rsi_long: float = 68.0        # Anti-chasing ceiling: never buy when RSI > 68 (exhaustion tops)
+    flash_min_rsi_short: float = 32.0       # Anti-chasing floor: never short when RSI < 32 (oversold bottoms)
+    flash_max_vwap_stretch_pct: float = 0.025 # Anti-chasing: max 2.5% distance from VWAP (eliminates blow-off chasing)
+    flash_btc_trend_filter: bool = True     # Check BTC 1h trend to avoid buying altcoins into a falling market
+
+
     # Flash self-learning: the bot narrows to what its OWN outcomes prove, using the same gate
     # pattern that created the core engine's edge (per-kind / per-symbol / per-interval).
     # Thin buckets keep exploring; proven-negative buckets are dropped until they age out.

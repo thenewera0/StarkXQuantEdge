@@ -152,6 +152,7 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
     for i in range(start, n):
         hi, lo, cl = float(highs.iloc[i]), float(lows.iloc[i]), float(closes.iloc[i])
         held = i - start + 1
+        bar_start_stop = current_stop
 
         # Book the partial the first time price trades through the level. Checked BEFORE stop and
         # target so a bar that spans both books the partial rather than losing it.
@@ -214,15 +215,22 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
                     trail_level = hi - 0.50 * risk_dist if direction == "long" else lo + 0.50 * risk_dist
                     current_stop = max(current_stop, trail_level) if direction == "long" else min(current_stop, trail_level)
 
+        # Stop and target evaluation:
+        # Avoid the intra-bar lookahead bug: if a stop was raised by *this* bar's high,
+        # it cannot be stopped out by this bar's low unless price closed below it (cl <= current_stop),
+        # which proves price collapsed after the rally. On subsequent bars, bar_start_stop equals current_stop
+        # and standard low/high checks protect correctly.
         if direction == "long":
             mfe = max(mfe, (hi - entry) / entry)
             mae = min(mae, (lo - entry) / entry)
-            hit_stop = lo <= current_stop
+            hit_stop = (lo <= bar_start_stop) or (current_stop > bar_start_stop and cl <= current_stop)
+            stop_exit_px = bar_start_stop if (lo <= bar_start_stop) else current_stop
             hit_target = hi >= target
         else:
             mfe = max(mfe, (entry - lo) / entry)
             mae = min(mae, (entry - hi) / entry)
-            hit_stop = hi >= current_stop
+            hit_stop = (hi >= bar_start_stop) or (current_stop < bar_start_stop and cl >= current_stop)
+            stop_exit_px = bar_start_stop if (hi >= bar_start_stop) else current_stop
             hit_target = lo <= target
 
         # Bars HELD is counted from the fill, not from the signal. With a limit entry the order can
@@ -230,13 +238,13 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
         # would cut trades short by however long they queued.
         if hit_stop and hit_target:
             # Ambiguous bar: resolve intra-bar with 1m candles instead of always assuming stop.
-            if _subbar_first(symbol, market, interval, future.index[i], direction, current_stop, target) == "target":
+            if _subbar_first(symbol, market, interval, future.index[i], direction, stop_exit_px, target) == "target":
                 return _finalize(direction, entry, target, "target", held, mfe, mae, cost, booked_frac, booked_pnl)
-            res_label = "trailing_stop" if current_stop != stop else "stop"
-            return _finalize(direction, entry, current_stop, res_label, held, mfe, mae, cost, booked_frac, booked_pnl)
+            res_label = "trailing_stop" if stop_exit_px != stop else "stop"
+            return _finalize(direction, entry, stop_exit_px, res_label, held, mfe, mae, cost, booked_frac, booked_pnl)
         if hit_stop:
-            res_label = "trailing_stop" if current_stop != stop else "stop"
-            return _finalize(direction, entry, current_stop, res_label, held, mfe, mae, cost, booked_frac, booked_pnl)
+            res_label = "trailing_stop" if stop_exit_px != stop else "stop"
+            return _finalize(direction, entry, stop_exit_px, res_label, held, mfe, mae, cost, booked_frac, booked_pnl)
         if hit_target:
             return _finalize(direction, entry, target, "target", held, mfe, mae, cost, booked_frac, booked_pnl)
 
