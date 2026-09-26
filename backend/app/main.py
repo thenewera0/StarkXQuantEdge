@@ -203,6 +203,20 @@ def candles(
     return get_candles(symbol, interval, market=market, limit=limit)
 
 
+@app.get("/price-action")
+def price_action_endpoint(
+    symbol: str = Query(..., min_length=1),
+    interval: str = Query("1h"),
+    market: str = Query("crypto"),
+    limit: int = Query(300, ge=60, le=1000),
+) -> dict:
+    """Full price action evaluation: support/resistance zones, candlestick patterns, liquidity sweeps, structure."""
+    from .price_action import evaluate_price_action
+    from .signal_service import _fetch_ohlcv
+    df = _fetch_ohlcv(symbol, interval, limit, market)
+    return evaluate_price_action(df)
+
+
 @app.get("/db/status")
 def db_status() -> dict:
     """Whether persistence is configured and reachable."""

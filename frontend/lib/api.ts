@@ -89,6 +89,7 @@ export type Signal = {
   news?: NewsMeta | null;
   macro?: MacroMeta | null;
   onchain?: Onchain;
+  price_action?: PriceActionData;
   disclaimer: string;
   explanation?: Explanation;
 };
@@ -117,6 +118,84 @@ export async function fetchSignalLite(symbol: string, interval: string, market: 
 
 export type Candle = { time: number; open: number; high: number; low: number; close: number };
 export type LinePoint = { time: number; value: number };
+
+export type SRZone = {
+  price: number;
+  kind: "support" | "resistance";
+  touches: number;
+  strength: number;
+  distance_pct: number;
+  room_to_run_atr: number;
+};
+
+export type CandlePattern = {
+  pattern: string;
+  name: string;
+  time?: number;
+  direction: "bullish" | "bearish" | "neutral";
+  bar_offset: number;
+  strength: number;
+  price: number;
+  desc: string;
+};
+
+export type LiquiditySweep = {
+  type: string;
+  direction: "bullish" | "bearish";
+  level_swept: number;
+  sweep_high?: number;
+  sweep_low?: number;
+  close: number;
+  desc: string;
+  strength: number;
+};
+
+export type MarketStructure = {
+  trend: string;
+  score: number;
+  swing_highs_count?: number;
+  swing_lows_count?: number;
+};
+
+export type PriceActionChartMarker = {
+  time: number;
+  position: "aboveBar" | "belowBar";
+  color: string;
+  shape: "arrowUp" | "arrowDown" | "circle" | "square";
+  text: string;
+};
+
+export type CandleAnatomy = {
+  range: number;
+  body: number;
+  body_ratio: number;
+  upper_wick: number;
+  upper_wick_ratio: number;
+  lower_wick: number;
+  lower_wick_ratio: number;
+  is_bullish: boolean;
+  rejection: "bullish_rejection" | "bearish_rejection" | "none";
+};
+
+export type PriceActionData = {
+  score: number;
+  bias: "bullish" | "bearish" | "neutral";
+  patterns: CandlePattern[];
+  nearest_support: number | null;
+  nearest_resistance: number | null;
+  dist_support_pct: number | null;
+  dist_resistance_pct: number | null;
+  room_to_run_atr: number | null;
+  room_to_run_short_atr: number | null;
+  atr: number;
+  support_zones: SRZone[];
+  resistance_zones: SRZone[];
+  liquidity_sweep: LiquiditySweep | null;
+  market_structure: MarketStructure;
+  last_candle: CandleAnatomy;
+  chart_markers?: PriceActionChartMarker[];
+};
+
 export type Candles = {
   symbol: string;
   interval: string;
@@ -124,7 +203,23 @@ export type Candles = {
   ema50: LinePoint[];
   ema200: LinePoint[];
   ut_stop: LinePoint[];
+  price_action?: PriceActionData;
 };
+
+export async function fetchPriceAction(
+  symbol: string,
+  interval: string,
+  market = "crypto"
+): Promise<PriceActionData> {
+  const params = new URLSearchParams({ symbol, interval, market, limit: "300" });
+  const url = `${API_BASE}/price-action?${params.toString()}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Backend ${res.status}: ${detail || res.statusText}`);
+  }
+  return res.json();
+}
 
 export type Debate = {
   bull: string;
@@ -506,6 +601,16 @@ export type FlashTrigger = {
   symbol: string; interval: string; direction: string; kind: string; strength: number;
   entry: number; stop: number; target: number; atr_pct: number;
   cost_r: number; win_prob: number; ev_r: number; tradeable: boolean;
+  price_action?: {
+    score: number;
+    bias: string;
+    patterns: string[];
+    nearest_support: number | null;
+    nearest_resistance: number | null;
+    room_to_run_atr: number | null;
+    rejection_wick: string;
+    liquidity_sweep: any;
+  };
 };
 export type FlashBucket = { trades: number; wins: number; hit_rate: number | null; pnl: number };
 export type FlashLearning = {

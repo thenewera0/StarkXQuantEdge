@@ -30,6 +30,7 @@ from .costs import cost_in_r, round_trip_cost
 from .data import fetch_klines
 from .data.validate import validate_ohlcv
 from .indicators import compute_indicators
+from .price_action import evaluate_price_action, validate_trade_price_action
 
 logger = logging.getLogger("flash")
 
@@ -339,6 +340,37 @@ def evaluate(symbol: str, interval: str) -> dict | None:
         elif direction == "short" and btc_ctx.get("is_bullish"):
             blocks.append("BTC 1h in active uptrend (> EMA50 & RSI > 54) — altcoin short blocked")
 
+    # --- Price Action & Chart Structure validation gate ---
+    pa_allowed, pa_reason, pa_details = validate_trade_price_action(df, direction, min_clearance_atr=1.0)
+    if not pa_allowed:
+        blocks.append(f"Price Action Gate: {pa_reason}")
+
+    # Structural Price Action anchoring:
+    # If a real pivot S/R exists near the ATR geometry, anchor to it.
+    if direction == "long":
+        nearest_sup = pa_details.get("nearest_support")
+        if nearest_sup and nearest_sup < entry:
+            sup_dist = entry - nearest_sup
+            if 0.65 * stop_dist <= sup_dist <= 2.2 * stop_dist:
+                stop = nearest_sup - 0.15 * atr
+                stop_dist = entry - stop
+                tgt_dist = settings.flash_rr * stop_dist
+                target = entry + tgt_dist
+        nearest_res = pa_details.get("nearest_resistance")
+        if nearest_res and nearest_res > entry and target > nearest_res:
+            partial_target = min(partial_target, nearest_res - 0.1 * atr)
+    else:
+        nearest_res = pa_details.get("nearest_resistance")
+        if nearest_res and nearest_res > entry:
+            res_dist = nearest_res - entry
+            if 0.65 * stop_dist <= res_dist <= 2.2 * stop_dist:
+                stop = nearest_res + 0.15 * atr
+                stop_dist = stop - entry
+                tgt_dist = settings.flash_rr * stop_dist
+                target = entry - tgt_dist
+        nearest_sup = pa_details.get("nearest_support")
+        if nearest_sup and nearest_sup < entry and target < nearest_sup:
+            partial_target = max(partial_target, nearest_sup + 0.1 * atr)
 
     return {
         "symbol": symbol, "interval": interval, "market": "crypto",
@@ -354,6 +386,16 @@ def evaluate(symbol: str, interval: str) -> dict | None:
         "cost_multiple": round(cost_multiple, 2),
         "blocked_by": "; ".join(blocks) if blocks else None,
         "tradeable": not blocks,
+        "price_action": {
+            "score": pa_details.get("score", 0.0),
+            "bias": pa_details.get("bias", "neutral"),
+            "patterns": [p.get("name") for p in pa_details.get("patterns", [])],
+            "nearest_support": pa_details.get("nearest_support"),
+            "nearest_resistance": pa_details.get("nearest_resistance"),
+            "room_to_run_atr": pa_details.get("room_to_run_atr"),
+            "rejection_wick": pa_details.get("last_candle", {}).get("rejection", "none"),
+            "liquidity_sweep": pa_details.get("liquidity_sweep"),
+        },
     }
 
 
@@ -660,6 +702,13 @@ def scan(log: bool = True) -> dict:
 def _log_flash(c: dict) -> int | None:
     """Persist a flash setup as a signal row tagged strategy='flash'."""
     label = "Strong Buy" if c["direction"] == "long" else "Strong Sell"
+    pa_info = c.get("price_action") or {}
+    pa_bias = pa_info.get("bias", "neutral")
+    pa_score = pa_info.get("score", 0.0)
+    pats = pa_info.get("patterns") or []
+    pat_str = f" [{', '.join(pats[:2])}]" if pats else ""
+    psych = f"flash {c['kind']} ({c['strength']:.0f} str) | PA: {pa_bias} ({pa_score:+.0f}){pat_str}"
+
     sig = {
         "symbol": c["symbol"], "market": "crypto", "interval": c["interval"], "as_of": c["as_of"],
         "label": label, "composite": c["strength"] if c["direction"] == "long" else -c["strength"],
@@ -669,7 +718,7 @@ def _log_flash(c: dict) -> int | None:
         "targets": [c["target"], None, None],
         "tier": "flash", "reward_risk": c["reward_risk"], "size_pct": settings.flash_risk_pct,
         "invalidation": f"{c['interval']} close beyond {c['stop']}",
-        "psychology": f"flash {c['kind']} ({c['strength']:.0f} strength)",
+        "psychology": psych,
         "win_prob": c["win_prob"], "ev_r": c["ev_r"],
         "strategy": "flash",
         # In paper mode the row is flagged shadow -> automatically excluded from the live P&L and

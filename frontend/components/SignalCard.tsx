@@ -137,6 +137,106 @@ export function SignalCard({ s, livePrice }: { s: Signal; livePrice?: number | n
         </div>
       )}
 
+      {/* Price Action & Chart Structure */}
+      {s.price_action && (
+        <div className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] p-3.5 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Price Action & Chart Intel
+            </span>
+            <span
+              className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wider border ${
+                s.price_action.bias === "bullish"
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                  : s.price_action.bias === "bearish"
+                  ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                  : "bg-slate-500/10 text-slate-300 border-slate-500/20"
+              }`}
+            >
+              {s.price_action.bias} ({s.price_action.score > 0 ? "+" : ""}
+              {s.price_action.score.toFixed(0)})
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            <span className="text-slate-400">
+              Structure:{" "}
+              <span className="text-white capitalize font-medium">
+                {s.price_action.market_structure?.trend?.replace(/_/g, " ") || "ranging"}
+              </span>
+            </span>
+
+            {s.price_action.nearest_support != null && (
+              <span className="text-slate-400">
+                Support:{" "}
+                <span className="text-emerald-400 font-mono font-medium">
+                  ${s.price_action.nearest_support < 1
+                    ? s.price_action.nearest_support.toFixed(4)
+                    : s.price_action.nearest_support.toFixed(2)}
+                </span>
+                {s.price_action.dist_support_pct != null && (
+                  <span className="text-emerald-400/80 text-[10px] ml-1">
+                    (-{(s.price_action.dist_support_pct * 100).toFixed(1)}%)
+                  </span>
+                )}
+              </span>
+            )}
+
+            {s.price_action.nearest_resistance != null && (
+              <span className="text-slate-400">
+                Resistance:{" "}
+                <span className="text-rose-400 font-mono font-medium">
+                  ${s.price_action.nearest_resistance < 1
+                    ? s.price_action.nearest_resistance.toFixed(4)
+                    : s.price_action.nearest_resistance.toFixed(2)}
+                </span>
+                {s.price_action.dist_resistance_pct != null && (
+                  <span className="text-rose-400/80 text-[10px] ml-1">
+                    (+{(s.price_action.dist_resistance_pct * 100).toFixed(1)}%)
+                  </span>
+                )}
+              </span>
+            )}
+
+            {s.price_action.room_to_run_atr != null && (
+              <span className="text-slate-400">
+                Room to Run:{" "}
+                <span className="text-slate-200 font-medium font-mono">
+                  {s.price_action.room_to_run_atr.toFixed(1)}x ATR
+                </span>
+              </span>
+            )}
+          </div>
+
+          {/* Patterns & Rejection Diagnostics */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            {s.price_action.last_candle?.rejection === "bearish_rejection" && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20">
+                ⚠️ Severe Upper Wick Rejection ({(s.price_action.last_candle.upper_wick_ratio * 100).toFixed(0)}%)
+              </span>
+            )}
+            {s.price_action.last_candle?.rejection === "bullish_rejection" && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                🛡️ Strong Lower Wick Absorption ({(s.price_action.last_candle.lower_wick_ratio * 100).toFixed(0)}%)
+              </span>
+            )}
+            {s.price_action.liquidity_sweep && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                ⚡ Liquidity Sweep: {s.price_action.liquidity_sweep.direction === "bearish" ? "Bear Trap" : "Bull Trap"}
+              </span>
+            )}
+            {s.price_action.patterns?.map((p, idx) => (
+              <span
+                key={idx}
+                className="text-[10px] font-medium text-slate-300 bg-white/5 px-2 py-0.5 rounded border border-white/10"
+              >
+                {p.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Factor breakdown */}
       <div className="mt-6">
         <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Confluence breakdown (8 families)</div>

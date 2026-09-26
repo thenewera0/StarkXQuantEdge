@@ -618,6 +618,46 @@ function TriggerRow({ t }: { t: FlashTrigger }) {
         <span>ATR {(t.atr_pct * 100).toFixed(2)}%</span>
         <span>cost {t.cost_r.toFixed(2)}R</span>
       </div>
+
+      {/* Blocked Reason / Safeguard */}
+      {t.blocked_by && (
+        <div className="mt-1.5 flex items-start gap-1.5 rounded bg-amber-500/10 px-2 py-1 text-[10.5px] font-medium text-amber-300/90 border border-amber-500/20">
+          <ShieldAlert size={12} className="shrink-0 mt-0.5" />
+          <span>{t.blocked_by}</span>
+        </div>
+      )}
+
+      {/* Price Action Reading */}
+      {t.price_action && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px]">
+          <span className="text-slate-400 font-semibold">PA:</span>
+          <span
+            className={`font-bold uppercase ${
+              t.price_action.bias === "bullish"
+                ? "text-emerald-400"
+                : t.price_action.bias === "bearish"
+                ? "text-rose-400"
+                : "text-slate-300"
+            }`}
+          >
+            {t.price_action.bias} ({t.price_action.score > 0 ? "+" : ""}
+            {t.price_action.score.toFixed(0)})
+          </span>
+          {t.price_action.patterns?.map((p: string, idx: number) => (
+            <span
+              key={idx}
+              className="rounded bg-white/5 px-1.5 py-0.5 border border-white/10 text-slate-300"
+            >
+              {p}
+            </span>
+          ))}
+          {t.price_action.room_to_run_atr != null && (
+            <span className="text-slate-400">
+              Clearance: {t.price_action.room_to_run_atr.toFixed(1)}x ATR
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

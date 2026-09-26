@@ -37,6 +37,7 @@ from .data import (
 from .data.validate import validate_ohlcv
 from .factors import label_for, score_row, tier_for
 from .indicators import compute_indicators
+from .price_action import evaluate_price_action, validate_trade_price_action
 from .psychology import positioning_engine
 from .regime import detect_regime
 
@@ -343,6 +344,14 @@ def compute_signal(
         silence_reason = "reward_risk_below_gate"
     elif settings.ev_gate_enabled and ev_r is not None and ev_r < ev_floor:
         silence_reason = "ev_below_gate"  # calibrated EV doesn't clear cost (+ drift de-risk margin)
+
+    # --- L6b Price action pre-trade confirmation gate ---
+    pa_details = None
+    if candidate_dir in ("long", "short"):
+        pa_allowed, pa_reason, pa_details = validate_trade_price_action(df, candidate_dir, min_clearance_atr=1.0)
+        if not pa_allowed and silence_reason is None:
+            silence_reason = f"price_action_gate: {pa_reason}"
+
     actionable = silence_reason is None
 
     # Capture the CANDIDATE (what we would have traded) BEFORE flattening — the scanner logs this as
@@ -400,6 +409,7 @@ def compute_signal(
         "fear_greed": fng_meta,
         "macro": macro_meta,
         "onchain": onchain_meta,
+        "price_action": pa_details if pa_details else evaluate_price_action(df),
         "disclaimer": "Decision-support only, not financial advice. Probabilistic edge; manage risk.",
     }
 
@@ -422,8 +432,11 @@ def get_candles(symbol: str, interval: str, *, market: str = "crypto", limit: in
             for t, v in zip(times, ind[col]) if not math.isnan(v)
         ]
 
+    pa_data = evaluate_price_action(df)
+
     return {
         "symbol": symbol.upper() if market in _CRYPTO_MARKETS else symbol,
         "market": market, "interval": interval, "candles": candles,
         "ema50": line("ema50"), "ema200": line("ema200"), "ut_stop": line("ut_stop"),
+        "price_action": pa_data,
     }
