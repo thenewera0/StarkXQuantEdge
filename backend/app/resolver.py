@@ -38,8 +38,8 @@ def _direction(label: str) -> str | None:
     return None
 
 
-def _future_candles(symbol: str, market: str, interval: str, after: datetime) -> pd.DataFrame:
-    """Recent candles that closed strictly after `after`. Empty frame on any failure."""
+def _fetch_candles(symbol: str, market: str, interval: str) -> pd.DataFrame:
+    """Fetch raw candles for an instrument. Empty frame on any failure."""
     try:
         if (market or "crypto").lower() == "crypto":
             df = fetch_klines(symbol, interval, 1000)
@@ -50,8 +50,16 @@ def _future_candles(symbol: str, market: str, interval: str, after: datetime) ->
             except Exception:
                 df = fetch_klines_td(symbol, interval, outputsize=1000)
         df, _ = validate_ohlcv(df, interval)  # clean before resolving outcomes
+        return df
     except Exception:
         return pd.DataFrame()
+
+
+def _future_candles(symbol: str, market: str, interval: str, after: datetime) -> pd.DataFrame:
+    """Recent candles that closed strictly after `after`. Empty frame on any failure."""
+    df = _fetch_candles(symbol, market, interval)
+    if df.empty:
+        return df
     return df[df.index > after]
 
 
@@ -323,10 +331,20 @@ def resolve_open_signals(max_signals: int = 50) -> dict:
             continue
         key = (s["symbol"], s["market"], s["interval"])
         if key not in cache:
-            cache[key] = _future_candles(s["symbol"], s["market"], s["interval"], s["as_of"])
-        future = cache[key]
-        future_after = future[future.index > s["as_of"]] if not future.empty else future
+            cache[key] = _fetch_candles(s["symbol"], s["market"], s["interval"])
+        raw_df = cache[key]
+        future_after = raw_df[raw_df.index > s["as_of"]] if not raw_df.empty else raw_df
+        # Flash scalps get a much shorter time-stop so they never become accidental swing trades.
+        hold = settings.flash_max_hold_bars if s.get("strategy") == "flash" else max_hold
         if future_after.empty:
+            from datetime import timezone
+            now_utc = datetime.now(timezone.utc)
+            sig_age_days = (now_utc - s["as_of"]).total_seconds() / 86400.0 if s.get("as_of") else 0
+            if sig_age_days > 14.0:
+                # Stale / dead / delisted signal with no subsequent candle data — close out as expired so it doesn't block the queue
+                persistence.record_outcome(s["id"], "expired", pnl=None, bars_held=hold)
+                resolved += 1
+                continue
             still_open += 1
             continue
 
@@ -338,8 +356,6 @@ def resolve_open_signals(max_signals: int = 50) -> dict:
             atr_pct = abs(float(atr)) / float(price)
         else:
             atr_pct = abs(entry - float(s["stop"])) / entry
-        # Flash scalps get a much shorter time-stop so they never become accidental swing trades.
-        hold = settings.flash_max_hold_bars if s.get("strategy") == "flash" else max_hold
         outcome = _resolve_one(
             s["symbol"], s["market"], s["interval"], direction,
             entry, float(s["stop"]), float(s["target"]), atr_pct,

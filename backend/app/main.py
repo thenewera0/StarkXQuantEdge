@@ -224,8 +224,11 @@ def db_status() -> dict:
 
 
 @app.get("/signals/recent")
-def signals_recent(limit: int = Query(20, ge=1, le=200)) -> dict:
-    return {"signals": persistence.recent_signals(limit)}
+def signals_recent(
+    limit: int = Query(20, ge=1, le=200),
+    strategy: str = Query("all"),
+) -> dict:
+    return {"signals": persistence.recent_signals(limit, strategy=strategy)}
 
 
 @app.get("/trades")
@@ -261,9 +264,9 @@ def trade_detail(id: int = Query(..., ge=1)) -> dict:
 
 
 @app.get("/stats")
-def stats() -> dict:
+def stats(strategy: str = Query("core")) -> dict:
     """Learning-loop scoreboard: hit-rate + avg P&L over resolved outcomes."""
-    return persistence.accuracy_stats()
+    return persistence.accuracy_stats(strategy=strategy)
 
 
 @app.get("/performance")

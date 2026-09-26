@@ -47,6 +47,15 @@ export function TradeDetailModal({ id, onClose }: { id: number; onClose: () => v
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xl font-semibold tracking-tight">{t.symbol}</span>
                   <span className="text-xs text-slate-400">{t.interval}</span>
+                  {t.strategy === "flash" ? (
+                    <span className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400 border border-amber-500/20">
+                      FLASH (PAPER)
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
+                      CORE (LIVE)
+                    </span>
+                  )}
                   <RegimeBadge regime={t.regime} />
                   <TierBadge tier={t.tier ?? undefined} />
                 </div>

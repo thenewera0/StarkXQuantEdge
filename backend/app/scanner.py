@@ -188,7 +188,7 @@ def _high_water(equity: float) -> float:
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
                 """select o.pnl from outcomes o join signals s on s.id = o.signal_id
-                   where not s.shadow and o.pnl is not None order by o.resolved_at"""
+                   where not s.shadow and o.pnl is not null order by o.resolved_at"""
             )
             pnls = [float(r[0]) for r in cur.fetchall()]
     except Exception:

@@ -93,7 +93,7 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
           </thead>
           <tbody>
             {rows.map((t, i) => {
-              const isFlash = t.regime?.startsWith("flash_") || strat === "flash";
+              const isFlash = t.strategy === "flash" || t.regime?.startsWith("flash_") || strat === "flash";
               return (
                 <tr
                   key={t.id ?? i}
@@ -106,9 +106,13 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
                   <td className="py-2 pr-3 capitalize text-slate-300">{t.direction}</td>
                   <td className="py-2 pr-3 text-[11px] capitalize text-slate-400">
                     <div className="flex items-center gap-1.5">
-                      {isFlash && (
-                        <span className="inline-flex items-center gap-0.5 rounded bg-[var(--accent-bright)]/10 px-1.5 py-0.5 text-[9px] font-semibold text-[var(--accent-bright)] border border-[var(--accent-bright)]/20">
+                      {isFlash ? (
+                        <span className="inline-flex items-center gap-0.5 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-amber-400 border border-amber-500/20">
                           <Zap size={9} /> FLASH
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-400 border border-emerald-500/20">
+                          CORE
                         </span>
                       )}
                       <span>{t.regime?.replace("flash_", "").replace("_", " ") ?? "—"}</span>

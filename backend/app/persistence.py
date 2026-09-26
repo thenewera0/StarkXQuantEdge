@@ -130,7 +130,7 @@ def trade_history(result_filter: str = "all", limit: int = 50, offset: int = 0,
     if strategy == "flash":
         strat_clause = "s.strategy = 'flash'"
     elif strategy == "all":
-        strat_clause = "1=1"
+        strat_clause = "(s.shadow = false or s.strategy = 'flash')"
     else:  # "core"
         strat_clause = "(s.strategy = 'core' or s.strategy is null) and s.shadow = false"
 
@@ -164,7 +164,8 @@ def trade_history(result_filter: str = "all", limit: int = 50, offset: int = 0,
 
             cur.execute(
                 f"""select s.id, s.symbol, s.interval, s.label, coalesce(s.regime,'unknown') regime,
-                          s.entry, o.result, o.pnl, o.bars_held, o.resolved_at
+                          s.entry, o.result, o.pnl, o.bars_held, o.resolved_at,
+                          coalesce(s.strategy, 'core') as strategy
                     from outcomes o join signals s on s.id = o.signal_id
                     where {where}
                     order by o.resolved_at desc
@@ -178,6 +179,7 @@ def trade_history(result_filter: str = "all", limit: int = 50, offset: int = 0,
 
     trades = [{
         "id": r["id"], "symbol": r["symbol"], "interval": r["interval"], "regime": r["regime"],
+        "strategy": r["strategy"],
         "direction": "long" if r["label"] in ("Buy", "Strong Buy") else "short", "result": r["result"],
         "entry": float(r["entry"]) if r.get("entry") is not None else None,
         "pnl_pct": round(float(r["pnl"]) * 100, 2), "pnl_usd": round(float(r["pnl"]) * trade_size, 2),
@@ -214,6 +216,7 @@ def get_trade(signal_id: int) -> dict | None:
                        s.confidence, s.regime, s.price, s.atr, s.rationale, s.entry, s.stop, s.target,
                        s.agreement, s.conviction, s.final_confidence, s.tier, s.reward_risk,
                        s.size_pct, s.invalidation, s.target2, s.target3, s.psychology, s.created_at,
+                       coalesce(s.strategy, 'core') as strategy,
                        f.trend, f.momentum, f.volatility, f.structure, f.flow, f.sentiment, f.macro, f.consensus,
                        o.result, o.pnl, o.mfe, o.mae, o.bars_held, o.resolved_at
                 from signals s
@@ -239,7 +242,7 @@ def get_trade(signal_id: int) -> dict | None:
         return {
             "id": d["id"], "symbol": d["symbol"], "market": d["market"], "interval": d["interval"],
             "as_of": str(d["as_of"]), "created_at": str(d["created_at"]), "label": d["label"],
-            "regime": d["regime"], "tier": d["tier"],
+            "regime": d["regime"], "tier": d["tier"], "strategy": d.get("strategy", "core"),
             "composite": num(d["composite"]), "confidence": num(d["confidence"]),
             "agreement": num(d["agreement"]), "conviction": num(d["conviction"]),
             "final_confidence": num(d["final_confidence"]),
@@ -328,19 +331,26 @@ def active_signals_count(strategy: str = "flash") -> dict:
 
 
 
-def recent_signals(limit: int = 20) -> list[dict]:
+def recent_signals(limit: int = 20, strategy: str = "all") -> list[dict]:
     """Recent signals joined with any resolved outcome (for an accuracy view)."""
     if not db.enabled():
         return []
+    if strategy == "flash":
+        strat_clause = "s.strategy = 'flash'"
+    elif strategy == "core":
+        strat_clause = "s.shadow = false and (s.strategy = 'core' or s.strategy is null)"
+    else:  # "all"
+        strat_clause = "(s.shadow = false or s.strategy = 'flash')"
     try:
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
-                """
+                f"""
                 select s.id, s.symbol, s.market, s.interval, s.as_of, s.label, s.composite,
-                       s.confidence, s.final_confidence, s.agreement, o.result, o.pnl
+                       s.confidence, s.final_confidence, s.agreement, o.result, o.pnl,
+                       coalesce(s.strategy, 'core') as strategy
                 from signals s
                 left join outcomes o on o.signal_id = s.id
-                where s.shadow = false
+                where {strat_clause}
                 order by s.created_at desc
                 limit %s
                 """,
@@ -352,25 +362,32 @@ def recent_signals(limit: int = 20) -> list[dict]:
         return []
 
 
-def accuracy_stats() -> dict:
-    """Hit-rate + average P&L over resolved outcomes for core real-capital trades."""
+def accuracy_stats(strategy: str = "core") -> dict:
+    """Hit-rate + average P&L over resolved outcomes for core real-capital trades or flash paper trades."""
     if not db.enabled():
         return {"enabled": False}
+    if strategy == "flash":
+        strat_clause = "s.strategy = 'flash'"
+    elif strategy == "all":
+        strat_clause = "(s.shadow = false or s.strategy = 'flash')"
+    else:  # "core"
+        strat_clause = "s.shadow = false and (s.strategy = 'core' or s.strategy is null)"
     try:
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
-                """
+                f"""
                 select count(*) as resolved,
                        count(*) filter (where o.pnl > 0) as wins,
                        avg(o.pnl) as avg_pnl
                 from outcomes o join signals s on s.id = o.signal_id
-                where o.pnl is not null and s.shadow = false and (s.strategy = 'core' or s.strategy is null)
+                where o.pnl is not null and {strat_clause}
                 """
             )
             resolved, wins, avg_pnl = cur.fetchone()
             resolved = resolved or 0
             return {
                 "enabled": True,
+                "strategy": strategy,
                 "resolved": resolved,
                 "wins": wins or 0,
                 "hit_rate": round((wins or 0) / resolved, 4) if resolved else None,

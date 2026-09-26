@@ -267,6 +267,7 @@ export type RecentSignal = {
   agreement: string | null;
   result: string | null;
   pnl: number | null;
+  strategy?: string;
 };
 
 export type Stats = {
@@ -304,14 +305,14 @@ export async function runScan(): Promise<ScanResult> {
   return res.json();
 }
 
-export async function fetchRecent(limit = 15): Promise<RecentSignal[]> {
-  const res = await fetch(`${API_BASE}/signals/recent?limit=${limit}`, { cache: "no-store" });
+export async function fetchRecent(limit = 15, strategy = "all"): Promise<RecentSignal[]> {
+  const res = await fetch(`${API_BASE}/signals/recent?limit=${limit}&strategy=${strategy}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Backend ${res.status}`);
   return (await res.json()).signals;
 }
 
-export async function fetchStats(): Promise<Stats> {
-  const res = await fetch(`${API_BASE}/stats`, { cache: "no-store" });
+export async function fetchStats(strategy = "core"): Promise<Stats> {
+  const res = await fetch(`${API_BASE}/stats?strategy=${strategy}`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Backend ${res.status}`);
   return res.json();
 }
@@ -325,6 +326,7 @@ export type PnlTrade = {
   result?: string;
   entry?: number;
   price?: number;
+  strategy?: string;
   pnl_pct: number;
   pnl_usd: number;
   bars_held?: number;
@@ -340,6 +342,7 @@ export type TradeDetail = {
   created_at: string;
   label: string;
   regime: string | null;
+  strategy?: string;
   tier: string | null;
   composite: number | null;
   confidence: number | null;

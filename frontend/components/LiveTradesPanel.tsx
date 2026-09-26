@@ -20,16 +20,19 @@ function ago(iso: string): string {
   return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d`;
 }
 
+type StratFilter = "all" | "core" | "flash";
+
 export function LiveTradesPanel({ refreshKey = 0 }: { refreshKey?: number }) {
+  const [strat, setStrat] = useState<StratFilter>("all");
   const [d, setD] = useState<LiveTrades | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    try { setD(await fetchLiveTrades(1000, "core")); setError(null); }
+    try { setD(await fetchLiveTrades(1000, strat)); setError(null); }
     catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
-  }, []);
+  }, [strat]);
 
-  useEffect(() => { load(); }, [load, refreshKey]);
+  useEffect(() => { load(); }, [load, refreshKey, strat]);
   // Live refresh every 20s so P&L actually moves.
   useEffect(() => {
     const id = window.setInterval(load, 20000);
@@ -38,10 +41,11 @@ export function LiveTradesPanel({ refreshKey = 0 }: { refreshKey?: number }) {
 
   const trades = d?.trades ?? [];
   const live = trades.filter((t) => !t.paper);
+  const paper = trades.filter((t) => t.paper);
 
   return (
     <Card className="card-pad" >
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Radio size={16} className="text-[var(--accent-bright)]" />
           <span className="text-sm font-semibold tracking-tight text-white">Running Trades</span>
@@ -49,31 +53,49 @@ export function LiveTradesPanel({ refreshKey = 0 }: { refreshKey?: number }) {
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> LIVE
           </span>
         </div>
-        <button onClick={load} className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors">
-          <RefreshCw size={12} /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="seg">
+            {(["all", "core", "flash"] as StratFilter[]).map((s) => (
+              <button
+                key={s}
+                data-active={strat === s}
+                onClick={() => setStrat(s)}
+                className="capitalize text-xs"
+              >
+                {s === "all" ? "All" : s === "core" ? "Core" : "Flash"}
+              </button>
+            ))}
+          </div>
+          <button onClick={load} className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors">
+            <RefreshCw size={12} />
+          </button>
+        </div>
       </div>
 
       {error && <div className="mb-3 text-sm text-[var(--loss)]">{error}</div>}
 
-      {/* Floating P&L summary - Core Real Capital */}
+      {/* Floating P&L summary */}
       <div className="mb-4 grid grid-cols-3 gap-3">
         <div className="rounded-xl border surface-raised p-3">
           <div className="text-[10px] uppercase tracking-wide text-[var(--ink-muted)]">Open positions</div>
-          <div className="mt-1 text-xl font-bold tabular-nums text-white">{d?.count ?? live.length}</div>
-          <div className="text-[10px] text-[var(--ink-muted)]">real capital execution</div>
+          <div className="mt-1 text-xl font-bold tabular-nums text-white">
+            {strat === "flash" ? (d?.paper_count ?? paper.length) : strat === "core" ? (d?.count ?? live.length) : `${d?.count ?? live.length} Live / ${d?.paper_count ?? paper.length} Paper`}
+          </div>
+          <div className="text-[10px] text-[var(--ink-muted)]">{strat === "flash" ? "paper scalps" : strat === "core" ? "real capital execution" : "combined book"}</div>
         </div>
         <div className="rounded-xl border surface-raised p-3">
           <div className="text-[10px] uppercase tracking-wide text-[var(--ink-muted)]">Floating P&L</div>
-          <div className={`mt-1 text-xl font-bold tabular-nums ${tone(d?.open_pnl_usd ?? 0)}`}>{usd(d?.open_pnl_usd ?? 0)}</div>
-          <div className="text-[10px] text-[var(--ink-muted)]">marked to live price</div>
+          <div className={`mt-1 text-xl font-bold tabular-nums ${tone(strat === "flash" ? (d?.paper_pnl_usd ?? 0) : (d?.open_pnl_usd ?? 0))}`}>
+            {usd(strat === "flash" ? (d?.paper_pnl_usd ?? 0) : (d?.open_pnl_usd ?? 0))}
+          </div>
+          <div className="text-[10px] text-[var(--ink-muted)]">{strat === "flash" ? "paper floating" : "real capital floating"}</div>
         </div>
         <div className="rounded-xl border surface-raised p-3">
           <div className="text-[10px] uppercase tracking-wide text-[var(--ink-muted)]">Active Capital Risk</div>
           <div className="mt-1 text-xl font-bold tabular-nums text-emerald-400">
-            {(d?.count ?? live.length) > 0 ? `$${((d?.count ?? live.length) * 1000).toLocaleString()}` : "$0"}
+            {strat === "flash" ? "$0" : (d?.count ?? live.length) > 0 ? `$${((d?.count ?? live.length) * 1000).toLocaleString()}` : "$0"}
           </div>
-          <div className="text-[10px] text-[var(--ink-muted)]">$1,000/trade fixed risk</div>
+          <div className="text-[10px] text-[var(--ink-muted)]">{strat === "flash" ? "paper mode (zero risk)" : "$1,000/trade fixed risk"}</div>
         </div>
       </div>
 
