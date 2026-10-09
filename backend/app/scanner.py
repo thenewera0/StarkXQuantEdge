@@ -76,6 +76,7 @@ _FX_PROBATION = frozenset({
 
 _BLEEDER_SYMBOLS = frozenset({
     "UNIUSDT", "ARBUSDT", "OPUSDT", "FILUSDT", "SEIUSDT", "RUNEUSDT", "APTUSDT", "TIAUSDT",
+    "PEPEUSDT", "1000PEPEUSDT", "BONKUSDT", "FLOKIUSDT", "SHIBUSDT", "BOMEUSDT", "MEMEUSDT",
 })
 
 # Kept as the static fallback for tests and for when the venue/catalog is unreachable.
@@ -306,6 +307,15 @@ def scan_once(min_confidence: float | None = None) -> dict:
             want = 0.0
             if entry and stop and abs(float(entry)) > 0:
                 stop_frac = abs(float(entry) - float(stop)) / abs(float(entry))
+                # Strict safety bounds:
+                # 1. Reject setups with stop distance wider than max_stop_loss_pct (e.g. > 6.0%)
+                max_stop_allowed = getattr(settings, "max_stop_loss_pct", 6.0) / 100.0
+                if stop_frac > max_stop_allowed:
+                    continue
+                # 2. Reject sub-cent micro tokens from core swings to prevent decimal quantization traps
+                min_nominal_px = getattr(settings, "min_token_nominal_price", 0.001)
+                if market == "crypto" and abs(float(entry)) < min_nominal_px:
+                    continue
                 if stop_frac > 0:
                     want = (book["equity"] * settings.risk_per_trade_pct / 100.0) / stop_frac
                     want = min(want, book["equity"] * settings.max_position_leverage)

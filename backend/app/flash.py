@@ -213,10 +213,10 @@ def detect_trigger(ind: pd.DataFrame) -> dict | None:
         return None
 
     # --- burst: impulse through the fast EMA with volume participation ---
-    if vol_exp >= settings.flash_vol_expansion and abs(thrust) >= 0.25 * atr_pct:
-        if close > ema9 > ema21 and 52 < rsi <= settings.flash_max_rsi_long and thrust > 0:
+    if vol_exp >= settings.flash_vol_expansion and abs(thrust) >= 0.20 * atr_pct:
+        if close > ema9 > ema21 and 50 < rsi <= settings.flash_max_rsi_long and thrust > 0:
             return {"direction": "long", "kind": "burst", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
-        if close < ema9 < ema21 and settings.flash_min_rsi_short <= rsi < 48 and thrust < 0:
+        if close < ema9 < ema21 and settings.flash_min_rsi_short <= rsi < 50 and thrust < 0:
             return {"direction": "short", "kind": "burst", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
 
     # --- breakout: takes out the recent extreme, volatility expanding ---
@@ -224,18 +224,17 @@ def detect_trigger(ind: pd.DataFrame) -> dict | None:
     lookback_lo = ind["low"].iloc[-(settings.flash_breakout_bars + 1):-1]
     if len(lookback) >= settings.flash_breakout_bars:
         hi_n, lo_n = float(lookback.max()), float(lookback_lo.min())
-        if close > hi_n and vol_exp >= 1.2 and 52 < rsi <= settings.flash_max_rsi_long:
+        if close > hi_n and vol_exp >= 1.05 and 50 < rsi <= settings.flash_max_rsi_long:
             return {"direction": "long", "kind": "breakout", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
-        if close < lo_n and vol_exp >= 1.2 and settings.flash_min_rsi_short <= rsi < 48:
+        if close < lo_n and vol_exp >= 1.05 and settings.flash_min_rsi_short <= rsi < 50:
             return {"direction": "short", "kind": "breakout", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
-
 
     # --- snap: deep stretch from VWAP reversing at extreme exhaustion ---
     if vwap_dist is not None:
-        stretch = settings.flash_snap_stretch * 1.5
-        if vwap_dist < -stretch and rsi < 30 and thrust > 0:
+        stretch = settings.flash_snap_stretch
+        if vwap_dist < -stretch and rsi < 32 and thrust > 0:
             return {"direction": "long", "kind": "snap", "strength": 75.0}
-        if vwap_dist > stretch and rsi > 70 and thrust < 0:
+        if vwap_dist > stretch and rsi > 68 and thrust < 0:
             return {"direction": "short", "kind": "snap", "strength": 75.0}
     return None
 
@@ -245,6 +244,11 @@ def evaluate(symbol: str, interval: str) -> dict | None:
     try:
         df = fetch_klines(symbol, interval, 200)
         df, _ = validate_ohlcv(df, interval)
+        # Drop the in-progress unclosed candle so indicators and volume expansion
+        # evaluate the true LAST CLOSED BAR (causal, completed volume and final close).
+        now_utc = pd.Timestamp.now(tz="UTC")
+        if not df.empty and df.index[-1] >= now_utc:
+            df = df.iloc[:-1]
         ind = compute_indicators(df)
     except Exception:
         return None
@@ -463,8 +467,25 @@ def learning_state(window_days: int | None = None) -> dict:
     def gate(tally: dict) -> dict:
         allowed, blocked = [], []
         for key, b in tally.items():
-            # thin -> keep exploring; proven-negative -> drop until it ages out
-            (allowed if (b["trades"] < minn or b["pnl"] > 0) else blocked).append(key)
+            # In paper mode, never choke observation data
+            if getattr(settings, "flash_paper_mode", True):
+                allowed.append(key)
+                continue
+            # Thin sample -> keep exploring
+            if b["trades"] < minn:
+                allowed.append(key)
+                continue
+            # Positive rolling P&L -> allowed
+            if b["pnl"] > 0:
+                allowed.append(key)
+                continue
+            # High hit-rate setup (>= 48%) is accurate; negative P&L is payoff asymmetry, not bad direction
+            hit_rate = b.get("hit_rate") or 0.0
+            if hit_rate >= 0.48:
+                allowed.append(key)
+                continue
+            # Chronic loser: both negative P&L AND low accuracy (< 48%)
+            blocked.append(key)
         return {"allowed": sorted(allowed), "blocked": sorted(blocked)}
 
     # HIERARCHICAL GATING. Kinds are judged first, then symbols/intervals are judged ONLY on the
@@ -499,7 +520,9 @@ def refresh_learning() -> None:
 
 
 def _is_blocked(state: dict, group: str, key: str) -> bool:
-    return key in state[group]["blocked"]
+    if getattr(settings, "flash_paper_mode", True):
+        return False
+    return key in state.get(group, {}).get("blocked", [])
 
 
 def kind_win_rate(kind: str) -> float:

@@ -95,8 +95,19 @@ async def lifespan(app: FastAPI):
                     arb.triangular_scan()
                 if settings.arb_cross_enabled:
                     arb.cross_exchange_scan()
+        # Cloud keep-alive: ping health endpoint every 9 minutes to prevent Render free-tier sleep
+        if settings.app_env != "test":
+            def _keepalive_job() -> None:
+                import os
+                import urllib.request
+                try:
+                    render_url = os.getenv("RENDER_EXTERNAL_URL") or "https://starkxquantedge.onrender.com"
+                    urllib.request.urlopen(f"{render_url}/health", timeout=10)
+                except Exception:
+                    pass
             _scheduler.add_job(
-                _arb_job, "interval", hours=1, id="arb", replace_existing=True, max_instances=1,
+                _keepalive_job, "interval", minutes=9,
+                id="keepalive", replace_existing=True, max_instances=1,
             )
         learning.refresh()
         _scheduler.start()

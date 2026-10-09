@@ -41,7 +41,13 @@ def _round_price(x: float | None) -> float | None:
     if x is None or (isinstance(x, float) and math.isnan(x)):
         return None
     ax = abs(x)
-    return round(x, 2) if ax >= 100 else round(x, 4) if ax >= 1 else round(x, 6)
+    if ax >= 100:
+        return round(x, 2)
+    if ax >= 1:
+        return round(x, 4)
+    if ax >= 0.01:
+        return round(x, 6)
+    return round(x, 8)
 
 
 def _range_fade(direction: str, price: float, atr: float,

@@ -203,6 +203,8 @@ class Settings(BaseSettings):
     scanner_interval_minutes: int = 30
     scanner_min_confidence: float = 45.0   # don't double-filter: the EV gate already vetted it
     scanner_categories: str = "commodities,indices"  # non-crypto categories to sweep (rates excluded by default)
+    max_stop_loss_pct: float = 6.0         # Strict safety cap: reject any setup where stop-loss distance exceeds 6.0% (prevents meme wipeouts)
+    min_token_nominal_price: float = 0.001 # Exclude sub-penny micro tokens (< $0.001) from core swings (eliminates PEPE/SHIB rounding traps)
 
     # --- Portfolio allocation across sleeves (app/portfolio.py) -----------------------------
     portfolio_cash_floor: float = 0.25    # always hold dry powder
@@ -223,7 +225,7 @@ class Settings(BaseSettings):
     flash_paper_mode: bool = True          # Paper tracking mode by default for safety
     flash_interval_minutes: int = 5        # scan cadence
     flash_stop_atr: float = 1.0            # tighter scalp stop distance = 1.0x ATR (eliminates deep -$17 tails)
-    flash_rr: float = 1.5                  # target = 1.5x stop (optimal realistic intraday scalp target)
+    flash_rr: float = 1.6                  # target = 1.6x stop (healthy payoff ratio to beat stops)
     flash_min_ev_r: float = 0.0            # must be positive-EV after cost
     flash_min_atr_pct: float = 0.008       # dead tape below ~0.8% ATR cannot clear a round trip
     flash_min_cvd_z: float = 0.35          # require real taker aggression, not drift
@@ -231,9 +233,9 @@ class Settings(BaseSettings):
     flash_min_cost_multiple: float = 3.5   # target distance must be >= this x round-trip cost
     flash_execution: str = "maker"
     flash_limit_offset_atr: float = 0.15   # resting limit order offset to secure maker fee advantage
-    flash_partial_book_at_r: float = 0.30  # quick partial profit taking on intraday scalps
-    flash_partial_book_fraction: float = 0.35 # take 35% off, leaving 65% for 1.5R target runner
-    flash_vol_expansion: float = 1.25      # volume vs its 20-bar average for a burst
+    flash_partial_book_at_r: float = 0.70  # take partial at +0.70R so runners have room to hit full target
+    flash_partial_book_fraction: float = 0.30 # take 30% off, leaving 70% for target runner
+    flash_vol_expansion: float = 1.10      # volume vs its 20-bar average for a burst (calibrated to let setups breathe)
     flash_breakout_bars: int = 15          # N-bar extreme for the breakout trigger
     flash_snap_stretch: float = 0.0035     # VWAP distance that counts as stretched
     flash_max_hold_bars: int = 16          # 16-bar max hold (stops scalps lingering into stale chop)
@@ -256,7 +258,7 @@ class Settings(BaseSettings):
     # Thin buckets keep exploring; proven-negative buckets are dropped until they age out.
     flash_learn_enabled: bool = True
     flash_learn_window_days: int = 21
-    flash_learn_min_sample: int = 15       # evidence needed before a bucket can be blocked
+    flash_learn_min_sample: int = 20       # evidence needed before a bucket can be blocked
     # Graduation from paper to real capital — decided purely by its own realized record.
     flash_promote_min_trades: int = 120
     flash_promote_min_hit: float = 0.40
