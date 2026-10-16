@@ -437,16 +437,27 @@ def tradeable_directions(min_sample: int = 12, window_days: int = 21, market: st
     for d in ("long", "short"):
         p = perf.get(d)
         at = all_time.get(d)
-        if p and p["trades"] >= min_sample:
+        chronic_loser = bool(at and at["trades"] >= 20 and (at["pnl_frac"] <= 0 or (at["wins"] / at["trades"] < 0.25)))
+        req_sample = 20 if chronic_loser else min_sample
+
+        if p and p["trades"] >= req_sample:
             if p["pnl_frac"] > 0:
+                out.add(d)
+            elif at and at["trades"] >= 40 and at["pnl_frac"] > 0.50:
+                # Structural winner: all-time edge is overwhelmingly positive (e.g. +$2,048 on longs),
+                # so an isolated outlier trade cannot trigger complete engine deadlock.
                 out.add(d)
         else:
             # Thin recent sample: allow UNLESS lifetime record proves it is a chronic loser
-            if at and at["trades"] >= min_sample and at["pnl_frac"] <= 0:
+            if chronic_loser or (at and at["trades"] >= min_sample and at["pnl_frac"] <= 0):
                 continue  # chronic loser on record -> stay blocked
             out.add(d)
-    # NO fallback: if BOTH directions have proven negative expectancy, stand down entirely
-    # ("silence is a position"). Losing trades age out of the window -> auto re-test later.
+    # Deadlock prevention safeguard: if both directions were dropped, preserve the proven
+    # structural winner rather than complete engine paralysis.
+    if not out:
+        best_at = max(all_time.items(), key=lambda x: x[1].get("pnl_frac", -999)) if all_time else None
+        if best_at and best_at[1].get("pnl_frac", 0) > 0:
+            out.add(best_at[0])
     return out
 
 

@@ -96,26 +96,14 @@ class Settings(BaseSettings):
     # dropped automatically. This is the self-improving loss-cutting gate.
     regime_perf_gate_enabled: bool = True
     regime_perf_min_sample: int = 12
-    regime_perf_window_days: int = 4   # short rolling window -> reacts to the current market fast
+    regime_perf_window_days: int = 30  # 30d window holds ~36 trades -> gate actively reacts to regime PnL
 
     # Per-direction performance gate: stop trading a direction (long/short) with proven negative
-    # expectancy over a SHORT rolling window; re-enables automatically as the losing trades age out
+    # expectancy over a rolling window; re-enables automatically as the losing trades age out
     # of the window (auto re-exploration) or it turns profitable again.
     direction_perf_gate_enabled: bool = True
-    # THE DIRECTION GATE WAS DEAD CODE UNTIL 2026-08-07. It required 10 resolved trades within a
-    # 2-DAY window; the engine resolves ~7.6 core trades per 2 days across BOTH directions, and
-    # roughly 1 short. The sample threshold was therefore unreachable by construction, the gate
-    # silently defaulted to "allow everything", and it never fired once.
-    #
-    # What it was supposed to catch, and did not: crypto SHORTS went 2 wins in 45 trades — a 4.4%
-    # hit rate, -1.94% per trade, -0.87 cumulative — while longs over the same period ran 59.5%
-    # and +1.51% per trade. The short book alone erased 43% of what the long book earned.
-    #
-    # 60 days at a 20-trade minimum is reachable (~30 shorts per 60 days) while still being enough
-    # evidence to act on. A gate that cannot reach its own sample is worse than no gate, because it
-    # reads as protection that is not there.
-    direction_perf_min_sample: int = 12
-    direction_perf_window_days: int = 30
+    direction_perf_min_sample: int = 8
+    direction_perf_window_days: int = 90
 
     # Per-symbol performance gate: pause any symbol with proven negative expectancy (e.g. forex
     # pairs that lack derivatives/on-chain data and lose). Re-tests as losing trades age out.
@@ -224,8 +212,8 @@ class Settings(BaseSettings):
     flash_enabled: bool = True
     flash_paper_mode: bool = True          # Paper tracking mode by default for safety
     flash_interval_minutes: int = 5        # scan cadence
-    flash_stop_atr: float = 1.0            # tighter scalp stop distance = 1.0x ATR (eliminates deep -$17 tails)
-    flash_rr: float = 1.6                  # target = 1.6x stop (healthy payoff ratio to beat stops)
+    flash_stop_atr: float = 1.25           # scalp stop distance = 1.25x ATR (gives noise clearance so normal wicks don't hit stops)
+    flash_rr: float = 2.0                  # target = 2.0x stop (restores healthy >1.5x payoff ratio proven in 432 backtest)
     flash_min_ev_r: float = 0.0            # must be positive-EV after cost
     flash_min_atr_pct: float = 0.008       # dead tape below ~0.8% ATR cannot clear a round trip
     flash_min_cvd_z: float = 0.35          # require real taker aggression, not drift
@@ -233,12 +221,12 @@ class Settings(BaseSettings):
     flash_min_cost_multiple: float = 3.5   # target distance must be >= this x round-trip cost
     flash_execution: str = "maker"
     flash_limit_offset_atr: float = 0.15   # resting limit order offset to secure maker fee advantage
-    flash_partial_book_at_r: float = 0.70  # take partial at +0.70R so runners have room to hit full target
-    flash_partial_book_fraction: float = 0.30 # take 30% off, leaving 70% for target runner
+    flash_partial_book_at_r: float = 1.25  # take partial at +1.25R so runners have room to hit full 2.0R target
+    flash_partial_book_fraction: float = 0.35 # take 35% off, leaving 65% for target runner
     flash_vol_expansion: float = 1.10      # volume vs its 20-bar average for a burst (calibrated to let setups breathe)
     flash_breakout_bars: int = 15          # N-bar extreme for the breakout trigger
     flash_snap_stretch: float = 0.0035     # VWAP distance that counts as stretched
-    flash_max_hold_bars: int = 16          # 16-bar max hold (stops scalps lingering into stale chop)
+    flash_max_hold_bars: int = 18          # 18-bar max hold (stops scalps lingering into stale chop)
     flash_risk_pct: float = 0.35           # advised risk per flash trade (smaller than core)
     flash_prior_win_rate: float = 0.50     # empirical prior
     flash_perf_window_days: int = 7

@@ -35,11 +35,10 @@ from .price_action import evaluate_price_action, validate_trade_price_action
 logger = logging.getLogger("flash")
 
 # Liquid, fast-moving pairs with proven positive momentum expectancy.
-# Chronic bleeders (ARB, APT, SEI, UNI, ADA, OP, LINK, AAVE, ETC, DOT) with negative historical expectancy are excluded.
+# Chronic bleeders (ARB, OP, SEI, APT, UNI, LINK, AAVE, DOGE, RUNE, TIA) with negative historical expectancy are excluded.
 FLASH_SYMBOLS = [
-    "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "INJUSDT", "NEARUSDT",
-    "FILUSDT", "ATOMUSDT", "AVAXUSDT", "SUIUSDT", "GRTUSDT", "LTCUSDT",
-    "TIAUSDT", "RUNEUSDT", "DOGEUSDT",
+    "INJUSDT", "FILUSDT", "NEARUSDT", "ATOMUSDT", "AVAXUSDT", "BTCUSDT",
+    "SUIUSDT", "SOLUSDT", "LTCUSDT", "BNBUSDT", "GRTUSDT", "ETHUSDT",
 ]
 # 1h: fast enough to fire multiple times a day with low relative transaction cost.
 FLASH_INTERVALS = ["1h"]
@@ -229,13 +228,13 @@ def detect_trigger(ind: pd.DataFrame) -> dict | None:
         if close < lo_n and vol_exp >= 1.05 and settings.flash_min_rsi_short <= rsi < 50:
             return {"direction": "short", "kind": "breakout", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
 
-    # --- snap: deep stretch from VWAP reversing at extreme exhaustion ---
-    if vwap_dist is not None:
-        stretch = settings.flash_snap_stretch
-        if vwap_dist < -stretch and rsi < 32 and thrust > 0:
-            return {"direction": "long", "kind": "snap", "strength": 75.0}
-        if vwap_dist > stretch and rsi > 68 and thrust < 0:
-            return {"direction": "short", "kind": "snap", "strength": 75.0}
+    # --- pullback: shallow pullback inside confirmed structural trend (Rank #1 backtested winner: +26.3% net, PF 1.25) ---
+    ema200 = _f(last, "ema200")
+    if ema200 is not None:
+        if close > ema200 and rsi < 44 and close < ema21 and thrust > 0:
+            return {"direction": "long", "kind": "pullback", "strength": 85.0}
+        if close < ema200 and rsi > 56 and close > ema21 and thrust < 0:
+            return {"direction": "short", "kind": "pullback", "strength": 85.0}
     return None
 
 

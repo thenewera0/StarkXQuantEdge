@@ -179,49 +179,45 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
 
         # PROGRESSIVE PROFIT PROTECTION & TRAILING STOP
         # Strategy-aware R-ladder:
-        # - Flash (1h fast scalps): locks in profit at +0.80R (0.40R profit lock) without choking initial wave.
+        # - Flash (1h fast scalps): gives trades room to reach 2.0R; locks in +0.35R at +1.20R MFE to avoid premature +$1 suffocation.
         # - Core (4h/1d patient swings): gives 4h candles room to breathe, locking profit progressively.
         if risk_dist > 0:
             if strategy == "flash":
-                # Tier 1: Breakeven (+0.75R gain) -> Move stop to entry + 0.15% fee cushion
-                # Gives trades room to develop; eliminates premature suffocation where normal 1h noise stopped winners at +0.40R.
+                # Tier 1: Profit Lock 1 (+1.20R gain) -> Lock in +0.35R net profit
+                # Eliminates premature +0.15% (+1$) suffocation. Gives 1h trades breathing room to reach full target
+                # and guarantees a meaningful win (+0.35R, ~$5-$7) if price retraces.
+                if mfe_r >= 1.20:
+                    p1_level = entry + 0.35 * risk_dist if direction == "long" else entry - 0.35 * risk_dist
+                    current_stop = max(current_stop, p1_level) if direction == "long" else min(current_stop, p1_level)
+
+                # Tier 2: Profit Lock 2 (+1.60R gain) -> Lock in +0.80R net profit
+                if mfe_r >= 1.60:
+                    p2_level = entry + 0.80 * risk_dist if direction == "long" else entry - 0.80 * risk_dist
+                    current_stop = max(current_stop, p2_level) if direction == "long" else min(current_stop, p2_level)
+
+                # Tier 3: Chandelier Trail (above +2.00R target) -> Trail peak price by 0.60 * risk_dist
+                if mfe_r >= 2.00:
+                    trail_level = hi - 0.60 * risk_dist if direction == "long" else lo + 0.60 * risk_dist
+                    current_stop = max(current_stop, trail_level) if direction == "long" else min(current_stop, trail_level)
+            else:
+                # Tier 1: Breakeven (+0.75R gain) -> Move stop to entry + 0.25% fee cushion
                 if mfe_r >= 0.75:
-                    be_level = entry * 1.0015 if direction == "long" else entry * 0.9985
+                    be_level = entry * 1.0025 if direction == "long" else entry * 0.9975
                     current_stop = max(current_stop, be_level) if direction == "long" else min(current_stop, be_level)
 
-                # Tier 2: Profit Lock 1 (+1.10R gain) -> Lock in +0.60R net profit (guarantees real win)
-                if mfe_r >= 1.10:
+                # Tier 2: Profit Lock 1 (+1.25R gain) -> Lock in +0.60R net profit
+                if mfe_r >= 1.25:
                     p1_level = entry + 0.60 * risk_dist if direction == "long" else entry - 0.60 * risk_dist
                     current_stop = max(current_stop, p1_level) if direction == "long" else min(current_stop, p1_level)
 
-                # Tier 3: Profit Lock 2 (+1.40R gain) -> Lock in +1.00R net profit
-                if mfe_r >= 1.40:
-                    p2_level = entry + 1.00 * risk_dist if direction == "long" else entry - 1.00 * risk_dist
+                # Tier 3: Profit Lock 2 (+1.75R gain) -> Lock in +1.20R net profit
+                if mfe_r >= 1.75:
+                    p2_level = entry + 1.20 * risk_dist if direction == "long" else entry - 1.20 * risk_dist
                     current_stop = max(current_stop, p2_level) if direction == "long" else min(current_stop, p2_level)
 
-                # Tier 4: Chandelier Trail (above +1.50R target) -> Trail peak price by 0.45 * risk_dist
-                if mfe_r >= 1.50:
-                    trail_level = hi - 0.45 * risk_dist if direction == "long" else lo + 0.45 * risk_dist
-                    current_stop = max(current_stop, trail_level) if direction == "long" else min(current_stop, trail_level)
-            else:
-                # Tier 1: Breakeven (+0.55R gain) -> Move stop to entry + 0.2% fee cushion
-                if mfe_r >= 0.55:
-                    be_level = entry * 1.002 if direction == "long" else entry * 0.998
-                    current_stop = max(current_stop, be_level) if direction == "long" else min(current_stop, be_level)
-
-                # Tier 2: Profit Lock 1 (+1.0R gain) -> Lock in +0.50R net profit
-                if mfe_r >= 1.00:
-                    p1_level = entry + 0.50 * risk_dist if direction == "long" else entry - 0.50 * risk_dist
-                    current_stop = max(current_stop, p1_level) if direction == "long" else min(current_stop, p1_level)
-
-                # Tier 3: Profit Lock 2 (+1.5R gain) -> Lock in +1.0R net profit
-                if mfe_r >= 1.50:
-                    p2_level = entry + 1.0 * risk_dist if direction == "long" else entry - 1.0 * risk_dist
-                    current_stop = max(current_stop, p2_level) if direction == "long" else min(current_stop, p2_level)
-
-                # Tier 4: Chandelier Trail (above +1.5R) -> Trail peak price by 0.50 * risk_dist
-                if mfe_r >= 1.50:
-                    trail_level = hi - 0.50 * risk_dist if direction == "long" else lo + 0.50 * risk_dist
+                # Tier 4: Chandelier Trail (above +2.0R) -> Trail peak price by 0.60 * risk_dist
+                if mfe_r >= 2.00:
+                    trail_level = hi - 0.60 * risk_dist if direction == "long" else lo + 0.60 * risk_dist
                     current_stop = max(current_stop, trail_level) if direction == "long" else min(current_stop, trail_level)
 
         # Stop and target evaluation:
