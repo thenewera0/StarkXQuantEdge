@@ -124,27 +124,29 @@ def trade_levels(
         if direction == "long":
             stop = price - atr_k * atr
             risk = price - stop
-            t1_dist = min(1.35 * risk, max(1.1 * atr, cap_pct * price))
-            t1_dist = min(t1_dist, 1.40 * risk)
+            # High-expectancy trend targets:
+            # T1 = 1.80R (primary high-expectancy target, clearing the 1.5R floor)
+            # T2 = 2.50R (extended trend runner)
+            # T3 = 3.50R (macro runner)
+            t1_dist = max(1.80 * risk, 1.5 * atr)
             t1 = price + t1_dist
-            res = [v for v in (sh, pr1) if v is not None and t1 < v < price + min(2.5 * risk, 2.0 * t1_dist)]
+            res = [v for v in (sh, pr1) if v is not None and t1 <= v <= price + 2.5 * risk]
             if res:
-                t1 = min(res)
-            t2 = price + min(2.0 * risk, 2.0 * t1_dist)
-            t3 = price + min(3.5 * risk, 3.5 * t1_dist)
+                t1 = max(t1, min(res))
+            t2 = price + max(2.50 * risk, 1.35 * t1_dist)
+            t3 = price + max(3.50 * risk, 1.85 * t1_dist)
             rr = (t1 - price) / risk if risk > 0 else None
             invalidation = f"{interval} close below {_round_price(stop)}"
         else:
             stop = price + atr_k * atr
             risk = stop - price
-            t1_dist = min(1.35 * risk, max(1.1 * atr, cap_pct * price))
-            t1_dist = min(t1_dist, 1.40 * risk)
+            t1_dist = max(1.80 * risk, 1.5 * atr)
             t1 = price - t1_dist
-            sup = [v for v in (sl, ps1) if v is not None and price - min(2.5 * risk, 2.0 * t1_dist) < v < t1]
+            sup = [v for v in (sl, ps1) if v is not None and price - 2.5 * risk <= v <= t1]
             if sup:
-                t1 = max(sup)
-            t2 = price - min(2.0 * risk, 2.0 * t1_dist)
-            t3 = price - min(3.5 * risk, 3.5 * t1_dist)
+                t1 = min(t1, max(sup))
+            t2 = price - max(2.50 * risk, 1.35 * t1_dist)
+            t3 = price - max(3.50 * risk, 1.85 * t1_dist)
             rr = (price - t1) / risk if risk > 0 else None
             invalidation = f"{interval} close above {_round_price(stop)}"
 

@@ -217,7 +217,7 @@ class Settings(BaseSettings):
     flash_min_ev_r: float = 0.0            # must be positive-EV after cost
     flash_min_atr_pct: float = 0.008       # dead tape below ~0.8% ATR cannot clear a round trip
     flash_min_cvd_z: float = 0.35          # require real taker aggression, not drift
-    flash_long_only: bool = False          # empirically validated: shorts achieved 61.5% hit rate and +29.5% P&L
+    flash_long_only: bool = True           # Long-only: eliminates counter-trend short bleed in crypto regimes
     flash_min_cost_multiple: float = 3.5   # target distance must be >= this x round-trip cost
     flash_execution: str = "maker"
     flash_limit_offset_atr: float = 0.15   # resting limit order offset to secure maker fee advantage

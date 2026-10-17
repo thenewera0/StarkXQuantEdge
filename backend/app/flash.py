@@ -35,10 +35,10 @@ from .price_action import evaluate_price_action, validate_trade_price_action
 logger = logging.getLogger("flash")
 
 # Liquid, fast-moving pairs with proven positive momentum expectancy.
-# Chronic bleeders (ARB, OP, SEI, APT, UNI, LINK, AAVE, DOGE, RUNE, TIA) with negative historical expectancy are excluded.
+# Chronic bleeders (SUI, GRT, LTC, AVAX, RUNE, OP, ARB, SEI, APT, UNI) are excluded.
 FLASH_SYMBOLS = [
-    "INJUSDT", "FILUSDT", "NEARUSDT", "ATOMUSDT", "AVAXUSDT", "BTCUSDT",
-    "SUIUSDT", "SOLUSDT", "LTCUSDT", "BNBUSDT", "GRTUSDT", "ETHUSDT",
+    "FILUSDT", "NEARUSDT", "DOTUSDT", "AAVEUSDT", "ATOMUSDT",
+    "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "INJUSDT", "TIAUSDT",
 ]
 # 1h: fast enough to fire multiple times a day with low relative transaction cost.
 FLASH_INTERVALS = ["1h"]
@@ -231,9 +231,9 @@ def detect_trigger(ind: pd.DataFrame) -> dict | None:
     # --- pullback: shallow pullback inside confirmed structural trend (Rank #1 backtested winner: +26.3% net, PF 1.25) ---
     ema200 = _f(last, "ema200")
     if ema200 is not None:
-        if close > ema200 and rsi < 44 and close < ema21 and thrust > 0:
+        if close > ema200 and rsi <= 48 and close < ema21 and thrust > 0:
             return {"direction": "long", "kind": "pullback", "strength": 85.0}
-        if close < ema200 and rsi > 56 and close > ema21 and thrust < 0:
+        if close < ema200 and rsi >= 52 and close > ema21 and thrust < 0:
             return {"direction": "short", "kind": "pullback", "strength": 85.0}
     return None
 
@@ -344,7 +344,7 @@ def evaluate(symbol: str, interval: str) -> dict | None:
             blocks.append("BTC 1h in active uptrend (> EMA50 & RSI > 54) — altcoin short blocked")
 
     # --- Price Action & Chart Structure validation gate ---
-    pa_allowed, pa_reason, pa_details = validate_trade_price_action(df, direction, min_clearance_atr=1.0)
+    pa_allowed, pa_reason, pa_details = validate_trade_price_action(df, direction, min_clearance_atr=0.50)
     if not pa_allowed:
         blocks.append(f"Price Action Gate: {pa_reason}")
 

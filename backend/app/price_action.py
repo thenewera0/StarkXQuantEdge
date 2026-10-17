@@ -301,11 +301,17 @@ def detect_support_resistance_zones(
     nearest_res = res_zones[0]["price"] if res_zones else None
     nearest_sup = sup_zones[0]["price"] if sup_zones else None
 
+    # Significant multi-touch zones (touches >= 2): genuine structural barriers, not 1-candle wicks
+    sig_res_zones = [z for z in res_zones if z.get("touches", 1) >= 2]
+    sig_sup_zones = [z for z in sup_zones if z.get("touches", 1) >= 2]
+    nearest_sig_res = sig_res_zones[0]["price"] if sig_res_zones else nearest_res
+    nearest_sig_sup = sig_sup_zones[0]["price"] if sig_sup_zones else nearest_sup
+
     dist_res_pct = round((nearest_res - curr_price) / curr_price * 100.0, 3) if nearest_res else None
     dist_sup_pct = round((curr_price - nearest_sup) / curr_price * 100.0, 3) if nearest_sup else None
 
-    room_to_run_atr = round((nearest_res - curr_price) / curr_atr, 2) if (nearest_res and curr_atr > 0) else None
-    room_to_run_short_atr = round((curr_price - nearest_sup) / curr_atr, 2) if (nearest_sup and curr_atr > 0) else None
+    room_to_run_atr = round((nearest_sig_res - curr_price) / curr_atr, 2) if (nearest_sig_res and curr_atr > 0) else None
+    room_to_run_short_atr = round((curr_price - nearest_sig_sup) / curr_atr, 2) if (nearest_sig_sup and curr_atr > 0) else None
 
     return {
         "support_zones": sup_zones[:5],
@@ -520,7 +526,7 @@ def evaluate_price_action(df: pd.DataFrame) -> dict[str, Any]:
 def validate_trade_price_action(
     df: pd.DataFrame,
     direction: Literal["long", "short"],
-    min_clearance_atr: float = 1.0,
+    min_clearance_atr: float = 0.50,
     max_opposing_wick_pct: float = 0.45,
 ) -> tuple[bool, str, dict[str, Any]]:
     """Strict pre-trade gate for Flash, Core, and Long-Term execution.

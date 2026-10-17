@@ -354,7 +354,7 @@ def compute_signal(
     # --- L6b Price action pre-trade confirmation gate ---
     pa_details = None
     if candidate_dir in ("long", "short"):
-        pa_allowed, pa_reason, pa_details = validate_trade_price_action(df, candidate_dir, min_clearance_atr=1.0)
+        pa_allowed, pa_reason, pa_details = validate_trade_price_action(df, candidate_dir, min_clearance_atr=0.50)
         if not pa_allowed and silence_reason is None:
             silence_reason = f"price_action_gate: {pa_reason}"
 

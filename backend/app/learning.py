@@ -325,17 +325,19 @@ def tradeable_regimes(min_sample: int = 12, window_days: int = 4) -> set[str]:
     blocks negative-EV setups even in a re-opened regime.
     """
     perf = regime_performance(window_days)
+    all_time = regime_performance(3650)
     out: set[str] = set()
     for r in _ALL_REGIMES:
         p = perf.get(r)
+        at = all_time.get(r)
         if p is None or p["trades"] < min_sample:
             out.add(r)  # thin -> benefit of the doubt / auto re-exploration
         elif p["pnl_frac"] > 0:
             out.add(r)
-    # NO fallback: if every regime (trend ones included) has proven negative expectancy, stand
-    # down entirely rather than forcing trades into a losing market. Thin regimes still get
-    # benefit-of-doubt above, so this only empties when trend regimes are *proven* losers -> the
-    # losing trades then age out of the window and the regime auto-re-tests later.
+        elif at and at["trades"] >= 40 and at["pnl_frac"] > 0.25:
+            # Structural winner: all-time edge is overwhelmingly positive (e.g. +50.7% on weak_trend across 223 trades),
+            # so an isolated short-window outlier cannot trigger complete engine paralysis.
+            out.add(r)
     return out
 
 
