@@ -282,20 +282,24 @@ def train_and_gate(min_samples: int = MIN_SAMPLES) -> dict:
 
 _TREND_REGIMES = {"strong_trend", "weak_trend"}
 _ALL_REGIMES = ("strong_trend", "weak_trend", "range", "high_vol", "squeeze")
-_regime_perf_cache: tuple[float, int, dict] | None = None
+_regime_perf_cache: dict[tuple, tuple[float, dict]] = {}
 _REGIME_TTL = 120  # short cache so the gates react quickly to new outcomes
 
 
-def regime_performance(window_days: int = 4) -> dict[str, dict]:
+def regime_performance(window_days: int = 4, market: str | None = "crypto") -> dict[str, dict]:
     """Per-regime realized stats over a rolling window: {regime: {trades, wins, pnl_frac}}. Cached."""
     global _regime_perf_cache
     now = time.time()
-    if _regime_perf_cache and _regime_perf_cache[1] == window_days and now - _regime_perf_cache[0] < _REGIME_TTL:
-        return _regime_perf_cache[2]
+    cache_key = (int(window_days), market)
+    cached = _regime_perf_cache.get(cache_key)
+    if cached and now - cached[0] < _REGIME_TTL:
+        return cached[1]
     result: dict[str, dict] = {}
     if db.enabled():
         try:
             with db.get_conn() as conn, conn.cursor() as cur:
+                mkt_clause = "and coalesce(s.market, 'crypto') = %s" if market else ""
+                params = [market] if market else []
                 cur.execute(
                     f"""
                     select coalesce(s.regime,'unknown') r, count(*),
@@ -303,18 +307,20 @@ def regime_performance(window_days: int = 4) -> dict[str, dict]:
                     from outcomes o join signals s on s.id = o.signal_id
                     where o.pnl is not null and s.shadow = false
                       and o.resolved_at > now() - interval '{int(window_days)} days'
+                      {mkt_clause}
                     group by r
-                    """
+                    """,
+                    params,
                 )
                 for r, n, w, pnl in cur.fetchall():
                     result[r] = {"trades": int(n), "wins": int(w), "pnl_frac": float(pnl)}
         except Exception:
             pass
-    _regime_perf_cache = (now, window_days, result)
+    _regime_perf_cache[cache_key] = (now, result)
     return result
 
 
-def tradeable_regimes(min_sample: int = 12, window_days: int = 4) -> set[str]:
+def tradeable_regimes(min_sample: int = 12, window_days: int = 4, market: str | None = "crypto") -> set[str]:
     """Regimes we're allowed to trade: proven-positive, or thin (benefit-of-doubt re-exploration).
 
     Data-driven loss-cutting: a regime with >= min_sample resolved trades and NEGATIVE net P&L is
@@ -324,8 +330,8 @@ def tradeable_regimes(min_sample: int = 12, window_days: int = 4) -> set[str]:
     take the new trades it needs to re-qualify). The EV gate is the per-trade backstop that still
     blocks negative-EV setups even in a re-opened regime.
     """
-    perf = regime_performance(window_days)
-    all_time = regime_performance(3650)
+    perf = regime_performance(window_days, market=market)
+    all_time = regime_performance(3650, market=market)
     out: set[str] = set()
     for r in _ALL_REGIMES:
         p = perf.get(r)

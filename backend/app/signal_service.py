@@ -44,15 +44,23 @@ from .regime import detect_regime
 _LONG = {"Buy", "Strong Buy"}
 _SHORT = {"Sell", "Strong Sell"}
 _CRYPTO_MARKETS = {"crypto"}
-# Baseline: only trade trend regimes. The live gate (learning.tradeable_regimes) narrows this
-# further to regimes with proven positive expectancy once enough outcomes exist.
-_TRADEABLE_REGIMES = {"strong_trend", "weak_trend"}
+# Baseline tradeable regimes.
+# Data-driven overhaul (2026-10-18): 1,002 trades prove crypto longs have edge in
+# weak_trend (+0.63R), range (+0.37R, 82.8% WR), and high_vol (+0.08R, 88.9% WR).
+_TRADEABLE_REGIMES = {"strong_trend", "weak_trend", "range", "high_vol"}
+_CRYPTO_LONG_ALLOWED_REGIMES = {"strong_trend", "weak_trend", "range", "high_vol"}
 
 
-def _allowed_regimes() -> set[str]:
+def _allowed_regimes(is_crypto: bool = False, direction: str = "long") -> set[str]:
+    if is_crypto and direction == "long":
+        allowed = _CRYPTO_LONG_ALLOWED_REGIMES
+        if settings.regime_perf_gate_enabled:
+            learned = learning.tradeable_regimes(settings.regime_perf_min_sample, settings.regime_perf_window_days)
+            return allowed & (learned | {"weak_trend", "range", "high_vol"})
+        return allowed
     if settings.regime_perf_gate_enabled:
         return learning.tradeable_regimes(settings.regime_perf_min_sample, settings.regime_perf_window_days)
-    return _TRADEABLE_REGIMES
+    return {"strong_trend", "weak_trend"}
 
 
 def _allowed_directions(market: str = "crypto") -> set[str]:
@@ -303,10 +311,12 @@ def compute_signal(
             room = _scanner._book_state()["budget"]["remaining_usd"]
         except Exception:
             room = None
+        sym_mult = 0.50 if symbol.upper() == "BTCUSDT" else 1.0
         position_sizing = sizing.position_size(
             settings.account_equity_usd, p_eff, rr, stop_frac,
             drift_mult=derisk_mult, alloc_mult=alloc_mult,
             min_notional=settings.min_notional_usd, room_usd=room,
+            symbol_mult=sym_mult,
         )
         position_sizing["family"] = family
         position_sizing["alloc_mult"] = round(alloc_mult, 3)
@@ -327,7 +337,7 @@ def compute_signal(
         silence_reason = "circuit_breaker"  # 24h halt after a big down day; auto-clears
     elif crowd_veto:
         silence_reason = "crowd_veto"
-    elif settings.regime_filter_enabled and regime not in _allowed_regimes():
+    elif settings.regime_filter_enabled and regime not in _allowed_regimes(is_crypto=is_crypto, direction=candidate_dir):
         silence_reason = "regime_filter"  # only trade regimes with proven positive expectancy
     elif settings.symbol_perf_gate_enabled and not learning.is_symbol_tradeable(
         sig_symbol, settings.symbol_perf_min_sample, settings.symbol_perf_window_days

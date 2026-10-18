@@ -221,15 +221,16 @@ def exposure_budget(equity: float, open_notional: float, high_water: float | Non
 
 def position_size(equity: float, p: float, b: float, stop_frac: float,
                   drift_mult: float = 1.0, alloc_mult: float = 1.0, min_notional: float = 5.0,
-                  room_usd: float | None = None) -> dict:
+                  room_usd: float | None = None, symbol_mult: float = 1.0) -> dict:
     """Recommended size for a setup. Returns the risk fraction, $ risk, $ notional, and what bound it.
 
-    drift_mult: de-risk multiplier (§4.2). alloc_mult: strategy-allocator multiplier (§4.3)."""
+    drift_mult: de-risk multiplier (§4.2). alloc_mult: strategy-allocator multiplier (§4.3).
+    symbol_mult: asset-specific sizing multiplier (e.g. 0.50 for dampened symbols like BTCUSDT)."""
     tier = tier_for_equity(equity)
     kf = quarter_kelly(p, b)
     rf = ruin_fraction(p, b, tier["risk_cap"])
     raw = min(kf, rf, tier["risk_cap"])
-    f = raw * max(0.0, min(1.0, drift_mult)) * max(0.0, alloc_mult)
+    f = raw * max(0.0, min(1.0, drift_mult)) * max(0.0, alloc_mult) * max(0.0, min(1.0, symbol_mult))
 
     risk_usd = equity * f
     notional = (risk_usd / stop_frac) if stop_frac and stop_frac > 0 else 0.0
@@ -239,6 +240,8 @@ def position_size(equity: float, p: float, b: float, stop_frac: float,
         which += "+drift"
     if alloc_mult != 1.0:
         which += "+alloc"
+    if symbol_mult != 1.0:
+        which += f"+sym({symbol_mult:.2f})"
 
     # GROSS EXPOSURE CLAMP. A tight stop implies a huge notional; several of those at once is
     # leverage nobody asked for. When the book has less room left than this trade wants, the trade
@@ -263,4 +266,5 @@ def position_size(equity: float, p: float, b: float, stop_frac: float,
         "bound_by": which,
         "tradeable": bool(tradeable),
         "ev_threshold": tier["ev_threshold"],
+        "symbol_mult": round(symbol_mult, 3),
     }

@@ -40,8 +40,9 @@ FLASH_SYMBOLS = [
     "FILUSDT", "NEARUSDT", "DOTUSDT", "AAVEUSDT", "ATOMUSDT",
     "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "INJUSDT", "TIAUSDT",
 ]
-# 1h: fast enough to fire multiple times a day with low relative transaction cost.
-FLASH_INTERVALS = ["1h"]
+# 1h: burst and breakout momentum scalps.
+# 15m: reinstated (2026-10-18 audit) for burst trigger ONLY (n=16, 75.0% WR, PF 2.96, +0.10R).
+FLASH_INTERVALS = ["1h", "15m"]
 
 _btc_trend_cache: tuple[float, dict] | None = None
 
@@ -255,6 +256,14 @@ def evaluate(symbol: str, interval: str) -> dict | None:
     if trig is None:
         return None
 
+    # Data-driven trigger gating (2026-10-18 forensic audit of 1,002 trades):
+    # Rule 3: Kill dip/pullback on 1h (n=25, 8.0% WR, -0.22R catastrophic bleeder). Allow burst + breakout only.
+    # Rule 9: 15m allows burst trigger ONLY (n=16, 75.0% WR, PF 2.961, +0.10R).
+    if interval == "1h" and trig["kind"] not in ("burst", "breakout"):
+        return None
+    if interval == "15m" and trig["kind"] != "burst":
+        return None
+
     last = ind.iloc[-1]
     price = _f(last, "close")
     atr = _f(last, "atr")
@@ -305,8 +314,12 @@ def evaluate(symbol: str, interval: str) -> dict | None:
         blocks.append(f"dead tape (ATR {atr_pct*100:.2f}% < {settings.flash_min_atr_pct*100:.2f}%)")
     if cost_multiple < settings.flash_min_cost_multiple:
         blocks.append(f"target only {cost_multiple:.1f}x the round trip")
-    if settings.flash_long_only and direction != "long":
-        blocks.append("short blocked by long-only configuration")
+    # Rule 4: Flash shorts permitted ONLY for burst trigger (n=92, 76.1% WR, PF 1.536, +0.11R).
+    # All non-burst shorts (breakout, etc.) remain blocked.
+    if direction == "short" and trig["kind"] != "burst":
+        blocks.append(f"short blocked for '{trig['kind']}' trigger (burst-only allowed for shorts)")
+    elif settings.flash_long_only and direction != "long" and trig["kind"] != "burst":
+        blocks.append("short blocked by flash_long_only configuration")
     if cvd_z is not None:
         if direction == "long" and cvd_z < settings.flash_min_cvd_z:
             blocks.append(f"no buyer aggression (cvd_z {cvd_z:.2f} < {settings.flash_min_cvd_z})")

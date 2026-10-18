@@ -150,7 +150,7 @@ class Settings(BaseSettings):
     # finish. The giveback is mostly trades that never worked (68% of stops never reached +0.5%
     # unrealised), not winners reversing — which is why tightening the stop cannot recover it.
     partial_book_enabled: bool = True
-    partial_book_at_r: float = 0.40    # book when the trade is this many R in profit (0.40R preserves runner momentum)
+    partial_book_at_r: float = 0.60    # book when the trade is this many R in profit (0.60R lets winners breathe, optimal duration 12-50 bars)
     partial_book_fraction: float = 0.35 # take 35% off, leaving 65% to run to full target
 
     # Performance / P&L (fixed notional per trade for the paper track record)
@@ -189,7 +189,7 @@ class Settings(BaseSettings):
     scanner_enabled: bool = True
     scanner_interval_minutes: int = 30
     scanner_min_confidence: float = 45.0   # don't double-filter: the EV gate already vetted it
-    scanner_categories: str = "commodities,indices"  # non-crypto categories to sweep (rates excluded by default)
+    scanner_categories: str = ""           # Non-crypto categories killed (2026-10-18 audit: forex -1.48R bleed, commodities/indices thin)
     max_stop_loss_pct: float = 6.0         # Strict safety cap: reject any setup where stop-loss distance exceeds 6.0% (prevents meme wipeouts)
     min_token_nominal_price: float = 0.001 # Exclude sub-penny micro tokens (< $0.001) from core swings (eliminates PEPE/SHIB rounding traps)
 
@@ -216,7 +216,7 @@ class Settings(BaseSettings):
     flash_min_ev_r: float = 0.0            # must be positive-EV after cost
     flash_min_atr_pct: float = 0.008       # dead tape below ~0.8% ATR cannot clear a round trip
     flash_min_cvd_z: float = 0.35          # require real taker aggression, not drift
-    flash_long_only: bool = True           # Long-only: eliminates counter-trend short bleed in crypto regimes
+    flash_long_only: bool = False          # False allows proven burst shorts (n=92, 76.1% WR, +0.11R); non-burst shorts gated in flash.py
     flash_min_cost_multiple: float = 3.5   # target distance must be >= this x round-trip cost
     flash_execution: str = "maker"
     flash_limit_offset_atr: float = 0.15   # resting limit order offset to secure maker fee advantage

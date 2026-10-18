@@ -37,15 +37,16 @@ from .signal_service import compute_signal
 # crypto longs at 7-20% and froze the engine for weeks). Calibration is now conditioned on
 # (market, direction, regime), so forex is priced on forex's own history. If it is still bad, the
 # segment curve will say so and size it to nothing — which is the system working.
-# FOREX FAILED ITS PROBATION — removed 2026-08-05 on the live record, not on an opinion.
-# It was re-admitted on the argument that its earlier losses were measured while calibration
-# pooled every segment into one curve. Calibration has been segment-conditioned since, and forex
-# has now had a fair run with its own curve: 161 resolved real trades, 26.7% hit, -0.105% per
-# trade, -0.1685 cumulative. Over the same window crypto returned +0.648% per trade on 174 trades.
-# The engine's edge is in crypto; forex was a steady drag on the same capital and the same slots.
-# It stays fully available for on-demand analysis and in the rebalancing basket — it is only
-# barred from consuming the scanner's concurrency.
-_SCAN_CATEGORIES = ("commodities", "indices", "rates")
+# ALL NON-CRYPTO CATEGORIES KILLED (2026-10-18) — forensic audit of 1,002 resolved trades.
+#
+# Forex: 177 trades, 24.8% WR, -1.48 total R. Every pair negative (EUR/USD -0.59R, GBP/USD
+# -0.38R, USD/JPY -0.32R, XAU/USD -0.19R). Segment-conditioned calibration didn't save it.
+#
+# Commodities/indices: Only 7+1 trades total — insufficient sample to justify capital allocation.
+# Re-evaluate after 50+ paper trades accumulate in these categories.
+#
+# The engine's measured alpha lives EXCLUSIVELY in crypto 4h longs and flash crypto bursts.
+_SCAN_CATEGORIES = ()  # empty: crypto-only scanning
 
 
 def scan_universe() -> dict[str, list[str]]:
@@ -57,11 +58,14 @@ def scan_universe() -> dict[str, list[str]]:
     out["crypto"] = [c["symbol"] for c in universe.catalog(
         ["crypto"], crypto_limit=60, min_volume=universe.MIN_VOLUME_SCAN)
         if c["symbol"] not in _BLEEDER_SYMBOLS]
+    # Non-crypto categories disabled (2026-10-18 audit). Forex/commodities/indices showed no
+    # edge across 185 live trades. Only crypto is scanned until new evidence accumulates.
+    # The code path is left intact but _SCAN_CATEGORIES is empty, so this is a no-op.
     categories = [c.strip() for c in settings.scanner_categories.split(",") if c.strip() and c.strip() != "crypto"]
     for cat in categories:
+        if cat not in _SCAN_CATEGORIES:
+            continue  # only scan categories with proven or plausible edge
         syms = [c["symbol"] for c in universe.catalog([cat], allocatable_only=True)]
-        if cat == "forex":
-            syms = [s for s in syms if s in _FX_PROBATION]
         if syms:
             out[cat] = syms
     return out
@@ -74,10 +78,16 @@ _FX_PROBATION = frozenset({
     "EUR/GBP", "EUR/JPY", "GBP/JPY", "AUD/JPY", "EUR/CHF", "EUR/AUD", "CAD/JPY", "CHF/JPY",
 })
 
+# FILUSDT REMOVED from bleeders (2026-10-18): 36 trades, 77.8% WR, +0.09R — proven profitable.
+# BTCUSDT NOT bleeder-listed but gets 50% size reduction via _SIZE_DAMPENED (marginal: -0.05R on 38 trades).
 _BLEEDER_SYMBOLS = frozenset({
-    "UNIUSDT", "ARBUSDT", "OPUSDT", "FILUSDT", "SEIUSDT", "RUNEUSDT", "APTUSDT", "TIAUSDT",
+    "UNIUSDT", "ARBUSDT", "OPUSDT", "SEIUSDT", "RUNEUSDT", "APTUSDT", "TIAUSDT",
     "PEPEUSDT", "1000PEPEUSDT", "BONKUSDT", "FLOKIUSDT", "SHIBUSDT", "BOMEUSDT", "MEMEUSDT",
 })
+
+# Symbols with marginal or thin performance — trade at reduced size, not eliminated.
+_SIZE_DAMPENED = frozenset({"BTCUSDT"})
+_SIZE_DAMPEN_MULT = 0.50  # 50% of normal position size
 
 # Kept as the static fallback for tests and for when the venue/catalog is unreachable.
 # Refined to liquid, proven performers; chronic fee/wick bleeders removed.
@@ -87,20 +97,11 @@ POPULAR: dict[str, list[str]] = {
         "DOGEUSDT", "LINKUSDT", "LTCUSDT", "DOTUSDT", "NEARUSDT", "ATOMUSDT", "ETCUSDT",
     ],
 }
-# Crypto runs 24/7 so 1h is tradable; the rest close overnight and at weekends, where an hourly
-# bar spans a session gap and the "move" is just the reopen. Those trade on 4h and daily only.
+# CORE engine scans crypto 4h ONLY. Measured across 1,002 trades: crypto 4h longs are the single
+# profitable segment (weak_trend +0.63R, range +0.37R, high_vol +0.08R). Crypto 1h core showed
+# -0.13R to -0.15R across all regimes. Non-crypto categories are disabled (see _SCAN_CATEGORIES).
 SCAN_INTERVALS: dict[str, list[str]] = {
-    # Crypto 1h dropped 2026-08-07. On the live record 4h returned +0.811%/trade over 156 trades
-    # while 1h returned -0.767% over 20 at a 20% hit rate. The 1h sample is thin on its own, but it
-    # points the same way as everything else measured here: at shorter horizons the round-trip cost
-    # is a larger fraction of the move, and the 15m/1h flash work (88,964 candidates, 11,024 filter
-    # combinations, zero survivors) established that the arithmetic does not recover with a better
-    # signal. 4h is where this engine's edge actually lives.
     "crypto": ["4h"],
-    "commodities": ["4h", "1d"],
-    "indices": ["4h", "1d"],
-    "rates": ["4h", "1d"],
-    "forex": ["4h", "1d"],
 }
 
 _ACTIONABLE = {"Buy", "Strong Buy", "Sell", "Strong Sell"}
@@ -318,6 +319,8 @@ def scan_once(min_confidence: float | None = None) -> dict:
                     continue
                 if stop_frac > 0:
                     want = (book["equity"] * settings.risk_per_trade_pct / 100.0) / stop_frac
+                    if symbol.upper() in _SIZE_DAMPENED:
+                        want *= _SIZE_DAMPEN_MULT
                     want = min(want, book["equity"] * settings.max_position_leverage)
             if want > remaining:
                 # Take a SMALLER position rather than skipping a good setup. This is exactly what
