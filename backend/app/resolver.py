@@ -121,14 +121,7 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
                 filled_at = i
                 break
         if filled_at is None:
-            # If the trade already produced substantial favorable excursion (>= 5% gain),
-            # it was entered in the live book — treat as filled at bar 0 so running winners are tracked!
-            mfe_early = max((float(highs.iloc[j]) - entry) / entry for j in range(n)) if direction == "long" and n > 0 else 0.0
-            if direction == "short" and n > 0:
-                mfe_early = max((entry - float(lows.iloc[j])) / entry for j in range(n))
-            if mfe_early >= 0.05:
-                filled_at = 0
-            elif n < settings.limit_expiry_bars:
+            if n < settings.limit_expiry_bars:
                 return None          # window has not elapsed yet — still pending, not cancelled
             else:
                 # Expired unfilled. pnl is NULL rather than 0 so it closes the signal without being

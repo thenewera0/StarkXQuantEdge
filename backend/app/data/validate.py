@@ -57,6 +57,15 @@ def validate_ohlcv(df: pd.DataFrame, interval: str | None = None) -> tuple[pd.Da
     if "volume" in out.columns:
         out["volume"] = out["volume"].clip(lower=0.0)
 
+    # 4b. Drop in-progress/unclosed candles whose timestamp is in the future.
+    if isinstance(out.index, pd.DatetimeIndex) and not out.empty:
+        idx = out.index
+        now_ts = pd.Timestamp.now(tz="UTC") if idx.tz is not None else pd.Timestamp.utcnow().tz_localize(None)
+        future_bars = idx > (now_ts + pd.Timedelta(seconds=10))
+        if future_bars.any():
+            report["dropped_future"] = int(future_bars.sum())
+            out = out[~future_bars]
+
     # 5. Report (don't drop) abnormal time gaps — a missing candle run.
     if interval and len(out) > 2 and isinstance(out.index, pd.DatetimeIndex):
         from .binance import INTERVAL_SECONDS

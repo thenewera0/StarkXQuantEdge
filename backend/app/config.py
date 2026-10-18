@@ -50,10 +50,9 @@ class Settings(BaseSettings):
     ev_gate_enabled: bool = True
     min_ev_r: float = 0.0
 
-    # Meta-labeling model (Blueprint v2 §5). Runs in SHADOW by default: its P(win) is computed and
-    # logged on every signal, but only feeds the EV gate once the model is PROMOTED (beats the
-    # primary calibrated prob out-of-sample AND has enough samples). Flip enables gating on it.
-    meta_gate_enabled: bool = True   # allow a PROMOTED model to drive EV; shadow-only until promoted
+    # Meta-labeling model (Blueprint v2 §5). Frozen in SHADOW mode during audit: its P(win) is computed and
+    # logged on every signal, but does NOT feed the EV gate until out-of-fold CV calibration is implemented.
+    meta_gate_enabled: bool = False  # frozen shadow-only mode; prevents in-sample PAVA distortion from driving EV
     meta_retrain_days: int = 2       # meta-model re-evaluation cadence (fast; shadow-learning feeds it)
 
     # Self-calibration monitor (Blueprint v2 §4.6): shrink size when the calibrated probabilities

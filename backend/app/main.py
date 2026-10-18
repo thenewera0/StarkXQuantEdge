@@ -90,11 +90,18 @@ async def lifespan(app: FastAPI):
         if settings.arb_funding_enabled:
             def _arb_job() -> None:
                 from . import arb
-                arb.scan_funding_carry()
-                if settings.arb_triangular_enabled:
-                    arb.triangular_scan()
-                if settings.arb_cross_enabled:
-                    arb.cross_exchange_scan()
+                try:
+                    arb.scan_funding_carry()
+                    if settings.arb_triangular_enabled:
+                        arb.triangular_scan()
+                    if settings.arb_cross_enabled:
+                        arb.cross_exchange_scan()
+                except Exception:
+                    logger.exception("arb scan failed")
+            _scheduler.add_job(
+                _arb_job, "interval", hours=1,
+                id="arb", replace_existing=True, max_instances=1,
+            )
         # Cloud keep-alive: ping health endpoint every 9 minutes to prevent Render free-tier sleep
         if settings.app_env != "test":
             def _keepalive_job() -> None:
