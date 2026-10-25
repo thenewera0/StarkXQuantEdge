@@ -1,226 +1,273 @@
-# StarkX QuantEdge — Autonomous AI Crypto & Forex Confluence Engine & Arbitrage Cockpit
+# StarkX QuantEdge — Autonomous Quantitative Trading Engine & Cockpit
 
-**StarkX QuantEdge** is an enterprise-grade, multi-market autonomous quantitative trading decision-support cockpit and execution engine. It combines pure deterministic mathematical indicator calculations, an 8-family factor confluence engine, machine-learning probability calibration, multi-agent AI narrative debates, capital-adaptive position sizing, walk-forward strategy optimization, and real-time arbitrage detection across crypto and forex markets.
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white)](https://python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat&logo=next.js&logoColor=white)](https://nextjs.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791?style=flat&logo=postgresql&logoColor=white)](https://postgresql.org)
+[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
+
+**StarkX QuantEdge** is an institutional-grade, multi-asset autonomous quantitative trading system and decision-support cockpit. It bridges deterministic mathematical indicator engineering, an 8-family factor confluence pipeline, machine learning probability calibration, price-action structural confirmation, capital-adaptive fractional Kelly sizing, automated walk-forward parameter re-tuning, and real-time delta-neutral arbitrage.
+
+Every trade recommendation, stop loss, and position size is computed deterministically in Python using NumPy and Pandas with zero lookahead bias. Large Language Models (LLMs) operate strictly as qualitative narrative debaters and never generate prices or financial calculations.
 
 ---
 
-## Key Architectural Principles
+## Table of Contents
 
-1. **Deterministic Python Mathematical Foundation**: Every price level, technical indicator, factor score, stop-loss/take-profit level, and mathematical feature is computed deterministically in Python using NumPy and Pandas. The LLM **never** invents prices or numbers; it only synthesizes rationale and debate arguments over structured data.
-2. **Causal Zero-Lookahead Engineering**: All indicators, strategy signals, and backtesting replays strictly adhere to temporal causality. Decisions made at bar $t$ use data up to bar $t-1$ or the closed bar $t$.
-3. **Multi-Layer Self-Improving Safety Infrastructure**: Features an Isotonic Probability Calibration engine, Page-Hinkley Strategy Drift Detection, Global Circuit Breakers, Multi-Tier Performance Gates (Regime, Direction, Symbol), and Meta-ML Shadow Gating to protect capital in changing market regimes.
+1. [Key Architectural Principles](#1-key-architectural-principles)
+2. [System Architecture & Monorepo Structure](#2-system-architecture--monorepo-structure)
+3. [Empirical Strategy Foundation (1,002 Trade Audit)](#3-empirical-strategy-foundation-1002-trade-audit)
+4. [Trading Engines & Subsystems](#4-trading-engines--subsystems)
+   - [Core Swing Confluence Engine](#41-core-swing-confluence-engine)
+   - [Flash Bot Scalping Subsystem](#42-flash-bot-scalping-subsystem)
+   - [Multi-Strategy Arbitrage Engine](#43-multi-strategy-arbitrage-engine)
+   - [Institutional Portfolio & Thematic Sleeves](#44-institutional-portfolio--thematic-sleeves)
+5. [Mathematical Indicator & Price Action Engine](#5-mathematical-indicator--price-action-engine)
+   - [Technical Indicator Engine](#51-technical-indicator-engine)
+   - [Price Action & Candle Structure Engine](#52-price-action--candle-structure-engine)
+6. [8-Family Factor Confluence Pipeline](#6-8-family-factor-confluence-pipeline)
+7. [Risk Engineering & Capital-Adaptive Sizing](#7-risk-engineering--capital-adaptive-sizing)
+   - [Quarter-Kelly & Ruin Risk Formulation](#71-quarter-kelly--ruin-risk-formulation)
+   - [Exposure Budgets, Gap-Weighting & Total Heat](#72-exposure-budgets-gap-weighting--total-heat)
+   - [Self-Protecting Circuit Breakers & Drift Detection](#73-self-protecting-circuit-breakers--drift-detection)
+8. [Machine Learning & Self-Improving Feedback Loop](#8-machine-learning--self-improving-feedback-loop)
+   - [Isotonic Probability Calibration](#81-isotonic-probability-calibration)
+   - [Meta-Labeling Random Forest / Logistic Regression](#82-meta-labeling-random-forest--logistic-regression)
+   - [L2 Regularized Online Weight Optimizer](#83-l2-regularized-online-weight-optimizer)
+   - [Asynchronous Outcome Resolver](#84-asynchronous-outcome-resolver)
+9. [Execution Economics & Order Routing](#9-execution-economics--order-routing)
+10. [Multi-Agent Qualitative AI Debate System](#10-multi-agent-qualitative-ai-debate-system)
+11. [Solana On-Chain Intelligence Engine](#11-solana-on-chain-intelligence-engine)
+12. [Database Schema & Relational Architecture](#12-database-schema--relational-architecture)
+13. [Complete FastAPI REST API Reference](#13-complete-fastapi-rest-api-reference)
+14. [Frontend Cockpit Architecture](#14-frontend-cockpit-architecture)
+15. [Verification, Audit & Research Suite](#15-verification-audit--research-suite)
+16. [Configuration & Environment Reference](#16-configuration--environment-reference)
+17. [Installation, Development & Production Deployment](#17-installation-development--production-deployment)
 
 ---
 
-## 1. System Technology Stack & Architecture
+## 1. Key Architectural Principles
 
-StarkX QuantEdge is structured as a production monorepo partitioned into three primary directories: `/backend` (Python FastAPI), `/frontend` (Next.js 16), and `/db` (Supabase PostgreSQL migrations).
+1. **Deterministic Python Mathematical Core**: Every indicator value, support/resistance level, stop-loss price, expected value, and position sizing fraction is computed in pure Python using NumPy and Pandas. AI/LLM models synthesize narrative context and never hallucinate numbers.
+2. **Causal Zero-Lookahead Architecture**: All backtest engines, live candle pipelines, and automated resolvers enforce strict temporal causality. A signal at bar $t$ evaluates using closed bars $0 \dots t-1$ or the final close of completed bar $t$.
+3. **Data-Driven Loss Elimination**: Strategies, markets, and trigger kinds that demonstrate negative statistical expectancy in live trading are automatically pruned by software gates rather than maintained on theoretical hope.
+4. **Friction-First Expectancy (EV Gate)**: Every potential trade must clear a realistic round-trip cost model (spread, taker/maker fee, depth slippage) in $R$-units before capital is allocated:
+   $$\text{EV} = p \cdot R - (1 - p) - \text{cost}_{R} > 0$$
+5. **Capital Preservation Over Activity**: "Silence is a position." When market conditions are choppy, overbought, or lacking orderbook confluence, the engine purposefully stands down.
+
+---
+
+## 2. System Architecture & Monorepo Structure
 
 ```
-StarkX QuantEdge Monorepo Structure
-├── backend/                        # Python FastAPI server, trading engine, ML & AI core
-│   ├── app/                        # Primary application package
-│   │   ├── backtest/               # Causal replay simulation harness & walk-forward engine
-│   │   ├── data/                   # Multi-exchange & macro data adapters (Binance, Bybit, Kraken, TwelveData, etc.)
-│   │   ├── factors/                # 8-family factor scoring, weights, and agreement scaling
-│   │   ├── indicators/             # Pure-Python mathematical indicator engine (UT Bot, Sabres, OU, etc.)
-│   │   ├── llm/                    # OpenRouter AI debate agents (Bull, Bear, Risk Manager) & fallback engine
+StarkX QuantEdge Monorepo
+├── backend/                        # Python FastAPI backend & algorithmic engine
+│   ├── app/                        # Application package
+│   │   ├── backtest/               # Causal historical replay simulation harness
+│   │   ├── data/                   # Real-time exchange adapters & on-chain data
+│   │   │   ├── binance.py          # Binance Spot/Futures REST + klines fetcher
+│   │   │   ├── bybit.py            # Bybit market data & depth orderbook adapter
+│   │   │   ├── kraken.py           # Kraken spot price feeds
+│   │   │   ├── macro.py            # Crypto macro, dominance, and Fear & Greed index
+│   │   │   ├── solana.py           # Solana RPC, Raydium/Orca DEX & whale tracker
+│   │   │   ├── twelvedata.py       # TwelveData multi-asset fallback adapter
+│   │   │   ├── validate.py         # Causal OHLCV validation & anomaly cleaning
+│   │   │   └── yahoo.py            # Yahoo Finance adapter for cross-asset feeds
+│   │   ├── factors/                # 8-family factor scorers & confluence logic
+│   │   │   ├── agreement.py        # Inter-factor directional agreement ratio
+│   │   │   ├── scorer.py           # Factor scoring algorithms (-100 to +100)
+│   │   │   └── weights.py          # Interval-specific baseline weight matrices
+│   │   ├── indicators/             # Pure NumPy/Pandas technical indicators
+│   │   │   └── engine.py           # EMA, ATR, ADX, CHOP, BB, UT Bot, Sabres, OU
+│   │   ├── llm/                    # Qualitative reasoning debate engine
+│   │   │   ├── debate.py           # OpenRouter Bull/Bear/Risk Manager debate
+│   │   │   └── fallback.py         # Deterministic offline debate synthesizer
 │   │   ├── allocator.py            # Multiplicative Weights (Hedge) strategy allocator
-│   │   ├── arb.py                  # Multi-strategy arbitrage engine (Funding Carry, Triangular, Cross-Exchange)
+│   │   ├── arb.py                  # Funding carry, triangular & cross-exchange arb
 │   │   ├── calibration.py          # Isotonic regression probability calibration & Brier monitor
-│   │   ├── config.py               # Pydantic environment configuration & risk limits
-│   │   ├── costs.py                # Orderbook depth, spread, and taker fee friction modeling
-│   │   ├── db.py                   # Psycopg2 PostgreSQL connection pool client
-│   │   ├── drift.py                # Page-Hinkley strategy drift detection & automatic de-risking
-│   │   ├── geometry.py             # Volatility-based trade geometry (Entry, Stop Loss, Targets 1-3)
-│   │   ├── learning.py             # L2 Logistic Regression factor weight optimizer & Champion/Challenger gating
-│   │   ├── main.py                 # FastAPI application routes, CORS, exception handlers & background scheduler
-│   │   ├── meta_features.py        # Meta-ML feature extractor
-│   │   ├── meta_model.py           # Meta-labeling model (Random Forest / Logistic Regression) & Shadow Gating
-│   │   ├── performance.py          # Paper trading portfolio P&L tracker & metrics engine
-│   │   ├── persistence.py          # Signal logging, outcome queries, and scoreboard persistence
-│   │   ├── psychology.py           # Contrarian sentiment overlay (Funding rates, Fear & Greed)
-│   │   ├── regime.py               # Layer 1 regime detection (Trend, Range, High Vol, Squeeze) & Range-Fade strategy
-│   │   ├── resolver.py             # Asynchronous auto-outcome resolver (TP/SL/Timeout tracking)
-│   │   ├── scanner.py              # Autonomous multi-asset watchlist scanner
-│   │   ├── signal_service.py       # Core signal compute pipeline & candle provider
-│   │   └── sizing.py               # Capital-adaptive fractional Kelly & ruin-risk position sizing
-│   ├── scripts/                    # CLI administration, backtest runners, audit utilities, and test suites
+│   │   ├── config.py               # Pydantic v2 settings & risk thresholds
+│   │   ├── costs.py                # Orderbook depth, spread & fee friction modeling
+│   │   ├── db.py                   # Thread-safe PostgreSQL connection pool client
+│   │   ├── drift.py                # Page-Hinkley cumulative trade drift detection
+│   │   ├── execution.py            # Resting maker limit order execution simulator
+│   │   ├── flash.py                # Flash Bot high-frequency momentum scalper
+│   │   ├── geometry.py             # Volatility-based trade levels (Entry, SL, T1-T3)
+│   │   ├── investments.py          # Long-term investment sleeve & thematic assets
+│   │   ├── learning.py             # L2 Logistic Regression factor weight learning loop
+│   │   ├── main.py                 # FastAPI endpoints, background scheduler, and CORS
+│   │   ├── meta_features.py        # Meta-ML 22-dimensional feature vector builder
+│   │   ├── meta_model.py           # Meta-labeling model & shadow-to-live gating
+│   │   ├── performance.py          # Portfolio P&L, Sharpe, drawdown & equity tracking
+│   │   ├── persistence.py          # Signal logging & database query routines
+│   │   ├── portfolio.py            # Multi-sleeve portfolio capital partitioner
+│   │   ├── price_action.py         # Wick rejection, chart patterns & S/R cluster engine
+│   │   ├── psychology.py           # Contrarian positioning overlay (Funding & F&G)
+│   │   ├── regime.py               # L1 regime classification & Range-Fade strategy
+│   │   ├── resolver.py             # Asynchronous auto-outcome resolver (TP/SL/timeout)
+│   │   ├── scanner.py              # Autonomous 4h universe scanner & exposure monitor
+│   │   ├── shorts.py               # Bear-market short qualification filter
+│   │   ├── signal_service.py       # Core confluence signal pipeline orchestrator
+│   │   ├── sizing.py               # Capital-adaptive fractional Kelly & ruin sizing
+│   │   └── universe.py             # Asset catalog, liquidity checks & bleeder filters
+│   ├── scripts/                    # Test suites, audits, backtests & administration
+│   │   ├── deep_trade_analysis.py  # 1,002 trade empirical forensic audit script
+│   │   ├── master_200_strategies_audit.py # 200+ strategy backtest audit harness
+│   │   ├── test_p0.py              # P0 core math, costs & indicators test suite
+│   │   ├── test_p1.py              # P1 calibration, EV & isotonic regression tests
+│   │   ├── test_p2_sizing.py       # P2 Kelly, ruin probability & tier sizing tests
+│   │   ├── test_gates_live.py      # Real database performance gate validation
+│   │   ├── test_price_action.py    # Candlestick anatomy & chart pattern test suite
+│   │   ├── test_execution.py       # Limit order maker/taker execution tests
+│   │   └── migrate.py              # Database schema migration runner
 │   └── requirements.txt            # Python dependencies
 ├── db/                             # Supabase PostgreSQL relational schema
 │   └── migrations/                 # Sequential SQL migration files
-└── frontend/                       # Next.js 16 web application
-    ├── app/                        # App Router pages & global styles
-    ├── components/                 # React UI components (Charts, Signals, Debates, Scanner, Arb, Performance)
-    └── lib/                        # Client-side API fetchers & TypeScript definitions
+└── frontend/                       # Next.js 16 App Router web cockpit
+    ├── app/                        # Pages, layouts, and global CSS
+    ├── components/                 # Cockpit React UI components
+    └── lib/                        # API fetchers, TypeScript types & utilities
 ```
 
-### Dependency & Framework Stack
-* **Backend Core**: `Python 3.10+`, `FastAPI` (ASGI framework), `Uvicorn` (server worker), `APScheduler` (in-process background task scheduler).
-* **Data Science & ML**: `NumPy`, `Pandas`, `Scikit-Learn` (Logistic Regression, Isotonic Regression, Random Forest), `SciPy` (Ornstein-Uhlenbeck estimation).
-* **Database Client**: `Psycopg2-binary` for thread-safe PostgreSQL connection pooling to Supabase.
-* **Frontend Application**: `Next.js 16` (App Router), `React 19`, `TypeScript`.
-* **Styling & UI**: `Tailwind CSS 3`, `Lucide React` (micro-icons), custom dark-mode glassmorphism design system.
-* **Data Visualization**: `Lightweight-Charts` (TradingView Canvas wrapper for financial charting), custom SVG/Canvas equity curves.
+---
+
+## 3. Empirical Strategy Foundation (1,002 Trade Audit)
+
+The system's production configuration is governed by an empirical audit of **1,002 resolved historical live and paper trades**. Every strategy parameter is backed by measured statistical outcomes:
+
+### 3.1 What Was Eliminated (Proven Loss Drivers)
+* **Forex Market Pruning**: 177 trades resulted in a **24.8% win rate** and **-1.48R cumulative bleed**. Every G10 currency pair generated negative expectancy (EUR/USD -0.59R, GBP/USD -0.38R, USD/JPY -0.32R). Forex was permanently removed from automated scanning.
+* **Commodities & Indices Paused**: Only 8 historical trades were recorded—insufficient sample size to validate statistical edge. Suspended until 50+ paper trades accumulate.
+* **Crypto 1h Core Terminated**: Core swing signals on 1h timeframes yielded negative returns across all market regimes (-0.13R to -0.15R) due to commission drag relative to bar amplitude.
+* **Crypto 4h Shorts Suppressed**: 4h crypto shorts in ranging/bullish markets produced a **0.0% win rate** (-0.26R) due to persistent spot dip-buying. Core engine enforces `crypto_long_only = True`.
+* **Flash 1h Dip Trigger Killed**: Dip-buying scalps on 1h produced an **8.0% win rate** (-0.22R). Dropped in favor of momentum continuation.
+
+### 3.2 What Was Preserved & Amplified (Proven Alpha)
+* **Core Crypto Long 4h**: Generated **+1.08R net profit** across regimes:
+  * `weak_trend`: $n=98$, **60.2% WR**, Profit Factor **1.92**, **+0.63R**.
+  * `range`: $n=29$, **82.8% WR**, Profit Factor **9.07**, **+0.37R**.
+  * `high_vol`: $n=9$, **88.9% WR**, Profit Factor **15.84**, **+0.08R**.
+* **Flash Crypto Short 1h Burst**: $n=92$, **76.1% WR**, Profit Factor **1.54**, **+0.11R** (momentum breakdown trades).
+* **Flash Crypto Short 15m Burst**: $n=16$, **75.0% WR**, Profit Factor **2.96**, **+0.10R**.
+* **Hold Time Optimization**: Trades held **12 to 50 bars** achieved peak expectancy (62%–71% WR, $+0.0025R$ avg). Premature partial booking was increased from 0.40R to **0.60R** to give winners room to reach targets.
+* **Bleeder Reclassification**: `FILUSDT` was rehabilitated after audit proved **77.8% WR, +0.09R** across 36 trades. `BTCUSDT` position sizing was dampened by 50% (`symbol_mult = 0.50`) to minimize beta drag.
 
 ---
 
-## 2. Database Schema & Relational Architecture
+## 4. Trading Engines & Subsystems
 
-The system utilizes **Supabase (PostgreSQL 15+)** for persistent state management, signal logging, trade outcome resolution, and machine learning training feedback loops.
+```
+                                  ┌───────────────────────────┐
+                                  │   STARKX QUANTEDGE CORE   │
+                                  └─────────────┬─────────────┘
+                ┌───────────────────────────────┼───────────────────────────────┐
+                ▼                               ▼                               ▼
+  ┌───────────────────────────┐   ┌───────────────────────────┐   ┌───────────────────────────┐
+  │     CORE SWING ENGINE     │   │      FLASH SCALPER        │   │     ARBITRAGE COCKPIT     │
+  │ • 4h Crypto Longs         │   │ • 1h & 15m Burst/Breakout │   │ • Funding Rate Carry      │
+  │ • 8-Family Confluence     │   │ • Tight Maker Execution   │   │ • Triangular Cycle Arb    │
+  │ • Range-Fade & Trend      │   │ • CVD & Vol Expansion     │   │ • Cross-Exchange Depth    │
+  └───────────────────────────┘   └───────────────────────────┘   └───────────────────────────┘
+```
 
-### Table Summary
+### 4.1 Core Swing Confluence Engine
+The primary swing engine (`signal_service.py`, `scanner.py`) executes multi-day trend continuation and range-fade setups on 4h candlestick bars:
+* **Scanning Cadence**: Autonomous background sweep every 30 minutes over 50+ top liquid crypto pairs.
+* **Directional Discipline**: Hard-enforced `crypto_long_only = True` for core swings.
+* **Regime Adaptability**: Automatically transitions between trend-following geometry and mean-reverting range-fade geometry depending on ADX, Choppiness Index, and Ornstein-Uhlenbeck half-life.
+* **Safety Bounds**: Hard rejection of stop distances $> 6.0\%$ and sub-penny micro tokens ($< \$0.001$).
 
-#### 1. `watchlist`
-Stores monitored market assets and timeframes continuously scanned by the background scanner.
-* `id`: bigint (Primary Key, Identity)
-* `symbol`: text (e.g. `'BTCUSDT'`, `'ETHUSDT'`, `'EUR/USD'`)
-* `interval`: text (e.g. `'15m'`, `'1h'`, `'4h'`, `'1d'`)
-* `market`: text (e.g. `'crypto'`, `'forex'`)
-* `active`: boolean (default `true`)
-* `created_at`: timestamptz
-* *Constraints*: `UNIQUE(symbol, interval)`
+### 4.2 Flash Bot Scalping Subsystem
+The Flash Bot (`flash.py`) operates as an independent high-frequency opportunity hunter on 15m and 1h intervals:
+* **Trigger 1: Momentum Burst (`burst`)**: Detects explosive price thrusts through EMA9 accompanied by volume expansion $\ge 1.10\times$ 20-bar average and positive CVD aggression ($Z \ge 0.35$).
+* **Trigger 2: Range Breakout (`breakout`)**: Price pierces 15-bar high/low extremes with expanding volatility.
+* **Short Direction Gating**: Shorts are permitted **exclusively** on the `burst` trigger family; all other short setups are rejected.
+* **Anti-Chasing Filters**: Rejects entries when price is $> 2.5\%$ extended from VWAP, when RSI $> 68$ (buying tops) or $< 32$ (shorting bottoms), or when BTC 1h is in an opposing structural trend.
+* **Concurrency Caps**: Limits active flash trades to a maximum of 3 concurrent positions, and at most 2 in the same direction.
 
-#### 2. `signals`
-Logs every signal evaluated or emitted by the confluence engine.
-* `id`: bigint (Primary Key, Identity)
-* `symbol`: text, `interval`: text, `market`: text
-* `as_of`: timestamptz (Timestamp of candle close)
-* `label`: text (`'Strong Sell'`, `'Sell'`, `'Neutral'`, `'Buy'`, `'Strong Buy'`)
-* `composite`: numeric (Raw weighted composite score: $-100.0$ to $+100.0$)
-* `confidence`: numeric (Raw model confidence rating: $0$ to $100$)
-* `regime`: text (`'trend'`, `'range'`, `'high_vol'`, `'squeeze'`)
-* `price`: numeric, `atr`: numeric
-* `rationale`: text (Synthesized LLM narrative explanation)
-* `entry`: numeric (Entry price accounting for slippage)
-* `stop`: numeric (Volatility-adjusted stop loss)
-* `target`: numeric (Primary Take-Profit target $T_1$)
-* `agreement`: text (`'agree'`, `'caution'`, `'disagree'`)
-* `conviction`: numeric (Risk Manager AI conviction score: $0$ to $100$)
-* `final_confidence`: numeric (Blended confidence adjusted for LLM agreement)
-* `debate_source`: text (`'openrouter'` or `'fallback'`)
-* `meta_prob`: numeric (Meta-ML predicted win probability $P_{meta}$)
-* `ev_r`: numeric (Calibrated Expected Value in terms of R)
-* `recommended_size_usd`: numeric (Capital-adaptive position size in USD)
-* `created_at`: timestamptz
+### 4.3 Multi-Strategy Arbitrage Engine
+The arbitrage cockpit (`arb.py`) scans for market inefficiencies across centralized exchanges:
+1. **Delta-Neutral Funding Rate Carry**: Buys spot and shorts perpetual futures on high-funding assets. Uses an AR(1) time-series model to forecast funding yield over an 8-hour horizon and verifies that yield exceeds 2-leg taker fees plus a safety buffer.
+2. **Triangular Cycle Arbitrage**: Models exchange pairs as directed graphs and executes Bellman-Ford negative cycle searches (e.g., USDT $\rightarrow$ BTC $\rightarrow$ ETH $\rightarrow$ USDT) considering taker fees.
+3. **Cross-Exchange Orderbook Spreads**: Compares real-time top-of-book bid/ask quotes between Binance and Bybit.
 
-#### 3. `factor_logs`
-Logs individual factor family scores per signal to supply training datasets for ML weight optimization.
-* `id`: bigint (Primary Key, Identity)
-* `signal_id`: bigint (Foreign Key `signals.id` ON DELETE CASCADE)
-* `trend`, `momentum`, `volatility`, `structure`, `flow`, `sentiment`, `macro`, `consensus`: numeric (Individual scores: $-100.0$ to $+100.0$)
-
-#### 4. `outcomes`
-Tracks the exact execution result of each trade signal after historical replay or live auto-resolution.
-* `id`: bigint (Primary Key, Identity)
-* `signal_id`: bigint (Foreign Key `signals.id` ON DELETE CASCADE)
-* `resolved_at`: timestamptz
-* `result`: text (`'target'`, `'stop'`, `'timeout'`, or `'manual'`)
-* `pnl`: numeric (Calculated net return percentage after fees and slippage)
-* `mfe`: numeric (Maximum Favorable Excursion as fraction of entry price)
-* `mae`: numeric (Maximum Adverse Excursion as fraction of entry price)
-* `bars_held`: integer (Duration of trade in candlestick bars)
-
-#### 5. `regime_weights`
-Stores active champion factor weights per market regime and interval tier.
-* `id`: bigint (Primary Key, Identity)
-* `regime`: text (`'trend'`, `'range'`, `'high_vol'`, `'squeeze'`)
-* `interval`: text (`'intraday'`, `'short'`, `'swing'`, `'long'`)
-* `weights`: jsonb (Key-value mapping of factor family weights)
-* `is_champion`: boolean
-* `created_at`: timestamptz
-
-#### 6. `meta_models`
-Stores metadata and version tracking for the secondary Meta-ML classifier.
-* `id`: bigint (Primary Key, Identity)
-* `model_version`: text, `status`: text (`'shadow'` or `'promoted'`)
-* `auc_score`: numeric, `brier_score`: numeric, `sample_count`: integer
-* `model_binary`: bytea / jsonb
-* `created_at`: timestamptz
-
-#### 7. `arb_opportunities`
-Logs detected positive-EV arbitrage opportunities across funding carry, triangular cycles, and cross-exchange spreads.
-* `id`: bigint (Primary Key, Identity)
-* `arb_type`: text (`'funding_carry'`, `'triangular'`, `'cross_exchange'`)
-* `symbol`: text
-* `net_ev`: numeric (Net expected value percentage after fees)
-* `details`: jsonb (Leg details, rates, prices, estimated fee burden)
-* `created_at`: timestamptz
+### 4.4 Institutional Portfolio & Thematic Sleeves
+The portfolio manager (`portfolio.py`, `investments.py`) allocates capital across four segregated sleeves:
+* **Core Swing Sleeve**: $40\%$ target weight.
+* **Flash Scalp Sleeve**: $20\%$ target weight.
+* **Arbitrage Sleeve**: $15\%$ target weight.
+* **Cash Reserve (Dry Powder)**: Minimum $25\%$ floor maintained at all times.
 
 ---
 
-## 3. Mathematical Indicator Engine (`indicators/engine.py`)
+## 5. Mathematical Indicator & Price Action Engine
 
-The indicator engine calculates all technical metrics in pure NumPy/Pandas with strict causality guarantees.
+### 5.1 Technical Indicator Engine
+Implemented in `indicators/engine.py` using NumPy vectorized operations:
 
-### 1. Moving Averages & Trend Metrics
-* **Exponential Moving Average (EMA)**:
-  $$\text{EMA}_t = \alpha \cdot P_t + (1 - \alpha) \cdot \text{EMA}_{t-1}, \quad \alpha = \frac{2}{N + 1}$$
+* **Exponential Moving Averages (EMA)**: Calculated for periods 9, 21, 50, and 200.
 * **Triple Exponential Moving Average (TEMA)**:
-  $$\text{TEMA}_t = 3 \cdot \text{EMA}_1(P_t) - 3 \cdot \text{EMA}_2(\text{EMA}_1(P_t)) + \text{EMA}_3(\text{EMA}_2(\text{EMA}_1(P_t)))$$
-
-### 2. Volatility & Channel Indicators
-* **Average True Range (ATR)** (Wilder's Smoothing):
-  $$\text{TR}_t = \max \left( (H_t - L_t), \, |H_t - C_{t-1}|, \, |L_t - C_{t-1}| \right)$$
-  $$\text{ATR}_t = \text{EMA}\left(\text{TR}, \, \alpha = \frac{1}{14}\right)$$
-* **Bollinger Bands (%B)**:
-  $$\text{Upper}_t = \text{SMA}_{20}(C) + 2 \cdot \sigma_{20}(C), \quad \text{Lower}_t = \text{SMA}_{20}(C) - 2 \cdot \sigma_{20}(C)$$
-  $$\%B_t = \frac{C_t - \text{Lower}_t}{\text{Upper}_t - \text{Lower}_t}$$
-
-### 3. Regime & Trend Strength Indicators
-* **Average Directional Index (ADX)**:
-  $$+DM_t = (H_t - H_{t-1}) \quad \text{if } (H_t - H_{t-1}) > (L_{t-1} - L_t) \text{ and } (H_t - H_{t-1}) > 0 \text{ else } 0$$
-  $$-DM_t = (L_{t-1} - L_t) \quad \text{if } (L_{t-1} - L_t) > (H_t - H_{t-1}) \text{ and } (L_{t-1} - L_t) > 0 \text{ else } 0$$
-  $$+DI_t = 100 \cdot \frac{\text{EMA}(+DM)}{\text{ATR}_t}, \quad -DI_t = 100 \cdot \frac{\text{EMA}(-DM)}{\text{ATR}_t}$$
-  $$\text{DX}_t = 100 \cdot \frac{|+DI_t - -DI_t|}{+DI_t + -DI_t}, \quad \text{ADX}_t = \text{EMA}(\text{DX}, 14)$$
-* **Choppiness Index (CHOP)**:
-  $$\text{CHOP}_t = 100 \cdot \frac{\log_{10} \left( \sum_{i=0}^{13} \text{TR}_{t-i} \right) - \log_{10}\left( \max(H_{t-13 \dots t}) - \min(L_{t-13 \dots t}) \right)}{\log_{10}(14)}$$
-
-### 4. Custom Pine Script Ports & Structural Indicators
-* **UT Bot Trailing Stop & Position State**:
-  1. $\text{Loss}_t = \text{Multiplier} \times \text{ATR}_{10, t}$
-  2. If $C_t > \text{Stop}_{t-1}$ and $C_{t-1} > \text{Stop}_{t-1}$: $\text{Stop}_t = \max(\text{Stop}_{t-1}, C_t - \text{Loss}_t)$
-  3. If $C_t < \text{Stop}_{t-1}$ and $C_{t-1} < \text{Stop}_{t-1}$: $\text{Stop}_t = \min(\text{Stop}_{t-1}, C_t + \text{Loss}_t)$
-  4. If $C_t$ crosses above $\text{Stop}_{t-1}$: $\text{Stop}_t = C_t - \text{Loss}_t, \text{Position}_t = 1 \text{ (Long)}$
-  5. If $C_t$ crosses below $\text{Stop}_{t-1}$: $\text{Stop}_t = C_t + \text{Loss}_t, \text{Position}_t = -1 \text{ (Short)}$
-* **LuxAlgo MA Sabres Reversal Signal**:
-  Identifies TEMA trend flips: if TEMA50 decreases for 20 consecutive bars and ticks up ($TEMA_t > TEMA_{t-1}$), fires Bullish Flip ($+1$). If TEMA50 increases for 20 consecutive bars and ticks down ($TEMA_t < TEMA_{t-1}$), fires Bearish Flip ($-1$).
-* **Pivot Points & Fibonacci Retracements**:
-  Computes Classic Pivots ($P = \frac{H+L+C}{3}$, $R_1, R_2, R_3, S_1, S_2, S_3$) and 50-bar Fibonacci retracements ($23.6\%, 38.2\%, 50.0\%, 61.8\%, 78.6\%$).
+  $$\text{TEMA} = 3 \cdot \text{EMA}_1 - 3 \cdot \text{EMA}_2 + \text{EMA}_3$$
+* **Average True Range (ATR)**: Wilder's 14-period smoothing on true range.
+* **Bollinger Bands (%B & Bandwidth)**: 20-period SMA with $2\sigma$ standard deviation channels.
+* **Trend & Chop Oscillators**: 14-period ADX, +DI/-DI directional indicators, and Choppiness Index (CHOP).
+* **UT Bot Trailing Stop**: ATR-based dynamic volatility stop-and-reverse trailing band.
+* **LuxAlgo MA Sabres**: Detects inflection points in TEMA trend velocity after prolonged runs.
 * **Ornstein-Uhlenbeck (OU) Mean-Reversion Half-Life**:
-  Fits AR(1) process on price deviations $x_t = P_t - \text{EMA}(P_t)$:
+  Fits an AR(1) continuous mean-reverting process on residuals $x_t = P_t - \text{EMA}_{21}(P_t)$:
   $$\Delta x_t = -\lambda x_{t-1} + \epsilon_t \implies t_{half} = \frac{\ln(2)}{\lambda}$$
-  Measures speed of mean-reversion for range-fade strategy validation.
+  Ensures range-fades are only initiated when mean reversion occurs rapidly ($t_{half} \le 24$ bars).
+
+### 5.2 Price Action & Candle Structure Engine
+Implemented in `price_action.py` to provide candlestick anatomy and structural clearance checks:
+
+```
+    Upper Rejection Wick (Bearish)
+          │   ┌──────┐  <- Upper Candle Body
+          └───┤      │
+              │      │  <- Candle Body
+          ┌───┤      │
+          │   └──────┘  <- Lower Candle Body
+          │
+    Lower Rejection Wick (Bullish)
+```
+
+1. **Candle Anatomy Diagnosis**:
+   - Computes upper wick ratio $\frac{H - \max(O, C)}{H - L}$ and lower wick ratio $\frac{\min(O, C) - L}{H - L}$.
+   - Detects shooting stars (bearish rejection $> 50\%$ upper wick) and hammers (bullish absorption $> 50\%$ lower wick).
+2. **Multi-Candle Pattern Recognition**:
+   - Identifies Bullish/Bearish Engulfing, Inside Bars, Double Tops/Bottoms, and Liquidity Sweeps (stop hunts).
+3. **Dynamic Support & Resistance (S/R) Clustering**:
+   - Identifies swing pivots and groups price levels into volatility-based support and resistance bands.
+4. **Pre-Trade Clearance Gate**:
+   - Longs are blocked if an opposing resistance cluster exists within $0.50\times \text{ATR}$ or if the previous candle printed a heavy bearish upper rejection wick.
+   - Shorts are blocked if support sits within $0.50\times \text{ATR}$ or a bullish absorption wick is detected.
 
 ---
 
-## 4. 8-Family Confluence Scoring & Weighting Engine
+## 6. 8-Family Factor Confluence Pipeline
 
-Indicators are mapped into 8 normalized factor family scores, each bounded within $[-100.0, +100.0]$.
+Primary signals pass through 8 independent evidence families (`factors/scorer.py`), each generating a normalized score in $[-100.0, +100.0]$:
 
-### Factor Family Scorer Logic (`factors/scorer.py`)
+| Factor Family | Core Inputs & Signals | Weight (4h Core) |
+|---|---|:---:|
+| **F1: Trend** | EMA 9/21/50/200 stack alignment, TEMA slope, UT Bot position state, LuxAlgo flip | 0.22 |
+| **F2: Momentum** | 14-period RSI, Stochastic %K, MACD histogram normalized to ATR | 0.18 |
+| **F3: Volatility** | Bollinger Band %B position, Bandwidth expansion/compression ratio | 0.12 |
+| **F4: Structure** | Distance to nearest DBSCAN S/R pivot, 50-bar Fibonacci retracement levels | 0.14 |
+| **F5: Order Flow** | Cumulative Volume Delta (CVD) Z-score, bid/ask orderbook imbalance, funding rate Z-score | 0.14 |
+| **F6: Sentiment** | Alternative.me Crypto Fear & Greed Z-score, curated crypto news sentiment | 0.08 |
+| **F7: Macro** | BTC/ETH market dominance metrics, cross-asset macro trend momentum | 0.06 |
+| **F8: Consensus** | Higher timeframe (HTF) trend alignment, cross-oscillator agreement | 0.06 |
 
-1. **Trend Family**: EMA stack alignment (9>21>50>200), price distance to 200 EMA, MACD histogram relative to ATR, UT Bot state, and LuxAlgo Sabres flip boost ($\pm 25$ pts).
-2. **Momentum Family**: Blended RSI and Stochastic %K oscillator values:
-   $$\text{Score} = 0.6 \cdot \left( \frac{\text{RSI}_t - 50}{50} \cdot 100 \right) + 0.4 \cdot \left( \frac{\text{Stoch } \%K_t - 50}{50} \cdot 100 \right)$$
-3. **Volatility Family**: Bollinger Band %B location relative to mid-band:
-   $$\text{Score} = (\%B_t - 0.5) \cdot 200$$
-4. **Structure Family**: Hyperbolic tangent scaling of distance to nearest pivot point and 50-bar Fibonacci level:
-   $$\text{Score} = 0.6 \cdot \left( 100 \cdot \tanh\left( \frac{C_t - \text{Pivot}_t}{0.5 \cdot \text{ATR}_t} \right) \right) + 0.4 \cdot \left( (\text{Fib Position}_t - 0.5) \cdot 200 \right)$$
-5. **Order Flow & Derivatives Family**: VWAP distance, Order Book Imbalance (bid vs ask volume depth), Derivatives Funding Rate (contrarian boost), Futures Premium Basis (spot vs perp), and Open Interest change alignment.
-6. **Sentiment Family**: Alternative.me Fear & Greed Index (Extreme Fear $<25 \implies +12$ Bullish boost, Extreme Greed $>75 \implies -12$ Bearish boost), combined with crypto news sentiment.
-7. **Macro & Cross-Asset Family**: Market cap dominance, BTC/ETH dominance metrics, and global multi-asset trend alignment.
-8. **Consensus Family**: Cross-timeframe alignment and indicator directional agreement.
-
-### Score Aggregation & Agreement Ratio Adjustment
-1. Extract dynamic weight profile for timeframe interval (`intraday`, `short`, `swing`, `long`).
-2. Filter to active factor families with valid data and re-normalize weights to sum to $1.0$.
-3. Compute weighted raw score $R_{raw} = \sum w_i \cdot S_i$.
-4. Determine **Agreement Ratio** ($A$):
-   $$A = \frac{\text{Count of active factor families sharing the sign of } R_{raw}}{\text{Total active factor families}}$$
-5. Calculate final **Composite Score**:
-   $$\text{Composite} = \text{Clip}_{-100, 100}\left( R_{raw} \cdot (0.5 + 0.5 \cdot A) \right)$$
-6. Assign Signal Action Labels:
+### Confluence Score & Agreement Scaling
+1. Active weights are re-normalized across available factor families: $w_i' = \frac{w_i}{\sum w_k}$.
+2. Raw weighted confluence score is computed: $R_{raw} = \sum w_i' \cdot S_i$.
+3. Directional agreement ratio ($A$) measures consensus:
+   $$A = \frac{\text{Count of active families sharing the sign of } R_{raw}}{\text{Total active families}}$$
+4. Final Composite Score is scaled by agreement to prevent single-factor distortion:
+   $$\text{Composite} = \text{Clip}_{-100, 100}\left( R_{raw} \cdot (0.50 + 0.50 \cdot A) \right)$$
+5. Action Labels:
    * $\text{Composite} \ge +60.0 \implies$ **Strong Buy**
    * $+20.0 \le \text{Composite} < +60.0 \implies$ **Buy**
    * $-20.0 < \text{Composite} < +20.0 \implies$ **Neutral**
@@ -229,293 +276,368 @@ Indicators are mapped into 8 normalized factor family scores, each bounded withi
 
 ---
 
-## 5. Market Regimes & Strategy Allocation
+## 7. Risk Engineering & Capital-Adaptive Sizing
 
-### Layer 1 Market Regime Classifier (`regime.py`)
-* **Trend Regime**: ADX $> 25.0$ and CHOP $< 50.0$. Focuses on direction-following setups.
-* **Range Regime**: ADX $< 20.0$ and CHOP $> 50.0$ with validated OU half-life ($t_{half} \le 24$ bars).
-* **High Volatility Regime**: ATR percentile $> 95\text{th}$ percentile. Widens stop distance.
-* **Squeeze Regime**: Bollinger Band width at multi-bar low. Prepares for breakout.
+### 7.1 Quarter-Kelly & Ruin Risk Formulation
+Implemented in `sizing.py`. Position sizing balances optimal logarithmic wealth growth with strict survival constraints:
 
-### Range-Fade Strategy Module
-When a symbol enters a Range regime, the system activates the Range-Fade module. Instead of following breakouts, it fades band extremes (buying near Lower Bollinger Band / S1 Pivot, selling near Upper Bollinger Band / R1 Pivot), targeting the mean (EMA21) with relaxed R:R floors ($\text{RR}_{min} = 1.0$).
+$$\text{Quarter-Kelly Fraction: } f_k = \frac{\max\left(0, \, p - \frac{1 - p}{R}\right)}{4}$$
 
-### Multiplicative Weights (Hedge) Strategy Allocator (`allocator.py`)
-Dynamically adjusts capital allocation between Trend-Following and Range-Fade strategy families using an online exponential decay learning algorithm based on trailing 14-day performance:
-$$w_{strat, t} = w_{strat, t-1} \cdot \exp\left( \eta \cdot \bar{R}_{strat} \right)$$
-Re-normalized subject to a minimum weight floor of $5\%$ to prevent strategy starvation.
+To prevent catastrophic account drawdown, the system solves the continuous gambler's ruin equation for drawdown tolerance $D = 0.50$ (50% account drawdown) and ruin probability $\alpha = 0.05$ (5% risk of ruin):
+
+$$\text{Ruin Fraction: } f_{ruin} = \text{Solve}\left( P(\text{Drawdown} \ge D) \le \alpha \right)$$
+
+$$\text{Final Risk Fraction } f = \min(f_k, \, f_{ruin}, \, \text{Tier Risk Cap}) \times \text{Drift Mult} \times \text{Alloc Mult} \times \text{Symbol Mult}$$
+
+* **Account Tiers**:
+  * **Micro** ($<\$100$): Risk cap $2.0\%$, EV floor $+0.20R$, max concurrent 2.
+  * **Small** ($\$100 - \$1,000$): Risk cap $2.0\%$, EV floor $+0.10R$, max concurrent 8.
+  * **Standard** ($\$1,000 - \$10,000$): Risk cap $2.0\%$, EV floor $+0.05R$, max concurrent 20.
+  * **Growth** ($>\$10,000$): Risk cap $1.5\%$, EV floor $+0.05R$, max concurrent 30.
+
+### 7.2 Exposure Budgets, Gap-Weighting & Total Heat
+* **Gross Exposure Ceiling**: Total notional exposure is capped at $2.0\times$ to $4.0\times$ equity depending on tier.
+* **Gap-Risk Weighting**: Assets are weighted by gap propensity ($\text{Crypto} = 1.0\times$, $\text{Commodities} = 0.65\times$, $\text{Indices} = 0.50\times$).
+* **Total Portfolio Heat**: Defined as the total percentage of equity lost if all open positions stop out simultaneously:
+  $$\text{Heat} = \sum_{\text{open}} \frac{\text{Risk USD}_i}{\text{Equity}} \le \text{Max Heat (4\%--6\%)}$$
+* **Symbol Dampening**: High-beta or marginal performers (`BTCUSDT`) receive a 50% sizing multiplier (`symbol_mult = 0.50`).
+
+### 7.3 Self-Protecting Circuit Breakers & Drift Detection
+* **Page-Hinkley Drift Detector (`drift.py`)**: Tracks cumulative trade performance residuals $m_t = R_t - \bar{R}$. When cumulative negative drift exceeds threshold $U_t - T_t > \lambda$, the system flags regime drift, automatically raises the EV floor to $+0.40R$, and cuts position sizing by $50\%$.
+* **Global Circuit Breaker**: If realized returns drop below $-3.0R$ over a rolling 24-hour window, all scanning and signal emission halts for 24 hours.
+* **Rolling Performance Gates**: Automatically silences symbols, directions, or regimes that produce negative realized returns over rolling 14- to 30-day windows.
 
 ---
 
-## 6. Expected Value (EV) Gate & Multi-Tier Protection
-
-### Calibrated Expected Value (EV) Gate (`config.py`, `calibration.py`)
-Before any signal is deemed actionable, it must pass the EV gate:
-$$\text{EV} = p \cdot R - (1 - p) - \text{cost}_{R}$$
-where:
-* $p$: Calibrated win probability predicted by Isotonic Regression.
-* $R$: Reward-to-Risk ratio ($\frac{\text{Target}_1 - \text{Entry}}{\text{Entry} - \text{Stop}}$).
-* $\text{cost}_{R}$: Friction costs (taker fees + slippage) normalized in R units.
-
-If $\text{EV} \le 0.0$ (or below tier floor), the signal is silenced.
+## 8. Machine Learning & Self-Improving Feedback Loop
 
 ```
-Risk Geometry Setup
-========================================= <- Target 3 (Entry + 4.5 * Risk)
-========================================= <- Target 2 (Entry + 2.8 * Risk)
-========================================= <- Target 1 (Entry + 1.8 * Risk, adjusted to Pivot)
-
-▶ Entry Price (Bar Open + Slippage)
-========================================= <- Stop Loss (Entry - 1.2 * ATR, adjusted to Swing Low)
+                               ┌───────────────────────────┐
+                               │ 1. RESOLVER (resolver.py) │
+                               │ Evaluates TP/SL Outcomes  │
+                               └─────────────┬─────────────┘
+                                             │
+                                             ▼
+                               ┌───────────────────────────┐
+                               │ 2. CALIBRATION & ISOTONIC │
+                               │ Maps Composite -> Win Prob│
+                               └─────────────┬─────────────┘
+                                             │
+                                             ▼
+                               ┌───────────────────────────┐
+                               │ 3. META-ML CLASSIFIER     │
+                               │ Shadow Gating & Filtering │
+                               └─────────────┬─────────────┘
+                                             │
+                                             ▼
+                               ┌───────────────────────────┐
+                               │ 4. L2 WEIGHT OPTIMIZER    │
+                               │ Champion/Challenger Tests │
+                               └───────────────────────────┘
 ```
 
-### Self-Improving Protection Systems
+### 8.1 Isotonic Probability Calibration
+Raw model confidence ratings frequently exhibit overconfidence. The calibration engine (`calibration.py`) fits a **Pool Adjacent Violators Algorithm (PAVA)** monotonic isotonic regression mapping composite scores directly to empirical win probabilities conditioned on market and direction:
+$$p = \text{IsotonicFit}(\text{Composite} \mid \text{Market}, \text{Direction})$$
+Rolling calibration accuracy is continuously audited using the **Brier Score**:
+$$\text{Brier} = \frac{1}{N}\sum_{i=1}^{N} (p_i - y_i)^2$$
 
-1. **Isotonic Probability Calibration (`calibration.py`)**: Maps raw composite scores to empirical win rates via monotonic piecewise linear calibration.
-2. **Page-Hinkley Strategy Drift Detection (`drift.py`)**: Monitors the running sequence of trade returns $R$. If cumulative negative drift exceeds threshold ($\lambda = 3.0$), it flags strategy drift, automatically raises the EV floor (to $+0.4 R$), and cuts position size by $50\%$ until conditions recover.
-3. **Self-Calibration Brier Monitor**: Tracks rolling Brier score ($BS = \frac{1}{N}\sum (p_i - y_i)^2$). If calibration accuracy degrades below baseline, it automatically scales down trade sizing ("knows when it doesn't know").
-4. **Global Circuit Breaker**: Halts all new trade signals for 24 hours if cumulative realized return drops below $-3.0 R$ over a rolling window.
-5. **Multi-Tier Performance Gates**:
-   * **Regime Gate**: Drops trading in market regimes showing negative rolling P&L.
-   * **Direction Gate**: Temporarily halts long or short signals if trailing 2-day expectancy is negative.
-   * **Symbol Gate**: Pauses specific assets with negative trailing expectancy.
+### 8.2 Meta-Labeling Random Forest / Logistic Regression
+Implemented in `meta_model.py` and `meta_features.py`. A secondary classifier trains on a 22-dimensional feature vector (regimes, factor scores, volatility ratios, funding rate Z-scores, agreement ratios) to predict the probability that a generated trade signal will achieve its target before stopping out. Operates in shadow mode until out-of-sample AUC-ROC exceeds primary baseline calibration.
 
----
+### 8.3 L2 Regularized Online Weight Optimizer
+Implemented in `learning.py`. Periodically fits an L2-regularized logistic regression over historical factor score logs and realized trade outcomes:
+$$\min_{\mathbf{w}} \sum_{i=1}^{N} \mathcal{L}(y_i, \, \mathbf{w}^T \mathbf{x}_i) + \lambda \|\mathbf{w}\|_2^2$$
+Learned weights are tested via walk-forward out-of-sample replay. If a Challenger weight profile outperforms the active Champion profile across a holdout basket, it is automatically promoted in PostgreSQL.
 
-## 7. Meta-ML Machine Learning Model (`meta_model.py`)
-
-StarkX QuantEdge incorporates a secondary **Meta-Labeling Machine Learning Model** (Random Forest / L2 Logistic Regression) operating on high-dimensional meta-features extracted from primary signals.
-
-### Meta-Feature Matrix (`meta_features.py`)
-* Composite score, confidence, agreement ratio
-* Individual 8 factor family scores
-* Market regime, ADX, CHOP, ATR percentile, Bollinger Band width
-* Orderbook bid/ask imbalance, funding rate, basis premium
-* Calculated EV, R:R ratio, time-of-day / day-of-week encodings
-
-### Shadow-to-Gating Promotion Framework
-1. **Shadow Execution**: The Meta-Model runs continuously in SHADOW mode, logging predicted win probabilities $P_{meta}$ without affecting active trading.
-2. **Walk-Forward Holdout Evaluation**: Periodically evaluates out-of-sample performance on historical outcomes ($N \ge 30$).
-3. **Automated Promotion Gate**: If the Meta-Model achieves superior out-of-sample ROC-AUC and Brier score compared to the primary isotonic model, it is automatically promoted to actively filter signals in the EV Gate.
+### 8.4 Asynchronous Outcome Resolver
+Implemented in `resolver.py`. Executes continuously as an asynchronous background worker polling completed candles to track open signals:
+* **Target Resolution**: Evaluates high/low touches against Target 1 ($T_1$) and partial booking levels.
+* **Stop Resolution**: Evaluates adverse candle wicks against Stop Loss ($SL$).
+* **Timeout Resolution**: Signals that do not hit target or stop within 48 bars are closed at market close to free capital.
 
 ---
 
-## 8. Capital-Adaptive Position Sizing (`sizing.py`, `costs.py`)
+## 9. Execution Economics & Order Routing
 
-### Multi-Tier Capital Framework
-The engine adapts position sizing and risk management based on total account equity:
-* **Tier 1: Micro ($<\$5,000$)**: Prioritizes capital preservation, strict EV floors ($EV \ge 0.15 R$), capped leverage.
-* **Tier 2: Core ($\$5,000 - \$50,000$)**: Optimal growth parameters, Fractional Kelly sizing ($0.25 \cdot f^*$).
-* **Tier 3: Institutional ($>\$50,000$)**: Multi-leg execution, advanced orderbook friction modeling.
+Implemented in `execution.py` and `costs.py`. StarkX QuantEdge explicitly models the friction differential between taker and maker execution:
 
-### Fractional Kelly Criterion & Ruin Prevention
-$$\text{Kelly Fraction } f^* = \frac{p \cdot b - (1 - p)}{b}, \quad b = R$$
-$$\text{Recommended Risk \%} = \min \left( \text{Risk}_{max}, \, 0.25 \cdot f^* \right)$$
-
-### Parametric Orderbook Friction Modeling (`costs.py`)
-Models realistic market execution costs based on order size and depth:
-$$\text{Total Cost} = 2 \cdot \text{Fee}_{taker} + \text{Spread}_{half} + \text{Impact}_{market}(V_{order}, \text{Depth})$$
+* **Maker Advantage**: Crossing the orderbook spread via taker market orders incurs fees of $0.16\%$--$0.28\%$ per round trip. Resting maker limit orders pay $\sim 0.04\%$ round trip (+0.34 percentage points net P&L advantage per trade).
+* **Resting Limit Geometry**:
+  * Long limit orders rest at $\text{Entry} = \text{Close} - 0.15 \times \text{ATR}$.
+  * Short limit orders rest at $\text{Entry} = \text{Close} + 0.15 \times \text{ATR}$.
+* **Adverse Selection Modeling**: Simulates limit order fill rates. If price runs away without pulling back to fill the resting order within 2 bars, the order expires unfilled and contributes zero P&L rather than assuming fantasy fills.
 
 ---
 
-## 9. Multi-Agent AI Debate System (`llm/debate.py`)
+## 10. Multi-Agent Qualitative AI Debate System
 
-When an active signal is detected, StarkX QuantEdge invokes a multi-agent AI debate via OpenRouter to analyze qualitative narrative context alongside quantitative numbers.
+When an active confluence setup is identified, the system can dispatch structured technical context to OpenRouter (`llm/debate.py`) to execute a 3-agent qualitative narrative debate:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│ 1. INGEST SIGNAL                                                        │
-│ Raw Signal Data (Symbol, Interval, 8 Factor Scores, Pivots, Sentiment)  │
-└────────────────────────────────────┬────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ 2. BULL ANALYST AGENT                                                   │
-│ Builds optimal long thesis using technical data & factor strengths.     │
-└────────────────────────────────────┬────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ 3. BEAR ANALYST AGENT                                                   │
-│ Rebuts Bull arguments & identifies structural weaknesses/risks.        │
-└────────────────────────────────────┬────────────────────────────────────┘
-                                     │
-                                     ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│ 4. RISK MANAGER (JUDGE AGENT)                                           │
-│ Evaluates debate and returns structured JSON output:                    │
-│ { "agreement", "conviction", "key_risks", "verdict" }                   │
-└─────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│ 1. BULL ANALYST AGENT                                                  │
+│ Argues bullish thesis using factor strengths, order flow & support.    │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ 2. BEAR ANALYST AGENT                                                  │
+│ Challenges the setup, highlights overhead resistance & macro risks.    │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│ 3. RISK MANAGER JUDGE AGENT                                            │
+│ Delivers structured JSON verdict: { agreement, conviction, risks }     │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Blended Final Confidence Score
-$$\text{Penalty} = \begin{cases} 1.00 & \text{if Agreement = 'agree'} \\ 0.85 & \text{if Agreement = 'caution'} \\ 0.60 & \text{if Agreement = 'disagree'} \end{cases}$$
-$$\text{Final Confidence} = \text{Round}\Big( \min\left(100.0, \, (0.5 \cdot \text{Model Confidence} + 0.5 \cdot \text{AI Conviction}) \cdot \text{Penalty}\right), \, 1 \Big)$$
-
-### Deterministic Fallback Engine (`_fallback_debate`)
-If LLM APIs are offline or unconfigured, the system seamlessly activates a deterministic fallback engine that computes structured debate arguments, conviction, and risk factors directly from mathematical factor scores.
+* **Penalty Adjustment**:
+  $$\text{Final Confidence} = \text{Round}\Big( (0.50 \cdot \text{Model Conf} + 0.50 \cdot \text{AI Conviction}) \times \text{Penalty} \Big)$$
+  where $\text{Penalty} = 1.00$ (Agree), $0.85$ (Caution), $0.60$ (Disagree).
+* **Deterministic Fallback Engine (`llm/fallback.py`)**: If external AI APIs are disabled, unreachable, or unconfigured, an internal mathematical debate generator synthesizes debate narratives directly from factor scores.
 
 ---
 
-## 10. Multi-Strategy Arbitrage Engine (`arb.py`)
+## 11. Solana On-Chain Intelligence Engine
 
-StarkX QuantEdge includes a real-time multi-strategy arbitrage engine continuously scanning for zero-risk or statistical arbitrage opportunities.
-
-### 1. Delta-Neutral Funding Rate Carry Arbitrage
-Harvests crypto perpetual funding rates by taking opposing positions in Spot and Futures markets:
-* Fits an **AR(1) Time-Series Model** on historical funding rates to forecast expected funding yield over holding horizon $H$:
-  $$\hat{f}_{t+k} = \mu + \phi^k (f_t - \mu)$$
-* Net EV calculation clearing 2-leg taker fees:
-  $$\text{Net EV} = \sum_{k=1}^{H} \hat{f}_{t+k} - 2 \cdot (\text{Fee}_{spot} + \text{Fee}_{perp}) - \text{Buffer}$$
-
-### 2. Triangular Currency Cycle Arbitrage
-Executes Bellman-Ford negative cycle detection over exchange currency pair graphs (e.g. BTC $\rightarrow$ ETH $\rightarrow$ USDT $\rightarrow$ BTC):
-$$\text{Cycle Return} = (R_{AB} \cdot R_{BC} \cdot R_{CA}) \cdot (1 - \text{Fee}_{taker})^3 - 1.0$$
-
-### 3. Cross-Exchange Orderbook Arbitrage
-Monitors real-time orderbook depth across exchange venues (Binance vs Bybit):
-$$\text{Spread} = \frac{\text{Bid}_{Bybit} - \text{Ask}_{Binance}}{\text{Ask}_{Binance}} - (\text{Fee}_{Binance} + \text{Fee}_{Bybit})$$
+Implemented in `data/solana.py`. Provides direct integration with Solana RPC nodes, Raydium, and Orca DEX protocols:
+* **Whale Wallet Profiling**: Monitors high-net-worth wallet accumulation and distribution flows.
+* **DEX Liquidity Verification**: Audits liquidity pool depth, LP token burn/lock verification, and token mint authority status before evaluating decentralized altcoin setups.
+* **On-Chain Volume Acceleration**: Measures taker volume spikes on decentralized automated market makers (AMMs).
 
 ---
 
-## 11. Asynchronous Self-Learning Loop (`learning.py`, `resolver.py`)
+## 12. Database Schema & Relational Architecture
+
+StarkX QuantEdge utilizes **PostgreSQL (Supabase)** with the following relational schema:
 
 ```
-      1. AUTOMATED OUTCOME RESOLUTION (resolver.py)
-      Polls candle data to check active signals against TP/SL levels or 48-bar timeout.
+  ┌──────────────────┐       1:N       ┌──────────────────┐
+  │     signals      ├────────────────►│     outcomes     │
+  └────────┬─────────┘                 └──────────────────┘
+           │
+           │ 1:1
+           ▼
+  ┌──────────────────┐
+  │   factor_logs    │
+  └──────────────────┘
+```
 
-      2. DATA EXTRACTION & FEATURE NORMALIZATION
-      Joins outcomes, factor_logs, and signals partitioned by market regime.
+### Table Definitions
 
-      3. TRAIN CHALLENGER MODEL (learning.py)
-      Fits L2-Regularized Logistic Regression on factor scores to predict outcomes.
+#### `signals`
+Stores every evaluated signal emitted by the core confluence or flash engine:
+```sql
+CREATE TABLE signals (
+    id BIGSERIAL PRIMARY KEY,
+    symbol TEXT NOT NULL,
+    interval TEXT NOT NULL,
+    market TEXT DEFAULT 'crypto',
+    strategy TEXT DEFAULT 'core',
+    as_of TIMESTAMPTZ NOT NULL,
+    label TEXT NOT NULL,
+    composite NUMERIC NOT NULL,
+    confidence NUMERIC NOT NULL,
+    regime TEXT NOT NULL,
+    price NUMERIC NOT NULL,
+    atr NUMERIC NOT NULL,
+    entry NUMERIC,
+    stop NUMERIC,
+    target NUMERIC,
+    partial_target NUMERIC,
+    reward_risk NUMERIC,
+    win_prob NUMERIC,
+    ev_r NUMERIC,
+    meta_p NUMERIC,
+    agreement TEXT,
+    conviction NUMERIC,
+    final_confidence NUMERIC,
+    rationale TEXT,
+    shadow BOOLEAN DEFAULT FALSE,
+    features JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
 
-      4. WALK-FORWARD HOLDOUT BACKTEST
-      Evaluates Challenger weight profile against active Champion profile on out-of-sample data.
+#### `outcomes`
+Stores resolved trade executions, realized P&L, and price excursions:
+```sql
+CREATE TABLE outcomes (
+    id BIGSERIAL PRIMARY KEY,
+    signal_id BIGINT REFERENCES signals(id) ON DELETE CASCADE,
+    result TEXT NOT NULL,            -- 'target', 'stop', 'trailing_stop', 'timeout', 'unfilled'
+    pnl NUMERIC NOT NULL,               -- Realized percentage return (e.g. +1.85% or -1.05%)
+    mfe NUMERIC,                        -- Maximum Favorable Excursion
+    mae NUMERIC,                        -- Maximum Adverse Excursion
+    bars_held INTEGER,                  -- Candle duration from entry to exit
+    resolved_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
 
-      5. DATABASE PROMOTION
-      If Challenger outperforms Champion, promotes it to active status in Supabase.
+#### `factor_logs`
+Stores raw factor family scores per signal for ML training:
+```sql
+CREATE TABLE factor_logs (
+    id BIGSERIAL PRIMARY KEY,
+    signal_id BIGINT REFERENCES signals(id) ON DELETE CASCADE,
+    trend NUMERIC, momentum NUMERIC, volatility NUMERIC, structure NUMERIC,
+    flow NUMERIC, sentiment NUMERIC, macro NUMERIC, consensus NUMERIC
+);
+```
+
+#### `regime_weights`
+Stores active champion factor weights per market regime:
+```sql
+CREATE TABLE regime_weights (
+    id BIGSERIAL PRIMARY KEY,
+    regime TEXT NOT NULL,
+    interval TEXT NOT NULL,
+    weights JSONB NOT NULL,
+    is_champion BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+#### `arb_opportunities`
+Stores detected delta-neutral funding carry and triangular cycles:
+```sql
+CREATE TABLE arb_opportunities (
+    id BIGSERIAL PRIMARY KEY,
+    arb_type TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    net_ev NUMERIC NOT NULL,
+    details JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 ```
 
 ---
 
-## 12. Complete FastAPI API Reference
+## 13. Complete FastAPI REST API Reference
 
-| Endpoint | Method | Parameters | Description |
-| :--- | :--- | :--- | :--- |
-| `/health` | `GET` | None | Returns server health status, version, and environment |
-| `/signal` | `GET` | `symbol`, `interval`, `market`, `limit`, `with_flow` | Computes deterministic factor scores, levels, and regime |
-| `/explain` | `GET` | `symbol`, `interval`, `market`, `limit`, `with_flow` | Computes signal + LLM narrative rationale |
-| `/decision` | `GET` | `symbol`, `interval`, `market`, `limit` | Full pipeline: Signal + Multi-Agent AI Debate + Persistence |
-| `/candles` | `GET` | `symbol`, `interval`, `market`, `limit` | Returns OHLCV candles for charting |
-| `/db/status` | `GET` | None | Checks Supabase database reachability and persistence status |
-| `/signals/recent` | `GET` | `limit` | Fetches recently logged trade signals |
-| `/trades` | `GET` | `result`, `limit`, `offset`, `trade_size` | Returns paginated closed trade history with P&L |
-| `/trade` | `GET` | `id` | Fetches complete detail for a specific trade signal |
-| `/stats` | `GET` | None | Scoreboard summary of hit rate and average return |
-| `/performance` | `GET` | `trade_size` | Paper trading portfolio P&L report (realized & floating) |
-| `/summary` | `GET` | `trade_size` | Weekly, monthly, and all-time summary metrics & weight changes |
-| `/resolve` | `POST` | `max_signals` | Manually triggers the automated signal outcome resolver |
-| `/scan` | `POST` | `min_confidence` | Manually triggers multi-asset watchlist scanner |
-| `/learning/status` | `GET` | None | Displays active champion weights, regime samples, & ML status |
-| `/learning/train` | `POST` | None | Triggers factor weight retraining and walk-forward gating |
-| `/meta/train` | `POST` | None | Trains Meta-ML model and checks shadow-to-gating promotion |
-| `/arb/funding-scan` | `POST` | None | Executes delta-neutral funding-carry arbitrage scan |
-| `/arb/triangular-scan` | `POST` | None | Executes triangular currency cycle arbitrage scan |
-| `/arb/cross-scan` | `POST` | None | Executes cross-exchange (Binance vs Bybit) arbitrage scan |
-| `/arb/opportunities` | `GET` | `limit` | Fetches recently logged positive-EV arbitrage opportunities |
-| `/arb/alerts` | `GET` | `hours` | Returns active positive-EV arbitrage alerts for past N hours |
-| `/outcome` | `POST` | Payload: `OutcomeIn` | Manually labels trade outcome (target/stop/timeout/manual) |
-| `/webhook/tradingview` | `POST` | Payload: `TradingViewAlert`, Header: `x-signature` | HMAC-authenticated webhook endpoint for Pine Script alerts |
+The backend exposes an interactive OpenAPI documentation endpoint at `/docs`.
+
+| Method | Endpoint | Query / Body Parameters | Description |
+|:---:|:---|:---|:---|
+| `GET` | `/health` | None | Returns backend status, environment, version, and database connection state |
+| `GET` | `/signal` | `symbol`, `interval`, `market`, `limit`, `with_flow` | Computes full deterministic factor scores, levels, and regime for asset |
+| `GET` | `/explain` | `symbol`, `interval`, `market`, `limit` | Computes signal + qualitative LLM narrative synthesis |
+| `GET` | `/decision` | `symbol`, `interval`, `market`, `limit` | Full decision pipeline: Factor Confluence + AI Multi-Agent Debate + Logging |
+| `GET` | `/candles` | `symbol`, `interval`, `market`, `limit` | Returns validated OHLCV candlestick bars for frontend charting |
+| `GET` | `/scan` | `min_confidence` | Executes an on-demand sweep across the 4h watchlist |
+| `POST`| `/resolve` | `max_signals` | Manually triggers the asynchronous outcome resolver over open signals |
+| `GET` | `/flash/scan` | `log` (bool) | Sweeps the high-frequency flash universe (15m/1h) for burst setups |
+| `GET` | `/flash/stats`| `window_days` | Returns rolling Flash Bot performance, hit rate, and P&L metrics |
+| `GET` | `/performance`| `trade_size` | Returns paper trading portfolio metrics, Sharpe ratio, and floating P&L |
+| `GET` | `/trades` | `result`, `limit`, `offset` | Returns paginated list of closed historical trades |
+| `GET` | `/trade` | `id` | Fetches comprehensive details for a specific signal and its outcome |
+| `GET` | `/learning/status` | None | Returns active champion factor weights and ML learning state |
+| `POST`| `/learning/train` | None | Triggers factor weight retraining and walk-forward challenger gating |
+| `POST`| `/meta/train` | None | Trains secondary Meta-ML model and checks shadow-to-live promotion |
+| `POST`| `/arb/funding-scan` | None | Executes delta-neutral funding rate carry arbitrage sweep |
+| `POST`| `/arb/triangular-scan` | None | Executes triangular currency cycle arbitrage sweep |
+| `GET` | `/arb/opportunities` | `limit` | Fetches active positive-EV arbitrage opportunities |
+| `POST`| `/webhook/tradingview` | Header: `x-signature` | HMAC-authenticated webhook endpoint for external Pine Script alerts |
 
 ---
 
-## 13. Frontend UI & Interactive Dashboards
+## 14. Frontend Cockpit Architecture
 
-The Next.js 16 web application (`/frontend`) provides a cockpit interface with the following interactive panels:
+The user interface (`/frontend`) is built with **Next.js 16 (App Router)**, **React 19**, **TypeScript**, and **Tailwind CSS**, designed with an ultra-responsive dark-mode glassmorphism visual aesthetic:
 
-1. **Main Trading Cockpit (`page.tsx`, `SignalCard.tsx`)**: Real-time signal card displaying composite score gauge, confidence rating, regime badge, risk/reward levels (Entry, SL, $T_1, T_2, T_3$), meta-ML predicted win probability, recommended position size, and rationale.
-2. **Interactive Financial Chart (`PriceChart.tsx`)**: Powered by TradingView `lightweight-charts`. Features live candlestick charting, volume bars, overlay toggles (EMA 9/21/50/200, UT Bot stop line, LuxAlgo Sabres reversal arrows, Pivot levels), and entry/stop/target visual markers.
-3. **8-Factor Gauge Bar (`FactorBar.tsx`)**: Visual metric breakdown displaying scores for each of the 8 factor families (-100 to +100) with color gradients.
-4. **Multi-Agent AI Debate Viewer (`DebatePanel.tsx`)**: Side-by-side display of Bull Analyst vs Bear Analyst arguments, Risk Manager verdict, agreement badge, and key risk factors.
-5. **Automated Watchlist Scanner Panel (`ScannerPanel.tsx`)**: Real-time table displaying continuously scanned watchlist assets across multiple timeframes with filter controls.
-6. **Paper Trade History & Modal (`TradeHistoryPanel.tsx`, `TradeDetailModal.tsx`)**: Filterable table of closed trades with outcome badges, realized P&L, MFE/MAE excursions, and full modal drill-down into historical signal state.
-7. **Portfolio Performance & Equity Curve (`PerformancePanel.tsx`, `EquityCurve.tsx`)**: Interactive portfolio metrics showing equity curve, net P&L, win rate, profit factor, max drawdown, Sharpe ratio, and floating asset P&L.
-8. **Learning Loop & System Summary (`SummaryPanel.tsx`)**: Dashboard tracking weekly/monthly performance, dynamic champion factor weight shifts, probability calibration curves, and meta-model status.
-9. **Real-Time Arbitrage Dashboard (`ArbPanel.tsx`)**: Interactive panel displaying active funding rate carry opportunities, triangular arbitrage cycles, and cross-exchange spreads with net EV calculations.
+1. **Trading Terminal (`page.tsx`, `SignalCard.tsx`)**: Displays composite scores, confidence dials, price levels (Entry, SL, $T_1$--$T_3$), calibrated win probabilities, and EV estimates.
+2. **Interactive Financial Chart (`PriceChart.tsx`)**: High-performance TradingView Canvas charting via `lightweight-charts`. Features candlestick rendering, volume bars, EMA overlays (9, 21, 50, 200), UT Bot trailing stops, LuxAlgo reversal markers, and DBSCAN S/R zones.
+3. **8-Family Confluence Matrix (`FactorBar.tsx`)**: Visual breakdown of individual factor scores ($-100$ to $+100$) with color-coded gradients.
+4. **AI Debate Viewer (`DebatePanel.tsx`)**: Side-by-side terminal displaying Bull Analyst thesis, Bear Analyst rebuttal, Risk Manager verdict, and conviction penalty.
+5. **Watchlist Scanner (`ScannerPanel.tsx`)**: Live table tracking continuously scanned assets, status flags, and signal alerts.
+6. **Portfolio Performance & Equity Curve (`PerformancePanel.tsx`, `EquityCurve.tsx`)**: Real-time equity curve visualization, drawdown metrics, profit factor, and closed trade distribution.
+7. **Arbitrage Cockpit (`ArbPanel.tsx`)**: Displays positive-EV funding carry opportunities, cross-exchange spreads, and triangular cycles.
 
 ---
 
-## 14. Command Line Tools & Administration Scripts (`backend/scripts/`)
+## 15. Verification, Audit & Research Suite
 
-| Script | Command | Purpose |
-| :--- | :--- | :--- |
-| **Database Migration** | `python -m scripts.migrate` | Applies SQL migration sequences to Supabase PostgreSQL |
-| **Run Backtest** | `python -m scripts.run_backtest` | Executes causal backtest simulation over historical data |
-| **Walk-Forward Analysis** | `python -m scripts.walk_forward` | Runs walk-forward parameter sweep to optimize strategy |
-| **Train Weights** | `python -m scripts.train_weights` | Retrains regime factor weights on resolved trade outcomes |
-| **Scan Once** | `python -m scripts.scan_once` | Executes a single background scan of the watchlist |
-| **Resolve Outcomes** | `python -m scripts.resolve` | Manually runs outcome resolver over open signals |
-| **System Audit** | `python -m scripts.audit` | Comprehensive diagnostic check of database, data providers, & ML |
-| **PnL Diagnostics** | `python -m scripts.diag_pnl` | Detailed breakdown of paper trading portfolio performance |
-| **Verify Confluence** | `python -m scripts.verify_confluence` | Verifies deterministic math output against Pine Script baselines |
-| **Verify Integrations** | `python -m scripts.verify_integrations` | Tests connectivity to Binance, TwelveData, OpenRouter, & Supabase |
-| **Test Suites** | `python -m scripts.test_p0` ... `test_p3_tri` | Executes unit and integration test suites for all project phases |
-| **Render Deployment** | `python -m scripts.deploy_render` | Diagnostics & deployment helper script for Render hosting |
+The `/backend/scripts/` directory includes an exhaustive suite of diagnostic, backtesting, and validation scripts:
+
+```powershell
+# Set Python path to backend root
+$env:PYTHONPATH="."
+
+# Execute core unit test suites
+& ".venv/Scripts/python.exe" scripts/test_p0.py            # Costs, OHLCV validation, indicators
+& ".venv/Scripts/python.exe" scripts/test_p1.py            # Isotonic calibration, EV math
+& ".venv/Scripts/python.exe" scripts/test_p2_sizing.py     # Quarter-Kelly, ruin probability, tiers
+& ".venv/Scripts/python.exe" scripts/test_gates_live.py    # Database performance gates validation
+& ".venv/Scripts/python.exe" scripts/test_price_action.py  # Candlestick anatomy, patterns, S/R
+& ".venv/Scripts/python.exe" scripts/test_execution.py     # Limit order maker/taker execution
+
+# Execute deep forensic trade analysis
+& ".venv/Scripts/python.exe" scripts/deep_trade_analysis.py
+
+# Execute 200+ multi-strategy backtest audit
+& ".venv/Scripts/python.exe" scripts/master_200_strategies_audit.py
+```
 
 ---
 
-## 15. Environment Variables & Configuration Reference
+## 16. Configuration & Environment Reference
 
-### Backend `.env` Configuration (`backend/.env`)
+### Backend `.env` (`backend/.env`)
 
 ```env
-# Server & Environment
-APP_ENV=local
-CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+# Server & Security
+APP_ENV=production
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,https://your-domain.com
+TRADINGVIEW_WEBHOOK_SECRET=your-secure-webhook-secret
 
-# Webhook Security
-TRADINGVIEW_WEBHOOK_SECRET=your-shared-webhook-secret
+# Database (Supabase PostgreSQL)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+DATABASE_URL=postgresql://postgres.xxx:password@aws-0-region.pooler.supabase.com:6543/postgres
 
-# LLM Reasoning (OpenRouter)
+# Qualitative LLM Debate (OpenRouter)
 OPENROUTER_API_KEY=your-openrouter-api-key
 OPENROUTER_MODEL_STRONG=openrouter/auto
 OPENROUTER_MODEL_CHEAP=openai/gpt-4o-mini
 
 # Market Data Adapters
 TWELVEDATA_API_KEY=your-twelvedata-api-key
-ALPHAVANTAGE_API_KEY=your-alphavantage-api-key
 NEWSAPI_KEY=your-newsapi-key
 COINMARKETCAP_API_KEY=your-coinmarketcap-api-key
-CRYPTOQUANT_API_KEY=your-cryptoquant-api-key
+HELIUS_API_KEY=your-solana-helius-key
 
-# Supabase / PostgreSQL Persistence
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
-DATABASE_URL=postgresql://postgres:password@db.your-project.supabase.co:5432/postgres
-
-# Risk & System Limits
+# Risk Management & Strategy Settings
+ACCOUNT_EQUITY_USD=1000.0
 RISK_PER_TRADE_PCT=0.75
-MIN_REWARD_RISK=1.5
-CONVICTION_FLOOR=18.0
+CRYPTO_LONG_ONLY=true
+PARTIAL_BOOK_AT_R=0.60
+PARTIAL_BOOK_FRACTION=0.35
 EV_GATE_ENABLED=true
 MIN_EV_R=0.0
 DRIFT_ENABLED=true
 CIRCUIT_BREAKER_ENABLED=true
-ACCOUNT_EQUITY_USD=1000.0
 
-# Autonomous Background Tasks
+# Flash Bot Settings
+FLASH_ENABLED=true
+FLASH_PAPER_MODE=true
+FLASH_LONG_ONLY=false
+FLASH_STOP_ATR=1.25
+FLASH_RR=2.0
+FLASH_MIN_CVD_Z=0.35
+FLASH_LIMIT_OFFSET_ATR=0.15
+FLASH_PARTIAL_BOOK_AT_R=1.25
+
+# Autonomous Background Workers
 SCANNER_ENABLED=true
 SCANNER_INTERVAL_MINUTES=30
 RESOLVER_ENABLED=true
 RESOLVER_INTERVAL_MINUTES=15
-ARB_FUNDING_ENABLED=true
-ARB_TRIANGULAR_ENABLED=true
-ARB_CROSS_ENABLED=true
 ```
 
-### Frontend `.env.local` Configuration (`frontend/.env.local`)
+### Frontend `.env.local` (`frontend/.env.local`)
 
 ```env
 NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000
@@ -523,44 +645,82 @@ NEXT_PUBLIC_API_BASE=http://127.0.0.1:8000
 
 ---
 
-## 16. Development Setup & Deployment
+## 17. Installation, Development & Production Deployment
 
-### Local Development Setup
+### 17.1 Local Development Setup
 
-#### 1. Backend (Python FastAPI)
-```powershell
-cd backend
+#### Prerequisites
+* **Python 3.10+** (Python 3.11 recommended)
+* **Node.js 18+** & **npm**
+* **PostgreSQL 15+** or active **Supabase** instance
+
+#### 1. Backend Setup
+```bash
+# Clone the repository
+git clone https://github.com/thenewera0/StarkXQuantEdge.git
+cd StarkXQuantEdge/backend
+
+# Create virtual environment
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+source .venv/bin/activate  # On Windows: .\.venv\Scripts\Activate.ps1
+
+# Install dependencies
 pip install -r requirements.txt
-copy .env.example .env          # Fill in active API keys & Postgres URL
-python -m scripts.migrate       # Apply database migrations
-uvicorn app.main:app --reload   # Server runs at http://127.0.0.1:8000
-```
 
-#### 2. Frontend (Next.js 16)
-```powershell
-cd frontend
+# Configure environment variables
+cp .env.example .env
+
+# Apply database migrations
+python -m scripts.migrate
+
+# Start FastAPI development server
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+Backend API will be active at `http://127.0.0.1:8000`.
+
+#### 2. Frontend Setup
+```bash
+cd ../frontend
+
+# Install dependencies
 npm install
-copy .env.local.example .env.local
-npm run dev                      # Frontend cockpit starts at http://localhost:3000
+
+# Configure environment variables
+cp .env.local.example .env.local
+
+# Start Next.js development server
+npm run dev
 ```
-
-### Production Deployment
-
-#### Backend Deployment (Render / Docker)
-The application includes a production `Dockerfile` and `render.yaml`:
-```powershell
-# Build and run Docker container locally
-docker build -t starkx-quantedge-backend .
-docker run -p 8000:8000 --env-file backend/.env starkx-quantedge-backend
-```
-
-#### Frontend Deployment (Vercel)
-Deploy `/frontend` directly to Vercel and configure `NEXT_PUBLIC_API_BASE` pointing to your hosted backend API URL.
+Frontend Cockpit will be active at `http://localhost:3000`.
 
 ---
 
-## License & Attribution
+### 17.2 Production Deployment
 
-StarkX QuantEdge is proprietary trading software built for quantitative market analysis and autonomous decision support. All rights reserved.
+#### Backend Deployment (Docker / Render)
+A production `Dockerfile` is provided in the project root:
+
+```bash
+# Build Docker image
+docker build -t starkx-quantedge-backend -f backend/Dockerfile .
+
+# Run container
+docker run -d -p 8000:8000 --env-file backend/.env --name quantedge-backend starkx-quantedge-backend
+```
+
+For **Render**, connect the GitHub repository and specify:
+* **Environment**: `Python 3`
+* **Build Command**: `pip install -r backend/requirements.txt`
+* **Start Command**: `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT`
+
+#### Frontend Deployment (Vercel)
+Deploy the `/frontend` directory directly to Vercel:
+1. Set Root Directory to `frontend`.
+2. Configure Environment Variable: `NEXT_PUBLIC_API_BASE = https://your-backend-api.onrender.com`.
+3. Deploy.
+
+---
+
+## License & Intellectual Property
+
+StarkX QuantEdge is proprietary algorithmic trading software. All rights reserved. Code, architecture, and mathematical models are protected under proprietary licensing.
