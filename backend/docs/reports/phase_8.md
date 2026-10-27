@@ -3,7 +3,7 @@
 **Governance Status:** FINAL INSTITUTIONAL PRODUCTION HARDENING (COMPLETE CODE & CONFIG FREEZE)  
 **Operating Mandate:** Zero New Strategies | Zero Parameter Tweaks | Cryptographic Freeze Hash & Live Lock Stay in Force  
 **Baseline Freeze Hash:** `3fae909fb085597400a1d00de04431893172008963eca38cf2742a96ee3b6928`  
-**Report Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`  
+**Report Code Git Hash:** `4e187651b47878a818462cf70f6880cea8a4f2c9`  
 **Report Generation Engine:** `scripts/generate_report.py` (Rule 4.0 Deterministic Provenance)  
 
 ---
@@ -39,7 +39,7 @@ Migration 013 added `signals.initial_stop` and `signals.trailing_stop`. Historic
 
 ### Stop Overwrite Audit & Impact Summary
 
-> **Query ID:** `Q_P8_STOP_OVERWRITE_AUDIT` | **Row Count:** `8` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
+> **Query ID:** `Q_P8_STOP_OVERWRITE_AUDIT` | **Row Count:** `8` | **Code Git Hash:** `4e187651b47878a818462cf70f6880cea8a4f2c9`
 
 | Audit Dimension | Aggregator (Exact Count / Error) | Metric Value | Empirical Standard | Impact & Status |
 | :--- | :---: | :---: | :---: | :---: |
@@ -64,7 +64,7 @@ Testing whether the paper ledger's performance reflects genuine selection skill 
 
 ### Selection-vs-Luck Statistical Battery
 
-> **Query ID:** `Q_P8_SELECTION_TESTS` | **Row Count:** `9` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
+> **Query ID:** `Q_P8_SELECTION_TESTS` | **Row Count:** `9` | **Code Git Hash:** `4e187651b47878a818462cf70f6880cea8a4f2c9`
 
 | Selection Test Dimension | Aggregator (Day-Cluster / Paired) | Empirical Value | Threshold / Pre-Registered Standard | Verdict / Implication |
 | :--- | :---: | :---: | :---: | :---: |
@@ -87,7 +87,7 @@ Testing whether the paper ledger's performance reflects genuine selection skill 
 
 ### Gap Decomposition (Sums Exactly in R)
 
-> **Query ID:** `Q_P8_GAP_DECOMPOSITION` | **Row Count:** `5` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
+> **Query ID:** `Q_P8_GAP_DECOMPOSITION` | **Row Count:** `5` | **Code Git Hash:** `4e187651b47878a818462cf70f6880cea8a4f2c9`
 
 | Gap Component / Attribution | Aggregator (Per-Trade Mean R) | Mean R Impact | Share of Total Gap (%) | Forensic Mechanism & Proof |
 | :--- | :---: | :---: | :---: | :---: |
@@ -99,7 +99,7 @@ Testing whether the paper ledger's performance reflects genuine selection skill 
 
 ### Simulation Size Reconciliation (Phase 1.1 vs Phase 7/8)
 
-> **Query ID:** `Q_P8_SIM_SIZE_RECONCILIATION` | **Row Count:** `6` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
+> **Query ID:** `Q_P8_SIM_SIZE_RECONCILIATION` | **Row Count:** `6` | **Code Git Hash:** `4e187651b47878a818462cf70f6880cea8a4f2c9`
 
 | Simulation Version / Dimension | Aggregator (Specification Comparison) | Phase 1.1 Specification | Phase 7 / 8 Specification | Reconciliation Explanation |
 | :--- | :---: | :---: | :---: | :---: |
@@ -117,7 +117,7 @@ All scripts now consume the canonical `day_block_bootstrap(series, cluster_key, 
 
 ### Estimator Stability & N_eff Comparison
 
-> **Query ID:** `Q_P8_ESTIMATOR_STABILITY` | **Row Count:** `4` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
+> **Query ID:** `Q_P8_ESTIMATOR_STABILITY` | **Row Count:** `4` | **Code Git Hash:** `4e187651b47878a818462cf70f6880cea8a4f2c9`
 
 | Estimator / Stability Check | Aggregator (Deterministic Metric) | Run 1 Output | Run 2 Output | Discrepancy (Delta) | Standard & Status |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -136,7 +136,7 @@ Added `signals.first_seen_scan_ts` and `signals.passes_at_close` (boolean, evalu
 
 ### Forward Observation Subgroups
 
-> **Query ID:** `Q_P8_FORWARD_LOG_ENRICHMENT` | **Row Count:** `4` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
+> **Query ID:** `Q_P8_FORWARD_LOG_ENRICHMENT` | **Row Count:** `4` | **Code Git Hash:** `4e187651b47878a818462cf70f6880cea8a4f2c9`
 
 | Forward Subgroup | Aggregator (Per-Trade Mean / Day-Block CI) | Trades (n) | Mean Net R | 95% Day-Block CI | Pre-Registered Status & Standard |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -155,7 +155,7 @@ Market-aware stop distance limits (forex in pips $\ge 5$, crypto in percentage $
 
 ### Geometry Invariant Refinement Matrix
 
-> **Query ID:** `Q_P8_GEOMETRY_REFINEMENTS` | **Row Count:** `5` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
+> **Query ID:** `Q_P8_GEOMETRY_REFINEMENTS` | **Row Count:** `5` | **Code Git Hash:** `4e187651b47878a818462cf70f6880cea8a4f2c9`
 
 | Refinement Component | Aggregator (Specification Standard) | Legacy Behavior | Hardened 8.5 Behavior | Validation Status |
 | :--- | :---: | :---: | :---: | :---: |

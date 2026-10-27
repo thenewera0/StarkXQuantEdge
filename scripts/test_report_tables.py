@@ -12,7 +12,8 @@ from pathlib import Path
 from typing import Any
 from dotenv import load_dotenv
 
-root_dir = Path(__file__).resolve().parents[2]
+cur_path = Path(__file__).resolve()
+root_dir = cur_path.parents[2] if cur_path.parents[1].name == "backend" else cur_path.parents[1]
 backend_dir = root_dir / "backend"
 sys.path.insert(0, str(backend_dir))
 sys.path.insert(0, str(root_dir))
@@ -320,13 +321,42 @@ def test_phase_8_tables_have_query_ids():
     print(f"\nSUCCESS: All {len(tables)} numeric tables in phase_8.md verified with query IDs, git hashes, and aggregator declarations.")
 
 
+def test_phase_9_tables_have_query_ids():
+    p9_paths = [Path("docs/reports/phase_9.md"), Path("backend/docs/reports/phase_9.md")]
+    p9_path = next((p for p in p9_paths if p.exists()), None)
+    assert p9_path is not None, "Report docs/reports/phase_9.md not found"
+    tables = verify_table_provenance(p9_path)
+    q_map = {t["query_id"]: t for t in tables}
+    
+    # Verify core Phase 9 tables exist
+    expected_queries = [
+        "Q_P9_PLAIN_COUNTS_OVERVIEW",
+        "Q_P9_DISCREPANCY_RECONCILIATION",
+        "Q_P9_MUTATED_STOPS_RESOLUTION",
+        "Q_P9_POWER_TABLE",
+        "Q_P9_AMENDMENT_SPECIFICATION",
+        "Q_P9_VALIDATION_FIXES_AUDIT"
+    ]
+    for eq in expected_queries:
+        assert eq in q_map, f"Missing {eq} in phase_9.md tables!"
+    
+    # Verify that every table header names the aggregator
+    for t in tables:
+        has_aggregator = any("aggregator" in h.lower() for h in t["headers"])
+        assert has_aggregator, f"Table {t['query_id']} in phase_9.md does not name its aggregator in headers: {t['headers']}"
+        
+    print(f"\nSUCCESS: All {len(tables)} numeric tables in phase_9.md verified with query IDs, git hashes, and aggregator declarations.")
+
+
 def test_all_reports_tables():
     test_phase_4_tables_have_query_ids()
     test_phase_5_tables_have_query_ids()
     test_phase_6_tables_have_query_ids()
     test_phase_7_tables_have_query_ids()
     test_phase_8_tables_have_query_ids()
+    test_phase_9_tables_have_query_ids()
 
 
 if __name__ == "__main__":
     test_all_reports_tables()
+

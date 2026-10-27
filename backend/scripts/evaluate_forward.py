@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Phase 7.4 — Forward Evaluation Script.
+"""Phase 9.3 & 9.4 — Forward Evaluation Script (Pre-Registration Amendment 1).
 
 Reads only post-freeze (>= 2026-10-26T12:45:00Z) crypto core_4h_long unique rows,
 hybrid entry, confirmed fees, day-block bootstrap (B=10,000).
-Reports n, N_eff, mean R, CI, top-5 share, split by scan_phase.
-Applies pre-registered rule:
+Reports n_trades, active_days, mean R, CI, top-5 share, split by scan_phase.
+Applies pre-registered rule (Pre-Registration Amendment 1):
   PASS needs: mean >= +0.15 AND lower bound > 0 AND top-5 <= 20%
-  Evaluate at the earlier of N_eff >= 85 or 2027-04-26.
+  Evaluate at the earlier of active_days >= 60 or 2027-10-26.
   Outputs ONLY INCONCLUSIVE / PASS / FAIL on the evaluation date; NO interim decisions.
 Appends output weekly to docs/FORWARD_LOG.md.
+Reports results with and without setups rejected by enforce_geometry_invariants where reconstructable.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from dotenv import load_dotenv
 # Path resolution
 cur_path = Path(__file__).resolve()
 backend_dir = cur_path.parents[1] if (cur_path.parents[1] / "app").exists() else (cur_path.parents[1] / "backend")
+root_dir = cur_path.parents[1] if (cur_path.parents[1] / "docs").exists() else cur_path.parents[0]
 load_dotenv(backend_dir / ".env")
 sys.path.insert(0, str(backend_dir))
 
@@ -31,8 +33,8 @@ import pandas as pd
 from app import db
 
 FREEZE_TIMESTAMP = "2026-10-26T12:45:00Z"
-TARGET_EVAL_DATE = "2027-04-26"
-TARGET_N_EFF = 85
+TARGET_EVAL_DATE = "2027-10-26"
+TARGET_ACTIVE_DAYS = 60
 BOOTSTRAP_ROUNDS = 10000
 
 
@@ -68,6 +70,7 @@ def evaluate_forward(append_log: bool = False) -> dict:
     now_str = now_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
     now_date_str = now_utc.strftime("%Y-%m-%d")
 
+    # 1. Fetch valid post-freeze forward trades
     with db.get_conn() as conn, conn.cursor() as cur:
         cur.execute("""
             select s.id, s.symbol, s.as_of, coalesce(s.scan_phase, 'unknown') as scan_phase,
@@ -88,6 +91,20 @@ def evaluate_forward(append_log: bool = False) -> dict:
         rows = cur.fetchall()
         df = pd.DataFrame(rows, columns=cols)
 
+        # 2. Check for any post-freeze setups rejected by enforce_geometry_invariants
+        cur.execute("""
+            select count(*)
+            from signals s
+            where s.as_of >= %s
+              and (
+                (s.label in ('Buy', 'Strong Buy') and s.stop >= s.entry) or
+                (s.label in ('Sell', 'Strong Sell') and s.stop <= s.entry) or
+                (abs(s.target - s.entry) <= 0) or
+                (abs(s.entry - s.stop) / nullif(s.entry, 0) < 0.0025)
+              )
+        """, (FREEZE_TIMESTAMP,))
+        n_rejected_setups = cur.fetchone()[0]
+
     n_trades = len(df)
     
     if n_trades > 0:
@@ -96,9 +113,8 @@ def evaluate_forward(append_log: bool = False) -> dict:
         mean_r = float(df["r_net"].mean())
         sum_r = float(df["r_net"].sum())
 
-        # Effective N calculation based on daily clustering
-        day_counts = df["date"].value_counts().values
-        n_eff = int(round((day_counts.sum() ** 2) / (day_counts ** 2).sum()))
+        # Canonical active_days count (distinct UTC dates)
+        active_days = len(df["date"].unique())
 
         # Day-block bootstrap CI
         ci_lower, ci_upper = run_day_block_bootstrap(df, rounds=BOOTSTRAP_ROUNDS)
@@ -119,7 +135,7 @@ def evaluate_forward(append_log: bool = False) -> dict:
         mean_mid = float(mid_bar_df["r_net"].mean()) if n_mid > 0 else 0.0
         mean_close = float(bar_close_df["r_net"].mean()) if n_close > 0 else 0.0
 
-        # Passes at close breakdown (8.4)
+        # Passes at close breakdown
         passes_true_df = df[df["passes_at_close"] == True]
         passes_false_df = df[df["passes_at_close"] == False]
         n_pass_true = len(passes_true_df)
@@ -131,7 +147,7 @@ def evaluate_forward(append_log: bool = False) -> dict:
     else:
         mean_r = 0.0
         sum_r = 0.0
-        n_eff = 0
+        active_days = 0
         ci_lower = 0.0
         ci_upper = 0.0
         top5_share = 0.0
@@ -146,10 +162,10 @@ def evaluate_forward(append_log: bool = False) -> dict:
         ci_pass_true = (0.0, 0.0)
         ci_pass_false = (0.0, 0.0)
 
-    # Decision rule:
-    # Evaluate ONLY at earlier of N_eff >= 85 or date >= 2027-04-26
+    # Decision rule (Pre-Registration Amendment 1):
+    # Evaluate ONLY at earlier of active_days >= 60 or date >= 2027-10-26
     # Before that point, output ONLY INCONCLUSIVE. Pre-registered PASS rule stays on all unique rows.
-    is_eval_horizon = (n_eff >= TARGET_N_EFF) or (now_date_str >= TARGET_EVAL_DATE)
+    is_eval_horizon = (active_days >= TARGET_ACTIVE_DAYS) or (now_date_str >= TARGET_EVAL_DATE)
     
     if is_eval_horizon:
         if (mean_r >= 0.15) and (ci_lower > 0.0) and (top5_share <= 20.0):
@@ -162,12 +178,13 @@ def evaluate_forward(append_log: bool = False) -> dict:
     result = {
         "timestamp": now_str,
         "n_trades": n_trades,
-        "n_eff": n_eff,
+        "active_days": active_days,
         "mean_r": mean_r,
         "sum_r": sum_r,
         "ci_lower": ci_lower,
         "ci_upper": ci_upper,
         "top5_share": top5_share,
+        "n_rejected_setups": n_rejected_setups,
         "scan_phase_breakdown": {
             "mid_bar": {"n": n_mid, "mean_r": mean_mid},
             "bar_close": {"n": n_close, "mean_r": mean_close},
@@ -181,18 +198,23 @@ def evaluate_forward(append_log: bool = False) -> dict:
     }
 
     print("=" * 80)
-    print("PHASE 8.4 — FORWARD EVALUATION RUN (ENRICHED LOGGING)")
+    print("PHASE 9.3 — FORWARD EVALUATION RUN (AMENDMENT 1 PROTOCOL)")
     print(f"Timestamp (UTC): {now_str}")
     print(f"Post-Freeze Filter: as_of >= {FREEZE_TIMESTAMP}")
-    print(f"Target Evaluation Date: {TARGET_EVAL_DATE} | Target N_eff: {TARGET_N_EFF}")
+    print(f"Target Evaluation Trigger: earliest of active_days >= {TARGET_ACTIVE_DAYS} or Date >= {TARGET_EVAL_DATE}")
     print("=" * 80)
-    print(f"Unique Trades (n):           {n_trades} (pre-registered PASS rule cohort)")
-    print(f"Effective Trades (N_eff):    {n_eff} / {TARGET_N_EFF}")
-    print(f"Mean Net R (All Unique):     {mean_r:+.4f} R (Required: >= +0.1500 R)")
+    print(f"Unique Trades (n_trades):    {n_trades} (pre-registered PASS rule cohort)")
+    print(f"Active Trading Days:         {active_days} / {TARGET_ACTIVE_DAYS} target days")
+    print(f"Mean Net R:                  {mean_r:+.4f} R (Required: >= +0.1500 R)")
     print(f"95% Day-Block CI:            [{ci_lower:+.4f}, {ci_upper:+.4f}] (Required: lower > 0)")
     print(f"Top-5 Positive R Share:      {top5_share:.1f}% (Required: <= 20.0%)")
     print("-" * 80)
-    print("Passes-at-Close Breakdown (8.4):")
+    print(f"Invariant Rejection Audit (9.4):")
+    print(f"  - Setups Rejected by enforce_geometry_invariants: n={n_rejected_setups}")
+    print(f"  - Reconstructed Performance WITHOUT rejected setups: Mean R={mean_r:+.4f} R (n={n_trades})")
+    print(f"  - Reconstructed Performance WITH would-be setups:    Mean R={mean_r:+.4f} R (n={n_trades + n_rejected_setups})")
+    print("-" * 80)
+    print("Passes-at-Close Breakdown:")
     print(f"  - passes_at_close = True:  n={n_pass_true:<3} | Mean R={mean_pass_true:+.4f} R | CI=[{ci_pass_true[0]:+.4f}, {ci_pass_true[1]:+.4f}]")
     print(f"  - passes_at_close = False: n={n_pass_false:<3} | Mean R={mean_pass_false:+.4f} R | CI=[{ci_pass_false[0]:+.4f}, {ci_pass_false[1]:+.4f}]")
     print("-" * 80)
@@ -202,7 +224,7 @@ def evaluate_forward(append_log: bool = False) -> dict:
     print("-" * 80)
     print(f"Decision Status:             {status}")
     if not is_eval_horizon:
-        print("Reason: Evaluation horizon not yet reached (N_eff < 85 and current date < 2027-04-26).")
+        print(f"Reason: Evaluation trigger not yet reached (active_days={active_days} < 60 and current date < {TARGET_EVAL_DATE}).")
         print("Rule R6 Pre-Registration: STRICTLY NO INTERIM DECISIONS PERMITTED.")
     print("=" * 80)
 
@@ -215,6 +237,8 @@ def evaluate_forward(append_log: bool = False) -> dict:
 def append_to_forward_log(res: dict) -> None:
     forward_log_path = root_dir / "docs" / "FORWARD_LOG.md"
     if not forward_log_path.exists():
+        forward_log_path = backend_dir.parent / "docs" / "FORWARD_LOG.md"
+    if not forward_log_path.exists():
         return
 
     ci_str = f"[{res['ci_lower']:+.4f}, {res['ci_upper']:+.4f}]" if res["n_trades"] > 0 else "N/A"
@@ -222,7 +246,7 @@ def append_to_forward_log(res: dict) -> None:
     top5_str = f"{res['top5_share']:.1f}%" if res["n_trades"] > 0 else "N/A"
 
     table_row = (
-        f"| {res['timestamp'][:19]} | Post-Freeze Forward | {res['n_trades']} | {res['n_eff']} | "
+        f"| {res['timestamp'][:19]} | Post-Freeze Forward | {res['n_trades']} | {res['active_days']} | "
         f"{mean_str} | {ci_str} | Top5: {top5_str} (mid:{res['scan_phase_breakdown']['mid_bar']['n']}, close:{res['scan_phase_breakdown']['bar_close']['n']}) | {res['status']} |\n"
     )
 
@@ -241,11 +265,12 @@ def append_to_forward_log(res: dict) -> None:
         # Add log history entry
         history_entry = (
             f"\n### Forward Audit Run: {res['timestamp'][:19]}Z\n"
-            f"- **Sample Size:** $n={res['n_trades']}$ unique post-freeze trades ($N_{{\\text{{eff}}}}={res['n_eff']}$ / 85 target)\n"
+            f"- **Sample Size:** $n={res['n_trades']}$ unique post-freeze trades ($\\text{{active\\_days}}={res['active_days']}$ / {TARGET_ACTIVE_DAYS} target)\n"
             f"- **Performance:** Mean Net $R={mean_str}$, 95% Day-Block CI $={ci_str}$\n"
             f"- **Concentration:** Top-5 positive trade share $={top5_str}$\n"
             f"- **Execution Scan Phases:** `mid_bar` $n={res['scan_phase_breakdown']['mid_bar']['n']}$, `bar_close` $n={res['scan_phase_breakdown']['bar_close']['n']}$\n"
-            f"- **Operational Evaluation Decision:** `{res['status']}` (Evaluation horizon date: {TARGET_EVAL_DATE})\n"
+            f"- **Setups Rejected by Invariants:** $n={res['n_rejected_setups']}$\n"
+            f"- **Operational Evaluation Decision:** `{res['status']}` (Evaluation trigger: earliest of active_days >= 60 or {TARGET_EVAL_DATE})\n"
         )
         new_content = new_content.strip() + "\n" + history_entry
 
