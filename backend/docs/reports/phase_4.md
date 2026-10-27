@@ -3,7 +3,7 @@
 **Date:** 2026-10-27  
 **Environment:** Quantitative Edge Rehabilitation & Final Institutional Closure Suite  
 **Operating Rules:** R1–R7 Enforced | v1.1 Parameter Freeze Maintained | `LIVE_TRADING_ENABLED = False`  
-**Code Git Commit:** `beb8934d466db81e08f5cc44f32970092fa7c5e8`  
+**Code Git Commit:** `c3834c4f568549149c589a5e967fe083c69cb418`  
 **Direction A Spec Hash:** `119d7245491f5df601d0159310e775a0e76a21514a643b183372660ab4977664`  
 **Report Provenance Engine:** `scripts/generate_report.py` (Rule 4.0 Compliant: Numbers Are Computed, Never Typed)
 
@@ -30,7 +30,7 @@ In strict compliance with Operating Rule 4.0, every numeric table in this docume
 
 ### Diff Against Published Phase 3 Report Tables
 
-> **Query ID:** `Q_P3_DIFF_AUDIT` | **Row Count:** `6` | **Code Git Hash:** `beb8934d466db81e08f5cc44f32970092fa7c5e8`
+> **Query ID:** `Q_P3_DIFF_AUDIT` | **Row Count:** `6` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
 
 | Phase 3 Report Section | Published Phase 3 Value | Regenerated Phase 4 Value | Attribution of Discrepancy |
 | :--- | :---: | :---: | :---: |
@@ -49,7 +49,7 @@ In strict compliance with Operating Rule 4.0, every numeric table in this docume
 
 Forensic trade-by-trade cost decomposition across 10 random Core 4h Long trades:
 
-> **Query ID:** `Q_P4_RECON_CORE_LONG` | **Row Count:** `10` | **Code Git Hash:** `beb8934d466db81e08f5cc44f32970092fa7c5e8`
+> **Query ID:** `Q_P4_RECON_CORE_LONG` | **Row Count:** `10` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
 
 | Signal ID | Symbol | Result | Bars | Fee (R) | Slippage (R) | Funding (R) | Total Cost (R) | Gross R | Phase 0.6/1.1 (Double Deduct) | Phase 3/4 Correct (Gross - Cost) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -71,7 +71,7 @@ Forensic trade-by-trade cost decomposition across 10 random Core 4h Long trades:
 
 Rerun of all trading cohorts under verified institutional perpetual execution fees (maker 2 bps, taker 5 bps, stop slippage 3 bps, actual funding):
 
-> **Query ID:** `Q_P4_COST_SANITY` | **Row Count:** `7` | **Code Git Hash:** `beb8934d466db81e08f5cc44f32970092fa7c5e8`
+> **Query ID:** `Q_P4_COST_SANITY` | **Row Count:** `7` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
 
 | Cohort Key | Trades (n) | Ledger Mean R | Confirmed Mean R | Delta R | Cost Parity Status |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -92,7 +92,7 @@ Rerun of all trading cohorts under verified institutional perpetual execution fe
 
 Simulation of Always-Long and Random-Entry baselines matched on identical symbols, entry timestamps, and identical trade management (partial booking at $+0.20$ R taking $50\%$, stop $1.25\times$ ATR, target $2.0\times$ ATR, timeout $48$ bars):
 
-> **Query ID:** `Q_P4_BENCHMARKS` | **Row Count:** `4` | **Code Git Hash:** `beb8934d466db81e08f5cc44f32970092fa7c5e8`
+> **Query ID:** `Q_P4_BENCHMARKS` | **Row Count:** `4` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
 
 | Regime Cohort | Matched Bars (n) | Rule Mean R | Always-Long (Identical Exits) | Paired Excess vs AL (Identical) | 95% Day-Block CI vs AL (Identical) | Excess vs AL (Unmanaged) | 95% Day-Block CI vs AL (Unmanaged) | Excess vs Random (Identical) | 95% Day-Block CI vs Random |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -106,7 +106,7 @@ Simulation of Always-Long and Random-Entry baselines matched on identical symbol
 
 ### 4.1(d) Funding Carry Line-by-Line Reconciliation
 
-> **Query ID:** `Q_P4_CARRY_RECON` | **Row Count:** `10` | **Code Git Hash:** `beb8934d466db81e08f5cc44f32970092fa7c5e8`
+> **Query ID:** `Q_P4_CARRY_RECON` | **Row Count:** `10` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
 
 | Reconciliation Dimension | Phase 2 Model (Regime-Switched) | Phase 3 Model (Continuous Always-On) | Forensic Attribution of Difference |
 | :--- | :---: | :---: | :---: |
@@ -124,7 +124,7 @@ Simulation of Always-Long and Random-Entry baselines matched on identical symbol
 
 ### 4.1(e) Point-in-Time Daily Momentum (Candidate 2D)
 
-> **Query ID:** `Q_P4_MOMENTUM_2D` | **Row Count:** `4` | **Code Git Hash:** `beb8934d466db81e08f5cc44f32970092fa7c5e8`
+> **Query ID:** `Q_P4_MOMENTUM_2D` | **Row Count:** `4` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
 
 | Candidate Strategy | Lookback | Net Mean (bps/day) | Daily Std (bps) | Annualized Net Sharpe | 95% Day-Block CI | Deflated Sharpe Ratio (DSR) | Positive Years | Status |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -141,7 +141,7 @@ Simulation of Always-Long and Random-Entry baselines matched on identical symbol
 
 ### Frozen Specification Verification
 
-> **Query ID:** `Q_P4_DIR_A_SPEC` | **Row Count:** `10` | **Code Git Hash:** `beb8934d466db81e08f5cc44f32970092fa7c5e8`
+> **Query ID:** `Q_P4_DIR_A_SPEC` | **Row Count:** `10` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
 
 | Specification Element | Frozen Parameter Value | Architectural Rule |
 | :--- | :---: | :---: |
@@ -159,7 +159,7 @@ Simulation of Always-Long and Random-Entry baselines matched on identical symbol
 
 ### Empirical Out-of-Sample Performance (Ranks 51–100 Validation Universe)
 
-> **Query ID:** `Q_P4_DIR_A_RESULTS` | **Row Count:** `6` | **Code Git Hash:** `beb8934d466db81e08f5cc44f32970092fa7c5e8`
+> **Query ID:** `Q_P4_DIR_A_RESULTS` | **Row Count:** `6` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
 
 | Horizon (H) | Execution Model | Net Sharpe | 95% Day-Block CI | DSR (n=512) | Positive Years | Placebo p-value | Incremental Alpha t | Top 5% P&L Share | 1-Bar Lag Sharpe (% Fall) | Gate Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -196,7 +196,7 @@ Simulation of Always-Long and Random-Entry baselines matched on identical symbol
 
 ## 4.3 Final Master Decision (Computed, Not Argued)
 
-> **Query ID:** `Q_P4_MASTER_DECISION` | **Row Count:** `7` | **Code Git Hash:** `beb8934d466db81e08f5cc44f32970092fa7c5e8`
+> **Query ID:** `Q_P4_MASTER_DECISION` | **Row Count:** `7` | **Code Git Hash:** `c3834c4f568549149c589a5e967fe083c69cb418`
 
 | Candidate Strategy Sleeve | Validation Net Sharpe | CI Lower Bound > 0 | DSR >= 0.95 | Positive in >= 4/5 Years | Positive in Bull & Bear | Promotion Status | Core Diagnostic Rationale |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
