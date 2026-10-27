@@ -50,6 +50,18 @@ def _round_price(x: float | None) -> float | None:
     return round(x, 8)
 
 
+def _round_significant(x: float | None, sig: int = 6) -> float | None:
+    """Rounds float to at least `sig` significant digits for micro-priced assets (8.5)."""
+    if x is None or (isinstance(x, float) and math.isnan(x)) or x == 0:
+        return x
+    ax = abs(x)
+    if ax >= 0.01:
+        return _round_price(x)
+    order_of_mag = math.floor(math.log10(ax))
+    decimals = max(8, sig - 1 - order_of_mag)
+    return round(x, min(decimals, 14))
+
+
 def _range_fade(direction: str, price: float, atr: float,
                 bb_mid: float | None, bb_upper: float | None, bb_lower: float | None):
     """Return (stop, t1, t2, t3) for a range fade, or None if the bands don't support it."""
@@ -80,6 +92,8 @@ def trade_levels(
     partial_book_at_r: float | None = None, partial_book_fraction: float | None = None,
     enforce_geometry_invariants: bool = False,
     min_stop_distance_pct: float = 0.0025,
+    min_stop_distance_pips: float = 5.0,
+    market: str = "crypto",
     min_target_multiple_r: float = 0.5,
     max_target_multiple_r: float = 5.0,
 ) -> dict:
@@ -185,11 +199,15 @@ def trade_levels(
                 entry_px + partial_book_at_r * risk_now if direction == "long"
                 else entry_px - partial_book_at_r * risk_now)
 
-    out_entry = _round_price(entry_px)
-    out_stop = _round_price(stop)
-    out_target = targets[0]
+    # 8.5 Geometry Refinement: Use significant-digit rounding (at least 6 digits) behind enforce_geometry_invariants
+    round_fn = (lambda v: _round_significant(v, 6)) if enforce_geometry_invariants else _round_price
 
-    # Geometry Invariants Hardening (7.1): active when enforce_geometry_invariants is True
+    out_entry = round_fn(entry_px)
+    out_stop = round_fn(stop)
+    out_target = round_fn(targets[0])
+    targets = [round_fn(t) for t in targets]
+
+    # Geometry Invariants Hardening (7.1 & 8.5): active when enforce_geometry_invariants is True
     if enforce_geometry_invariants:
         if out_entry is None or out_stop is None or out_target is None or out_entry <= 0:
             return _flat()
@@ -207,11 +225,18 @@ def trade_levels(
         target_dist = abs(out_target - out_entry)
         if target_dist <= 0:
             return _flat()
-        # Invariant 6: Minimum stop distance percentage
+        # Invariant 6: Market-aware minimum stop distance (8.5: forex in pips, crypto in %)
         stop_dist = abs(out_entry - out_stop)
-        stop_dist_pct = stop_dist / out_entry
-        if stop_dist_pct < min_stop_distance_pct:
-            return _flat()
+        if (market or "crypto").lower() == "forex":
+            # For forex: pip size is 0.01 for JPY pairs (price in [20, 500]), 0.0001 for non-JPY
+            pip_size = 0.01 if (20.0 <= out_entry <= 500.0) else 0.0001
+            min_stop_dist = min_stop_distance_pips * pip_size
+            if stop_dist < min_stop_dist:
+                return _flat()
+        else:
+            stop_dist_pct = stop_dist / out_entry
+            if stop_dist_pct < min_stop_distance_pct:
+                return _flat()
         # Invariant 7: Target multiple within bounds [0.5R, 5.0R]
         target_r = target_dist / stop_dist if stop_dist > 0 else 0.0
         if not (min_target_multiple_r <= target_r <= max_target_multiple_r):

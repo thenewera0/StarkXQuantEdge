@@ -313,7 +313,8 @@ def _open_signals(limit: int) -> list[dict]:
         cur.execute(
             """
             select id, symbol, coalesce(market,'crypto') as market, interval, as_of,
-                   label, entry, stop, target, atr, price, coalesce(strategy,'core') as strategy
+                   label, entry, coalesce(initial_stop, stop) as stop, target, atr, price,
+                   coalesce(strategy,'core') as strategy, trailing_stop
             from signals s
             where not exists (select 1 from outcomes o where o.signal_id = s.id)
               and entry is not null and stop is not null and target is not null
@@ -380,7 +381,7 @@ def resolve_open_signals(max_signals: int = 50) -> dict:
         )
         if outcome is None or outcome.get("status") == "open":
             if outcome and outcome.get("trailing_stop"):
-                persistence.update_signal_stop(s["id"], outcome["trailing_stop"])
+                persistence.update_signal_trailing_stop(s["id"], outcome["trailing_stop"])
             still_open += 1
             continue
         if persistence.record_outcome(

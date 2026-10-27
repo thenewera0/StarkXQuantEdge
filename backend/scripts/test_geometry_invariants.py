@@ -60,13 +60,34 @@ def test_hardened_enforces_all_invariants():
     assert res_pepe_hardened["direction"] == "flat", "PEPEUSDT zero target distance must return flat!"
     print("[PASS]: Zero target distance correctly rejected -> direction='flat'.")
 
-    # 6. Stop Distance < 0.25%
-    res_forex_hardened = trade_levels(1.1440, 0.0005, "long", "4h", "weak_trend",
-                                      enforce_geometry_invariants=True)
-    assert res_forex_hardened["direction"] == "flat", "Micro stop < 0.25% must return flat!"
-    print("[PASS]: Micro stop distance < 0.25% correctly rejected -> direction='flat'.")
+    # 6. Market-aware stop distance limits (8.5)
+    # Crypto: stop < 0.25% rejected
+    res_crypto_micro = trade_levels(100.0, 0.10, "long", "4h", "weak_trend",
+                                    market="crypto", enforce_geometry_invariants=True)
+    assert res_crypto_micro["direction"] == "flat", "Crypto stop < 0.25% must return flat!"
+    print("[PASS]: Crypto stop distance < 0.25% correctly rejected -> direction='flat'.")
 
-    # 7. Valid Trade Passes Cleanly
+    # Forex: 2 pips (< 5 pips) rejected
+    res_forex_micro = trade_levels(1.1000, 0.00015, "long", "4h", "weak_trend",
+                                   market="forex", min_stop_distance_pips=5.0, enforce_geometry_invariants=True)
+    assert res_forex_micro["direction"] == "flat", "Forex stop < 5 pips must return flat!"
+    print("[PASS]: Forex stop distance < 5 pips correctly rejected -> direction='flat'.")
+
+    # Forex: 8 pips (>= 5 pips) valid even though 0.07% < 0.25%
+    res_forex_valid = trade_levels(1.1000, 0.0007, "long", "4h", "weak_trend",
+                                   market="forex", min_stop_distance_pips=5.0, enforce_geometry_invariants=True)
+    assert res_forex_valid["direction"] == "long", "Forex stop >= 5 pips must pass!"
+    print(f"[PASS]: Forex trade with 8.4 pips accepted: entry={res_forex_valid['entry']}, stop={res_forex_valid['stop']}.")
+
+    # 7. Significant-digit rounding for micro tokens (8.5)
+    # PEPE with viable ATR retains at least 6 significant digits
+    res_pepe_sig = trade_levels(0.0000045678, 0.00000035, "long", "4h", "weak_trend",
+                                market="crypto", enforce_geometry_invariants=True)
+    assert res_pepe_sig["direction"] == "long"
+    assert res_pepe_sig["target"] > res_pepe_sig["entry"] > res_pepe_sig["stop"]
+    print(f"[PASS]: Micro-token with 6 sig digits preserved: entry={res_pepe_sig['entry']}, stop={res_pepe_sig['stop']}, target={res_pepe_sig['target']}.")
+
+    # 8. Valid Standard Trade Passes Cleanly
     res_valid = trade_levels(60000.0, 1000.0, "long", "4h", "weak_trend",
                              enforce_geometry_invariants=True)
     assert res_valid["direction"] == "long"

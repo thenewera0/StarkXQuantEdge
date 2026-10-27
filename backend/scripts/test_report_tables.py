@@ -292,11 +292,40 @@ def test_phase_7_tables_have_query_ids():
     print(f"\nSUCCESS: All {len(tables)} numeric tables in phase_7.md verified with query IDs, git hashes, and aggregator declarations.")
 
 
+def test_phase_8_tables_have_query_ids():
+    p8_paths = [Path("docs/reports/phase_8.md"), Path("backend/docs/reports/phase_8.md")]
+    p8_path = next((p for p in p8_paths if p.exists()), None)
+    assert p8_path is not None, "Report docs/reports/phase_8.md not found"
+    tables = verify_table_provenance(p8_path)
+    q_map = {t["query_id"]: t for t in tables}
+    
+    # Verify core Phase 8 tables exist
+    expected_queries = [
+        "Q_P8_STOP_OVERWRITE_AUDIT",
+        "Q_P8_SELECTION_TESTS",
+        "Q_P8_GAP_DECOMPOSITION",
+        "Q_P8_SIM_SIZE_RECONCILIATION",
+        "Q_P8_ESTIMATOR_STABILITY",
+        "Q_P8_FORWARD_LOG_ENRICHMENT",
+        "Q_P8_GEOMETRY_REFINEMENTS"
+    ]
+    for eq in expected_queries:
+        assert eq in q_map, f"Missing {eq} in phase_8.md tables!"
+    
+    # Verify that every table header names the aggregator
+    for t in tables:
+        has_aggregator = any("aggregator" in h.lower() for h in t["headers"])
+        assert has_aggregator, f"Table {t['query_id']} in phase_8.md does not name its aggregator in headers: {t['headers']}"
+        
+    print(f"\nSUCCESS: All {len(tables)} numeric tables in phase_8.md verified with query IDs, git hashes, and aggregator declarations.")
+
+
 def test_all_reports_tables():
     test_phase_4_tables_have_query_ids()
     test_phase_5_tables_have_query_ids()
     test_phase_6_tables_have_query_ids()
     test_phase_7_tables_have_query_ids()
+    test_phase_8_tables_have_query_ids()
 
 
 if __name__ == "__main__":

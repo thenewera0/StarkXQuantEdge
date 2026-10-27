@@ -21,8 +21,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Path resolution
-root_dir = Path(__file__).resolve().parents[1]
-backend_dir = root_dir / "backend"
+cur_path = Path(__file__).resolve()
+backend_dir = cur_path.parents[1] if (cur_path.parents[1] / "app").exists() else (cur_path.parents[1] / "backend")
 load_dotenv(backend_dir / ".env")
 sys.path.insert(0, str(backend_dir))
 
@@ -71,6 +71,7 @@ def evaluate_forward(append_log: bool = False) -> dict:
     with db.get_conn() as conn, conn.cursor() as cur:
         cur.execute("""
             select s.id, s.symbol, s.as_of, coalesce(s.scan_phase, 'unknown') as scan_phase,
+                   coalesce(s.passes_at_close, false) as passes_at_close, s.first_seen_scan_ts,
                    o.r_net, o.pnl, o.cost_r
             from signals s
             join outcomes o on o.signal_id = s.id
@@ -117,6 +118,16 @@ def evaluate_forward(append_log: bool = False) -> dict:
         n_close = len(bar_close_df)
         mean_mid = float(mid_bar_df["r_net"].mean()) if n_mid > 0 else 0.0
         mean_close = float(bar_close_df["r_net"].mean()) if n_close > 0 else 0.0
+
+        # Passes at close breakdown (8.4)
+        passes_true_df = df[df["passes_at_close"] == True]
+        passes_false_df = df[df["passes_at_close"] == False]
+        n_pass_true = len(passes_true_df)
+        n_pass_false = len(passes_false_df)
+        mean_pass_true = float(passes_true_df["r_net"].mean()) if n_pass_true > 0 else 0.0
+        mean_pass_false = float(passes_false_df["r_net"].mean()) if n_pass_false > 0 else 0.0
+        ci_pass_true = run_day_block_bootstrap(passes_true_df, rounds=BOOTSTRAP_ROUNDS) if n_pass_true > 0 else (0.0, 0.0)
+        ci_pass_false = run_day_block_bootstrap(passes_false_df, rounds=BOOTSTRAP_ROUNDS) if n_pass_false > 0 else (0.0, 0.0)
     else:
         mean_r = 0.0
         sum_r = 0.0
@@ -128,10 +139,16 @@ def evaluate_forward(append_log: bool = False) -> dict:
         n_close = 0
         mean_mid = 0.0
         mean_close = 0.0
+        n_pass_true = 0
+        n_pass_false = 0
+        mean_pass_true = 0.0
+        mean_pass_false = 0.0
+        ci_pass_true = (0.0, 0.0)
+        ci_pass_false = (0.0, 0.0)
 
     # Decision rule:
     # Evaluate ONLY at earlier of N_eff >= 85 or date >= 2027-04-26
-    # Before that point, output ONLY INCONCLUSIVE.
+    # Before that point, output ONLY INCONCLUSIVE. Pre-registered PASS rule stays on all unique rows.
     is_eval_horizon = (n_eff >= TARGET_N_EFF) or (now_date_str >= TARGET_EVAL_DATE)
     
     if is_eval_horizon:
@@ -155,21 +172,29 @@ def evaluate_forward(append_log: bool = False) -> dict:
             "mid_bar": {"n": n_mid, "mean_r": mean_mid},
             "bar_close": {"n": n_close, "mean_r": mean_close},
         },
+        "passes_at_close_breakdown": {
+            "passes_true": {"n": n_pass_true, "mean_r": mean_pass_true, "ci": ci_pass_true},
+            "passes_false": {"n": n_pass_false, "mean_r": mean_pass_false, "ci": ci_pass_false},
+        },
         "is_eval_horizon": is_eval_horizon,
         "status": status,
     }
 
     print("=" * 80)
-    print("PHASE 7.4 — FORWARD EVALUATION RUN")
+    print("PHASE 8.4 — FORWARD EVALUATION RUN (ENRICHED LOGGING)")
     print(f"Timestamp (UTC): {now_str}")
     print(f"Post-Freeze Filter: as_of >= {FREEZE_TIMESTAMP}")
     print(f"Target Evaluation Date: {TARGET_EVAL_DATE} | Target N_eff: {TARGET_N_EFF}")
     print("=" * 80)
-    print(f"Unique Trades (n):           {n_trades}")
+    print(f"Unique Trades (n):           {n_trades} (pre-registered PASS rule cohort)")
     print(f"Effective Trades (N_eff):    {n_eff} / {TARGET_N_EFF}")
-    print(f"Mean Net R:                  {mean_r:+.4f} R (Required: >= +0.1500 R)")
+    print(f"Mean Net R (All Unique):     {mean_r:+.4f} R (Required: >= +0.1500 R)")
     print(f"95% Day-Block CI:            [{ci_lower:+.4f}, {ci_upper:+.4f}] (Required: lower > 0)")
     print(f"Top-5 Positive R Share:      {top5_share:.1f}% (Required: <= 20.0%)")
+    print("-" * 80)
+    print("Passes-at-Close Breakdown (8.4):")
+    print(f"  - passes_at_close = True:  n={n_pass_true:<3} | Mean R={mean_pass_true:+.4f} R | CI=[{ci_pass_true[0]:+.4f}, {ci_pass_true[1]:+.4f}]")
+    print(f"  - passes_at_close = False: n={n_pass_false:<3} | Mean R={mean_pass_false:+.4f} R | CI=[{ci_pass_false[0]:+.4f}, {ci_pass_false[1]:+.4f}]")
     print("-" * 80)
     print("Scan Phase Breakdown:")
     print(f"  - mid_bar:   n={n_mid:<3} | Mean R={mean_mid:+.4f} R")

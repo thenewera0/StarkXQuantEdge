@@ -92,6 +92,14 @@ def log_decision(sig: dict) -> int | None:
                 conn.commit()
                 return None
             signal_id = row[0]
+            # Backfill initial_stop to match stop on insertion
+            cur.execute("""
+                update signals
+                set initial_stop = stop,
+                    first_seen_scan_ts = as_of,
+                    passes_at_close = (coalesce(scan_phase, 'bar_close') = 'bar_close')
+                where id = %s and initial_stop is null
+            """, (signal_id,))
             cur.execute(
                 """
                 insert into factor_logs
@@ -133,18 +141,22 @@ def record_outcome(
         return False
 
 
-
-def update_signal_stop(signal_id: int, new_stop: float) -> bool:
-    """Update an active signal's stop level in the database (e.g. trailing stop / breakeven)."""
+def update_signal_trailing_stop(signal_id: int, trailing_stop: float) -> bool:
+    """Update an active signal's trailing stop in the database without mutating signals.stop or initial_stop."""
     if not db.enabled():
         return False
     try:
         with db.get_conn() as conn, conn.cursor() as cur:
-            cur.execute("update signals set stop = %s where id = %s", (new_stop, signal_id))
+            cur.execute("update signals set trailing_stop = %s where id = %s", (trailing_stop, signal_id))
             conn.commit()
             return True
     except Exception:
         return False
+
+
+def update_signal_stop(signal_id: int, new_stop: float) -> bool:
+    """Legacy redirect: updates trailing_stop, protecting initial_stop and signals.stop from mutation."""
+    return update_signal_trailing_stop(signal_id, new_stop)
 
 
 def trade_history(result_filter: str = "all", limit: int = 50, offset: int = 0,
