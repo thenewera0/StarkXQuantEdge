@@ -3,7 +3,7 @@
 **Date:** 2026-10-27  
 **Environment:** Quantitative Edge Rehabilitation & Final Institutional Closure Suite  
 **Operating Rules:** R1–R7 Enforced | v1.1 Parameter Freeze Maintained | `LIVE_TRADING_ENABLED = False`  
-**Code Git Commit:** `78ed93f0703146ab6c2805eccec37cac32c3fb6f`  
+**Code Git Commit:** `65031fb12eab594aab3d0882741c68a274510a34`  
 **Git Archival Tag:** `halt-2026-10-27`  
 **Report Provenance Engine:** `scripts/generate_report.py` (Rule 4.0 / 5.0 Compliant: Numbers Are Computed, Never Typed)
 
@@ -28,16 +28,16 @@
 
 `config/cohorts.json` is the sole, authoritative cohort registry. Every cohort has an explicit market filter, interval, strategy, label set, and shadow flag.
 
-> **Query ID:** `Q_P5_COHORTS_SSOT` | **Row Count:** `7` | **Code Git Hash:** `78ed93f0703146ab6c2805eccec37cac32c3fb6f`
+> **Query ID:** `Q_P5_COHORTS_SSOT` | **Row Count:** `7` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
 
 | Cohort Key | Market Filter | Interval | Strategy | Direction | Labels | Shadow | Trades (n) | Sum R_net | Mean R_net | Cost-Adjusted Mean R |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| `core_4h_long_all` | all | 4h | core | long | Buy, Strong Buy | False | 191 | +59.5535 R | +0.3118 R | +0.2627 R |
-| `core_4h_long_trending` | all | 4h | core | long | Buy, Strong Buy | False | 151 | +25.5262 R | +0.1690 R | +0.1689 R |
-| `core_4h_long_ranging` | all | 4h | core | long | Buy, Strong Buy | False | 29 | +27.6633 R | +0.9539 R | +0.9539 R |
+| `core_4h_long_all` | all | 4h | core | long | Buy, Strong Buy | False | 184 | +58.4063 R | +0.3174 R | +0.2627 R |
+| `core_4h_long_trending` | all | 4h | core | long | Buy, Strong Buy | False | 145 | +25.7188 R | +0.1774 R | +0.1774 R |
+| `core_4h_long_ranging` | all | 4h | core | long | Buy, Strong Buy | False | 28 | +26.3235 R | +0.9401 R | +0.9401 R |
 | `core_4h_long_choppy` | all | 4h | core | long | Buy, Strong Buy | False | 11 | +6.3640 R | +0.5785 R | +0.5785 R |
 | `flash_short_burst` | crypto | any | flash | short | Sell, Strong Sell | True | 125 | +5.8203 R | +0.0466 R | -0.0422 R |
-| `flash_long_burst` | crypto | any | flash | long | Buy, Strong Buy | True | 479 | -28.5277 R | -0.0596 R | -0.1409 R |
+| `flash_long_burst` | crypto | any | flash | long | Buy, Strong Buy | True | 471 | -30.2679 R | -0.0643 R | -0.1531 R |
 | `core_short_all` | all | any | core | short | Sell, Strong Sell | False | 120 | -65.6538 R | -0.5471 R | -0.5471 R |
 
 ### Invariant Unit Test Verification
@@ -86,7 +86,7 @@ This explains why applying crypto perpetual taker fees (8 bps round-trip) to 8-p
 
 Always-Long and Random-Entry baselines evaluated across ALL eligible bars of the same symbols and dates, utilizing identical exit geometry (partial booking at $+0.20$ R taking $50\%$, stop $1.25\times$ ATR, target $2.0\times$ ATR, timeout $48$ bars):
 
-> **Query ID:** `Q_P5_BENCHMARKS_ALL_BARS` | **Row Count:** `3` | **Code Git Hash:** `78ed93f0703146ab6c2805eccec37cac32c3fb6f`
+> **Query ID:** `Q_P5_BENCHMARKS_ALL_BARS` | **Row Count:** `3` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
 
 | Regime Cohort | Calendar Days (n) | Rule Trades | Universe Baseline Trades | Rule Daily Mean R | Always-Long All-Bars Mean R | Paired Excess vs AL | 95% Day-Block CI vs AL | Excess vs Random | 95% Day-Block CI vs Random | Pre-Registered Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -108,7 +108,7 @@ Always-Long and Random-Entry baselines evaluated across ALL eligible bars of the
 
 Stored database fields and cost recomputations across 20 random Core 4h Long trades:
 
-> **Query ID:** `Q_P5_TRADE_LEVEL_PROOF` | **Row Count:** `20` | **Code Git Hash:** `78ed93f0703146ab6c2805eccec37cac32c3fb6f`
+> **Query ID:** `Q_P5_TRADE_LEVEL_PROOF` | **Row Count:** `20` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
 
 | Signal ID | Symbol | Entry Fill | Exit Price | Stop | Target | Partial-Book Event | Gross R | Fee (R) | Slippage (R) | Funding (R) | Stored r_net | Recomputed r_net |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -137,7 +137,7 @@ Stored database fields and cost recomputations across 20 random Core 4h Long tra
 
 ## 5.4 Funding Carry Stats & Identity Reconciliation
 
-> **Query ID:** `Q_P5_CARRY_RECON` | **Row Count:** `12` | **Code Git Hash:** `78ed93f0703146ab6c2805eccec37cac32c3fb6f`
+> **Query ID:** `Q_P5_CARRY_RECON` | **Row Count:** `12` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
 
 | Reconciliation Dimension | Reported Value | Verified Value | Forensic Attribution & Proof |
 | :--- | :---: | :---: | :---: |
@@ -166,7 +166,7 @@ Stored database fields and cost recomputations across 20 random Core 4h Long tra
 
 Empirical Direction A cross-sectional results with corrected positive-gain concentration shares:
 
-> **Query ID:** `Q_P5_DIR_A_VALIDATED` | **Row Count:** `6` | **Code Git Hash:** `78ed93f0703146ab6c2805eccec37cac32c3fb6f`
+> **Query ID:** `Q_P5_DIR_A_VALIDATED` | **Row Count:** `6` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
 
 | Horizon (H) | Execution Model | Net Sharpe | 95% Day-Block CI | DSR (n=512) | Positive Years | Placebo p-value | Incremental Alpha t | Top 5% Gain Share | 1-Bar Lag Sharpe (% Fall) | Gate Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -183,7 +183,7 @@ Empirical Direction A cross-sectional results with corrected positive-gain conce
 
 ## 5.6 Operating State & Archival Governance
 
-> **Query ID:** `Q_P5_OPERATING_GOVERNANCE` | **Row Count:** `8` | **Code Git Hash:** `78ed93f0703146ab6c2805eccec37cac32c3fb6f`
+> **Query ID:** `Q_P5_OPERATING_GOVERNANCE` | **Row Count:** `8` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
 
 | Operational Subsystem | Configuration / Checksum | Current Enforced State | Verification Artifact |
 | :--- | :---: | :---: | :---: |

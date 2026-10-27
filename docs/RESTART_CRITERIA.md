@@ -67,6 +67,22 @@ On the out-of-sample validation universe (ranks 51–100), the strategy must sat
 - **Risk Stacking Prohibition:** Duplicate signals on the same symbol/bar are strictly prohibited from stacking risk. Max concurrent risk per symbol is capped at $\le 1.0\times$ single-trade heat ($0.75\%$ equity).
 - **Split Contamination Guard:** All machine learning, meta-labeling, or cross-validation splits must verify zero fingerprint overlap between training and testing folds.
 
+### Criterion 8: Signal Geometry Invariant Enforcement Gate (Phase 7.1 Mandate)
+- **Requirement:** Every proposed order or persisted signal must satisfy all 7 geometric invariants prior to database insertion:
+  1. For longs: $\text{stop} < \text{entry} < \text{target}$.
+  2. For shorts: $\text{target} < \text{entry} < \text{stop}$.
+  3. Absolute target distance must exceed zero: $|\text{target} - \text{entry}| > 0$.
+  4. Percentage stop distance must satisfy the minimum volatility threshold: $\frac{|\text{entry} - \text{stop}|}{\text{entry}} \ge 0.25\%$.
+  5. Target multiple must lie within institutional bounds: $0.50\text{R} \le \text{reward\_risk} \le 5.00\text{R}$.
+- **Immutability of Inception Geometry:** Resolvers, trailing stops, or breakeven ratchets must never overwrite `signals.stop` in place. Initial trade risk parameters must remain immutable audit records.
+- **Enforcement Action:** Geometries failing any invariant are rejected before routing or flagged as direction `'flat'`.
+
+### Criterion 9: Closed-Bar Forward Execution & Logging Gate (Phase 7.2 Mandate)
+- **Requirement:** Any forward candidate strategy must emit signals and execute fills strictly based on closed bars (`scan_phase = bar_close`):
+  - Execution at next candle open ($t \to t+1$ open), with zero mid-candle intra-bar lookahead.
+  - Forward evaluation script [`scripts/evaluate_forward.py`](file:///c:/Users/Admin/Trading%20Bot%20app/scripts/evaluate_forward.py) must monitor post-freeze data ($\ge 2026\text{-}10\text{-}26\text{T}12:45:00\text{Z}$) and evaluate exclusively at the pre-registered horizon (earlier of $N_{\text{eff}} \ge 85$ or $2027\text{-}04\text{-}26$).
+  - Interim evaluation decisions are strictly prohibited: status must remain `INCONCLUSIVE` until the target sample horizon is achieved.
+
 ---
 
 ## 3. Review & Authorization Protocol

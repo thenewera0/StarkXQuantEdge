@@ -28,3 +28,4 @@ Thumbs.db
 *.parquet
 backend/data_cache/
 data_cache/
+scratch/

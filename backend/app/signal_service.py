@@ -162,6 +162,7 @@ def _risk_geometry(row: pd.Series, direction: str, interval: str, regime: str) -
         # Book half at +0.20R: measured +0.242pp/signal, the only exit change that helps.
         partial_book_at_r=settings.partial_book_at_r if settings.partial_book_enabled else None,
         partial_book_fraction=settings.partial_book_fraction,
+        enforce_geometry_invariants=getattr(settings, "enforce_geometry_invariants", False),
     )
 
 

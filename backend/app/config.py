@@ -57,7 +57,9 @@ class Settings(BaseSettings):
 
     # Self-calibration monitor (Blueprint v2 §4.6): shrink size when the calibrated probabilities
     # stop matching outcomes (rolling Brier worse than the base rate). "Knows when it doesn't know."
-    calibration_monitor_enabled: bool = True
+    # Geometry Invariants Hardening (Phase 7.1)
+    enforce_geometry_invariants: bool = False  # Behind flag: validates trade levels against geometry anomalies
+    min_stop_distance_pct: float = 0.0025      # Reject micro stops < 0.25% (prevents leverage traps)
 
     # --- Phase 0 & 0.6: Institutional Measurement & Fee Rehabilitation Flags ---
     live_trading_enabled: bool = False  # R7 hard rule: paper-only; live trading permanently blocked

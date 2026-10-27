@@ -3,7 +3,7 @@
 **Date:** 2026-10-27  
 **Environment:** Read-Only Forensic Audit Suite (No Strategy Research, No Parameter Tweaking)  
 **Operating Rules:** R1–R7 Enforced | v1.1 Parameter Freeze Maintained | `LIVE_TRADING_ENABLED = False`  
-**Code Git Commit:** `78ed93f0703146ab6c2805eccec37cac32c3fb6f`  
+**Code Git Commit:** `65031fb12eab594aab3d0882741c68a274510a34`  
 **Report Provenance Engine:** `scripts/generate_report.py` (Rule 4.0 / 6.0 Compliant: Numbers Are Computed, Never Typed)
 
 ---
@@ -27,7 +27,7 @@
 
 Audit of duplicate signal fingerprints `(symbol, interval, strategy, direction, bar_open_time)` across all database signals and `core_4h_long_all`:
 
-> **Query ID:** `Q_P6_DUPLICATES_AUDIT` | **Row Count:** `2` | **Code Git Hash:** `78ed93f0703146ab6c2805eccec37cac32c3fb6f`
+> **Query ID:** `Q_P6_DUPLICATES_AUDIT` | **Row Count:** `2` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
 
 | Signal Population | Aggregator (Per-Trade vs Per-Day) | Total Rows (n) | Unique Fingerprints | Duplicate Fingerprints (n) | Copies per FP (Min/Med/Max) | Field Drift Across Duplicates |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -38,7 +38,7 @@ Audit of duplicate signal fingerprints `(symbol, interval, strategy, direction, 
 
 Recomputed core long metrics retaining strictly the earliest signal per canonical fingerprint (lowest ID):
 
-> **Query ID:** `Q_P6_UNIQUE_RECOMPUTATIONS` | **Row Count:** `3` | **Code Git Hash:** `78ed93f0703146ab6c2805eccec37cac32c3fb6f`
+> **Query ID:** `Q_P6_UNIQUE_RECOMPUTATIONS` | **Row Count:** `3` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
 
 | Evaluation Cohort | Aggregator (Per-Trade vs Per-Day) | Trades (n) | Sum R_net | Mean R_net | 95% Day-Block CI (B=10,000) | Autocorrelation (rho) | N_eff | Realized P&L ($) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -50,7 +50,7 @@ Recomputed core long metrics retaining strictly the earliest signal per canonica
 
 Audit of active concurrent capital exposure and cross-validation contamination from duplicate signals:
 
-> **Query ID:** `Q_P6_SIZING_AND_SPLITS` | **Row Count:** `6` | **Code Git Hash:** `78ed93f0703146ab6c2805eccec37cac32c3fb6f`
+> **Query ID:** `Q_P6_SIZING_AND_SPLITS` | **Row Count:** `6` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
 
 | Audit Dimension | Aggregator (Per-Trade vs Per-Day) | Measurement / Metric | Empirical Value | Forensic Implication & Contamination Assessment |
 | :--- | :---: | :---: | :---: | :---: |
@@ -65,7 +65,7 @@ Audit of active concurrent capital exposure and cross-validation contamination f
 
 ## 6.2 Root Cause Analysis & Proposed De-duplication Migration
 
-> **Query ID:** `Q_P6_ROOT_CAUSE_MIGRATION` | **Row Count:** `5` | **Code Git Hash:** `78ed93f0703146ab6c2805eccec37cac32c3fb6f`
+> **Query ID:** `Q_P6_ROOT_CAUSE_MIGRATION` | **Row Count:** `5` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
 
 | Audit Component | Aggregator (Per-Trade vs Per-Day) | Observed Code Behavior | Proposed Solution / Fix | Impact on Database Copy |
 | :--- | :---: | :---: | :---: | :---: |
@@ -91,7 +91,7 @@ Audit of active concurrent capital exposure and cross-validation contamination f
 
 Market class breakdown of `core_4h_long_all` comparing stored ledger trades ($n=191$) vs unique fingerprint trades ($n=184$):
 
-> **Query ID:** `Q_P6_MARKET_COMPOSITION` | **Row Count:** `6` | **Code Git Hash:** `78ed93f0703146ab6c2805eccec37cac32c3fb6f`
+> **Query ID:** `Q_P6_MARKET_COMPOSITION` | **Row Count:** `6` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
 
 | Market Class | Aggregator (Per-Trade vs Per-Day) | Stored Trades (n) | Unique Trades (n) | Stored Sum R_net | Unique Sum R_net | Stored Mean R_net | Unique Mean R_net | Realized P&L ($) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -112,7 +112,7 @@ Market class breakdown of `core_4h_long_all` comparing stored ledger trades ($n=
 
 Stored partial-book fields and gross R recomputations under $(0.20\text{R}, 50\%)$ vs $(0.60\text{R}, 35\%)$ across the 20 audit trades:
 
-> **Query ID:** `Q_P6_PARTIAL_BOOK_PARITY` | **Row Count:** `20` | **Code Git Hash:** `78ed93f0703146ab6c2805eccec37cac32c3fb6f`
+> **Query ID:** `Q_P6_PARTIAL_BOOK_PARITY` | **Row Count:** `20` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
 
 | Signal ID | Symbol | Aggregator (Per-Trade vs Per-Day) | Result | Target (R) | Peak MFE (R) | Stored Gross R | Rule A Gross (0.20R, 50%) | Rule B Gross (0.60R, 35%) | Stored Partial-Book Field | Ledger Attribution |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -165,7 +165,7 @@ Stored partial-book fields and gross R recomputations under $(0.20\text{R}, 50\%
 
 Reconciliation of cost models applied to crypto vs non-crypto rows in `core_4h_long_all`:
 
-> **Query ID:** `Q_P6_COST_RECONCILIATION` | **Row Count:** `4` | **Code Git Hash:** `78ed93f0703146ab6c2805eccec37cac32c3fb6f`
+> **Query ID:** `Q_P6_COST_RECONCILIATION` | **Row Count:** `4` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
 
 | Market Class | Aggregator (Per-Trade vs Per-Day) | Trades (n) | Stored Mean R_net | Market Model Mean R_net | Crypto Model Mean R_net | Model Delta (Crypto - Market) | Cost Model Applied |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |

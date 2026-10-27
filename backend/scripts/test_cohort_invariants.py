@@ -40,58 +40,62 @@ def test_cohort_invariants():
         cur.execute("""
             select s.id, s.symbol, coalesce(s.market, 'crypto') as market,
                    coalesce(s.strategy, 'core') as strategy, s.interval, s.label,
-                   s.regime, coalesce(s.shadow, false) as shadow, o.r_net
+                   s.regime, coalesce(s.shadow, false) as shadow,
+                   coalesce(s.is_duplicate, false) as is_duplicate, o.r_net
             from signals s
             join outcomes o on o.signal_id = s.id
             where o.r_net is not null
         """)
         cols = [c.name for c in cur.description]
-        df = pd.DataFrame(cur.fetchall(), columns=cols)
+        df_all = pd.DataFrame(cur.fetchall(), columns=cols)
 
-    df["r_net"] = pd.to_numeric(df["r_net"], errors="coerce")
+    df_all["r_net"] = pd.to_numeric(df_all["r_net"], errors="coerce")
+
+    # Phase 7: Deduplicated cohort view (single source of truth in cohorts.json)
+    df = df_all[df_all["is_duplicate"] == False].copy()
 
     print("=" * 80)
-    print("TEST: COHORT SINGLE SOURCE OF TRUTH INVARIANTS (5.1)")
+    print("TEST: COHORT SINGLE SOURCE OF TRUTH INVARIANTS (5.1 & 7.3 HARDENED UNIQUE)")
     print("=" * 80)
 
-    # 1. core_4h_long_all
+    # 1. core_4h_long_all (n=184 unique, sum=+58.4063 R)
     c4l = df[(df["strategy"] == "core") & (df["interval"] == "4h") & (df["label"].isin(["Buy", "Strong Buy"]))]
-    assert len(c4l) == 191, f"core_4h_long_all count mismatch: expected 191, got {len(c4l)}"
-    assert math.isclose(float(c4l["r_net"].sum()), 59.5535, abs_tol=1e-3), f"core_4h_long_all sum mismatch: got {c4l['r_net'].sum():.4f}"
-    print(f"PASS: core_4h_long_all (n={len(c4l)}, sum={c4l['r_net'].sum():+.4f} R, mean={c4l['r_net'].mean():+.4f} R)")
+    assert len(c4l) == 184, f"core_4h_long_all count mismatch: expected 184, got {len(c4l)}"
+    assert math.isclose(float(c4l["r_net"].sum()), 58.4063, abs_tol=1e-3), f"core_4h_long_all sum mismatch: got {c4l['r_net'].sum():.4f}"
+    print(f"PASS: core_4h_long_all unique (n={len(c4l)}, sum={c4l['r_net'].sum():+.4f} R, mean={c4l['r_net'].mean():+.4f} R)")
 
-    # 1b. Regimes: 151 / 29 / 11
+    # 1b. Regimes: 145 / 28 / 11
     trending = c4l[c4l["regime"].isin(["strong_trend", "weak_trend", "trending"])]
     ranging = c4l[c4l["regime"].isin(["range", "ranging"])]
     choppy = c4l[c4l["regime"].isin(["high_vol", "squeeze", "choppy", "chop"])]
 
-    assert len(trending) == 151, f"core_4h_long_trending count mismatch: expected 151, got {len(trending)}"
-    assert math.isclose(float(trending["r_net"].sum()), 25.5262, abs_tol=1e-3), f"trending sum mismatch: got {trending['r_net'].sum():.4f}"
+    assert len(trending) == 145, f"core_4h_long_trending count mismatch: expected 145, got {len(trending)}"
+    assert math.isclose(float(trending["r_net"].sum()), 25.7188, abs_tol=1e-3), f"trending sum mismatch: got {trending['r_net'].sum():.4f}"
     print(f"PASS: core_4h_long_trending (n={len(trending)}, sum={trending['r_net'].sum():+.4f} R, mean={trending['r_net'].mean():+.4f} R)")
 
-    assert len(ranging) == 29, f"core_4h_long_ranging count mismatch: expected 29, got {len(ranging)}"
-    assert math.isclose(float(ranging["r_net"].sum()), 27.6633, abs_tol=1e-3), f"ranging sum mismatch: got {ranging['r_net'].sum():.4f}"
+    assert len(ranging) == 28, f"core_4h_long_ranging count mismatch: expected 28, got {len(ranging)}"
+    assert math.isclose(float(ranging["r_net"].sum()), 26.3235, abs_tol=1e-3), f"ranging sum mismatch: got {ranging['r_net'].sum():.4f}"
     print(f"PASS: core_4h_long_ranging (n={len(ranging)}, sum={ranging['r_net'].sum():+.4f} R, mean={ranging['r_net'].mean():+.4f} R)")
 
     assert len(choppy) == 11, f"core_4h_long_choppy count mismatch: expected 11, got {len(choppy)}"
     assert math.isclose(float(choppy["r_net"].sum()), 6.3640, abs_tol=1e-3), f"choppy sum mismatch: got {choppy['r_net'].sum():.4f}"
     print(f"PASS: core_4h_long_choppy (n={len(choppy)}, sum={choppy['r_net'].sum():+.4f} R, mean={choppy['r_net'].mean():+.4f} R)")
 
-    # 2. flash_short_burst
+    # 2. flash_short_burst (n=125 unique, sum=+5.8203 R)
     fs = df[(df["strategy"] == "flash") & (df["label"].isin(["Sell", "Strong Sell"]))]
     assert len(fs) == 125, f"flash_short_burst count mismatch: expected 125, got {len(fs)}"
     assert math.isclose(float(fs["r_net"].sum()), 5.8203, abs_tol=0.01), f"flash_short_burst sum mismatch: got {fs['r_net'].sum():.4f}"
     assert (fs["market"] == "crypto").all(), "flash_short_burst contains non-crypto trades!"
     print(f"PASS: flash_short_burst (n={len(fs)}, sum={fs['r_net'].sum():+.4f} R, mean={fs['r_net'].mean():+.4f} R)")
 
-    # 3. flash_long_burst
+    # 3. flash_long_burst (n=471 unique, sum=-30.2679 R)
     fl = df[(df["strategy"] == "flash") & (df["label"].isin(["Buy", "Strong Buy"]))]
-    assert len(fl) == 479, f"flash_long_burst count mismatch: expected 479, got {len(fl)}"
-    assert math.isclose(float(fl["r_net"].sum()), -28.5277, abs_tol=0.02), f"flash_long_burst sum mismatch: got {fl['r_net'].sum():.4f}"
+    assert len(fl) == 471, f"flash_long_burst count mismatch: expected 471, got {len(fl)}"
+    assert math.isclose(float(fl["r_net"].sum()), -30.2679, abs_tol=0.02), f"flash_long_burst sum mismatch: got {fl['r_net'].sum():.4f}"
     assert (fl["market"] == "crypto").all(), "flash_long_burst contains non-crypto trades!"
     print(f"PASS: flash_long_burst (n={len(fl)}, sum={fl['r_net'].sum():+.4f} R, mean={fl['r_net'].mean():+.4f} R)")
 
-    # 4. core_short_all
+    # 4. core_short_all (n=120 unique, sum=-65.6538 R)
     cs = df[(df["strategy"] == "core") & (df["label"].isin(["Sell", "Strong Sell"]))]
     assert len(cs) == 120, f"core_short_all count mismatch: expected 120, got {len(cs)}"
     assert math.isclose(float(cs["r_net"].sum()), -65.6538, abs_tol=0.02), f"core_short_all sum mismatch: got {cs['r_net'].sum():.4f}"

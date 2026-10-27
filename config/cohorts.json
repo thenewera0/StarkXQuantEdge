@@ -17,12 +17,12 @@
       "direction": "long",
       "labels": ["Buy", "Strong Buy"],
       "shadow": false,
-      "sql_where": "strategy = 'core' AND interval = '4h' AND label IN ('Buy', 'Strong Buy') AND r_net IS NOT NULL",
-      "n_trades": 191,
+      "sql_where": "strategy = 'core' AND interval = '4h' AND label IN ('Buy', 'Strong Buy') AND is_duplicate = false AND r_net IS NOT NULL",
+      "n_trades": 184,
       "unique_trades": 184,
-      "sum_r_net": 59.5535,
+      "sum_r_net": 58.4063,
       "unique_sum_r_net": 58.4063,
-      "mean_r_net": 0.3118,
+      "mean_r_net": 0.3174,
       "unique_mean_r_net": 0.3174,
       "cost_adjusted_mean_r": 0.2627,
       "market_breakdown": {
@@ -33,7 +33,7 @@
         "rates": {"stored_n": 0, "unique_n": 0, "stored_sum_r": 0.0, "unique_sum_r": 0.0, "stored_mean_r": 0.0, "unique_mean_r": 0.0}
       },
       "primary_entry": "hybrid",
-      "notes": "Baseline ledger swing longs. Confirmed single-deduction net return is +0.2627R (Gross +0.4105R - confirmed costs 0.1479R)."
+      "notes": "Baseline unique swing longs. Confirmed net return is +0.3174R across n=184 unique trades."
     },
     "core_4h_long_trending": {
       "display_name": "Core 4h Long (Trending)",
@@ -44,13 +44,13 @@
       "labels": ["Buy", "Strong Buy"],
       "regimes": ["strong_trend", "weak_trend", "trending"],
       "shadow": false,
-      "sql_where": "strategy = 'core' AND interval = '4h' AND label IN ('Buy', 'Strong Buy') AND regime IN ('strong_trend', 'weak_trend', 'trending') AND r_net IS NOT NULL",
-      "n_trades": 151,
-      "sum_r_net": 25.5262,
-      "mean_r_net": 0.1690,
-      "cost_adjusted_mean_r": 0.1689,
+      "sql_where": "strategy = 'core' AND interval = '4h' AND label IN ('Buy', 'Strong Buy') AND regime IN ('strong_trend', 'weak_trend', 'trending') AND is_duplicate = false AND r_net IS NOT NULL",
+      "n_trades": 145,
+      "sum_r_net": 25.7188,
+      "mean_r_net": 0.1774,
+      "cost_adjusted_mean_r": 0.1774,
       "primary_entry": "hybrid",
-      "notes": "Core 4h longs executed in trending regimes (18 strong_trend + 133 weak_trend)."
+      "notes": "Core 4h longs executed in trending regimes (18 strong_trend + 127 weak_trend unique)."
     },
     "core_4h_long_ranging": {
       "display_name": "Core 4h Long (Ranging)",
@@ -61,13 +61,13 @@
       "labels": ["Buy", "Strong Buy"],
       "regimes": ["range", "ranging"],
       "shadow": false,
-      "sql_where": "strategy = 'core' AND interval = '4h' AND label IN ('Buy', 'Strong Buy') AND regime IN ('range', 'ranging') AND r_net IS NOT NULL",
-      "n_trades": 29,
-      "sum_r_net": 27.6633,
-      "mean_r_net": 0.9539,
-      "cost_adjusted_mean_r": 0.9539,
+      "sql_where": "strategy = 'core' AND interval = '4h' AND label IN ('Buy', 'Strong Buy') AND regime IN ('range', 'ranging') AND is_duplicate = false AND r_net IS NOT NULL",
+      "n_trades": 28,
+      "sum_r_net": 26.3235,
+      "mean_r_net": 0.9401,
+      "cost_adjusted_mean_r": 0.9401,
       "primary_entry": "hybrid",
-      "notes": "Core 4h longs in ranging regimes (29 trades). Target-limit maker exits incurred 0 slippage, matching ledger cost."
+      "notes": "Core 4h longs in ranging regimes (28 unique trades)."
     },
     "core_4h_long_choppy": {
       "display_name": "Core 4h Long (Choppy)",
@@ -78,13 +78,13 @@
       "labels": ["Buy", "Strong Buy"],
       "regimes": ["high_vol", "squeeze", "choppy", "chop"],
       "shadow": false,
-      "sql_where": "strategy = 'core' AND interval = '4h' AND label IN ('Buy', 'Strong Buy') AND regime IN ('high_vol', 'squeeze', 'choppy', 'chop') AND r_net IS NOT NULL",
+      "sql_where": "strategy = 'core' AND interval = '4h' AND label IN ('Buy', 'Strong Buy') AND regime IN ('high_vol', 'squeeze', 'choppy', 'chop') AND is_duplicate = false AND r_net IS NOT NULL",
       "n_trades": 11,
       "sum_r_net": 6.3640,
       "mean_r_net": 0.5785,
       "cost_adjusted_mean_r": 0.5785,
       "primary_entry": "hybrid",
-      "notes": "Core 4h longs executed in high volatility / squeeze regimes (9 high_vol + 2 squeeze)."
+      "notes": "Core 4h longs executed in high volatility / squeeze regimes (9 high_vol + 2 squeeze unique)."
     },
     "flash_short_burst": {
       "display_name": "Flash Short Burst (1h/15m)",
@@ -94,13 +94,13 @@
       "direction": "short",
       "labels": ["Sell", "Strong Sell"],
       "shadow": true,
-      "sql_where": "strategy = 'flash' AND label IN ('Sell', 'Strong Sell') AND r_net IS NOT NULL",
+      "sql_where": "strategy = 'flash' AND label IN ('Sell', 'Strong Sell') AND is_duplicate = false AND r_net IS NOT NULL",
       "n_trades": 125,
       "sum_r_net": 5.8203,
       "mean_r_net": 0.0466,
       "cost_adjusted_mean_r": -0.0422,
       "primary_entry": "hybrid",
-      "notes": "Flash short burst trades (19 on 15m, 106 on 1h; all paper shadow=True). Flipped negative under confirmed fee drag."
+      "notes": "Flash short burst trades (19 on 15m, 106 on 1h; all paper shadow=True). Zero duplicates."
     },
     "flash_long_burst": {
       "display_name": "Flash Long Burst (1h/15m)",
@@ -110,13 +110,13 @@
       "direction": "long",
       "labels": ["Buy", "Strong Buy"],
       "shadow": true,
-      "sql_where": "strategy = 'flash' AND label IN ('Buy', 'Strong Buy') AND r_net IS NOT NULL",
-      "n_trades": 479,
-      "sum_r_net": -28.5277,
-      "mean_r_net": -0.0596,
-      "cost_adjusted_mean_r": -0.1409,
+      "sql_where": "strategy = 'flash' AND label IN ('Buy', 'Strong Buy') AND is_duplicate = false AND r_net IS NOT NULL",
+      "n_trades": 471,
+      "sum_r_net": -30.2679,
+      "mean_r_net": -0.0643,
+      "cost_adjusted_mean_r": -0.1531,
       "primary_entry": "hybrid",
-      "notes": "Flash long burst trades (30 on 15m, 449 on 1h; all paper shadow=True)."
+      "notes": "Flash long burst trades (471 unique, 8 duplicates excluded)."
     },
     "core_short_all": {
       "display_name": "Core Shorts (All)",
@@ -126,7 +126,7 @@
       "direction": "short",
       "labels": ["Sell", "Strong Sell"],
       "shadow": false,
-      "sql_where": "strategy = 'core' AND label IN ('Sell', 'Strong Sell') AND r_net IS NOT NULL",
+      "sql_where": "strategy = 'core' AND label IN ('Sell', 'Strong Sell') AND is_duplicate = false AND r_net IS NOT NULL",
       "n_trades": 120,
       "sum_r_net": -65.6538,
       "mean_r_net": -0.5471,

@@ -35,22 +35,45 @@ def log_decision(sig: dict) -> int | None:
     t2 = targets[1] if len(targets) > 1 else None
     t3 = targets[2] if len(targets) > 2 else None
 
+    # Direction inference for fingerprint
+    if label in ("Buy", "Strong Buy"):
+        direction = "long"
+    elif label in ("Sell", "Strong Sell"):
+        direction = "short"
+    else:
+        direction = "flat"
+
+    as_of = sig.get("as_of")
+    interval = sig.get("interval")
+
     try:
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
                 """
+                with bar_calc as (
+                    select get_canonical_bar_open(%s::timestamptz, %s::text) as b_open
+                )
                 insert into signals
                   (symbol, market, interval, as_of, label, composite, confidence, regime,
                    price, atr, rationale, entry, stop, target,
                    agreement, conviction, final_confidence, debate_source,
                    tier, reward_risk, size_pct, invalidation, target2, target3, psychology,
-                   win_prob, ev_r, features, meta_p, shadow, strategy)
-                values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,%s,%s)
-                on conflict (symbol, interval, as_of) do nothing
+                   win_prob, ev_r, features, meta_p, shadow, strategy,
+                   direction, bar_open_time, scan_phase, is_duplicate)
+                select
+                   %s,%s,%s,%s,%s,%s,%s,%s,
+                   %s,%s,%s,%s,%s,%s,
+                   %s,%s,%s,%s,
+                   %s,%s,%s,%s,%s,%s,%s,
+                   %s,%s,%s::jsonb,%s,%s,%s,
+                   %s, b_open, case when %s::timestamptz = b_open then 'bar_close' else 'mid_bar' end, false
+                from bar_calc
+                on conflict do nothing
                 returning id
                 """,
                 (
-                    sig.get("symbol"), sig.get("market"), sig.get("interval"), sig.get("as_of"),
+                    as_of, interval,
+                    sig.get("symbol"), sig.get("market"), interval, as_of,
                     label, sig.get("composite"), sig.get("confidence"), sig.get("regime"),
                     sig.get("price"), sig.get("atr"), explanation.get("rationale"),
                     lv.get("entry"), lv.get("stop"), lv.get("target"),
@@ -61,10 +84,11 @@ def log_decision(sig: dict) -> int | None:
                     src.get("win_prob"), src.get("ev_r"),
                     json.dumps(sig.get("features")) if sig.get("features") is not None else None,
                     sig.get("meta_p"), shadow, sig.get("strategy", "core"),
+                    direction, as_of,
                 ),
             )
             row = cur.fetchone()
-            if row is None:  # duplicate (symbol, interval, as_of) — already logged, skip cleanly
+            if row is None:  # duplicate (fingerprint or as_of) — already logged, skip cleanly
                 conn.commit()
                 return None
             signal_id = row[0]

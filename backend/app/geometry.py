@@ -78,6 +78,10 @@ def trade_levels(
     bb_mid=None, bb_upper=None, bb_lower=None, risk_per_trade_pct: float = 0.75,
     limit_offset_atr: float | None = None, limit_expiry_bars: int | None = None,
     partial_book_at_r: float | None = None, partial_book_fraction: float | None = None,
+    enforce_geometry_invariants: bool = False,
+    min_stop_distance_pct: float = 0.0025,
+    min_target_multiple_r: float = 0.5,
+    max_target_multiple_r: float = 5.0,
 ) -> dict:
     """Plan a trade. Returns entry/stop/laddered targets/reward_risk/size/invalidation, or flat.
 
@@ -181,9 +185,41 @@ def trade_levels(
                 entry_px + partial_book_at_r * risk_now if direction == "long"
                 else entry_px - partial_book_at_r * risk_now)
 
+    out_entry = _round_price(entry_px)
+    out_stop = _round_price(stop)
+    out_target = targets[0]
+
+    # Geometry Invariants Hardening (7.1): active when enforce_geometry_invariants is True
+    if enforce_geometry_invariants:
+        if out_entry is None or out_stop is None or out_target is None or out_entry <= 0:
+            return _flat()
+        # Invariants 1 & 2: Stop must oppose trade direction
+        if direction == "long" and out_stop >= out_entry:
+            return _flat()
+        if direction == "short" and out_stop <= out_entry:
+            return _flat()
+        # Invariants 3 & 4: Target must advance trade direction
+        if direction == "long" and out_target <= out_entry:
+            return _flat()
+        if direction == "short" and out_target >= out_entry:
+            return _flat()
+        # Invariant 5: Target distance must be strictly non-zero
+        target_dist = abs(out_target - out_entry)
+        if target_dist <= 0:
+            return _flat()
+        # Invariant 6: Minimum stop distance percentage
+        stop_dist = abs(out_entry - out_stop)
+        stop_dist_pct = stop_dist / out_entry
+        if stop_dist_pct < min_stop_distance_pct:
+            return _flat()
+        # Invariant 7: Target multiple within bounds [0.5R, 5.0R]
+        target_r = target_dist / stop_dist if stop_dist > 0 else 0.0
+        if not (min_target_multiple_r <= target_r <= max_target_multiple_r):
+            return _flat()
+
     return {
-        "direction": direction, "entry": _round_price(entry_px), "stop": _round_price(stop),
-        "target": targets[0], "targets": targets,
+        "direction": direction, "entry": out_entry, "stop": out_stop,
+        "target": out_target, "targets": targets,
         "partial_target": partial_target,
         "partial_fraction": partial_book_fraction if partial_target else None,
         "reward_risk": round(rr, 2) if rr is not None else None,
