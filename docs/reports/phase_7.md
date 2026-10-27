@@ -3,7 +3,7 @@
 **Governance Status:** FINAL INSTITUTIONAL HARDENING (READ-ONLY AUDIT & PRODUCTION HYGIENE)  
 **Operating Mandate:** Zero New Strategies | Zero Parameter Tweaks | Cryptographic Freeze & Live Lock Enforced  
 **Baseline Freeze Hash:** `3fae909fb085597400a1d00de04431893172008963eca38cf2742a96ee3b6928`  
-**Report Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`  
+**Report Code Git Hash:** `706f52c2f3bc9e975512b5050729c176848a6deb`  
 **Report Generation Engine:** `scripts/generate_report.py` (Rule 4.0 Deterministic Provenance)  
 
 ---
@@ -53,7 +53,7 @@ A comprehensive database audit of all 1,146 historical signals was conducted acr
 
 ### Invariant Violation Counts & Impact by Market
 
-> **Query ID:** `Q_P7_GEOMETRY_BY_MARKET` | **Row Count:** `6` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
+> **Query ID:** `Q_P7_GEOMETRY_BY_MARKET` | **Row Count:** `6` | **Code Git Hash:** `706f52c2f3bc9e975512b5050729c176848a6deb`
 
 | Market | Aggregator (Trade-Level Sum/Count) | Total Signals | Long Stop >= Entry | Short Stop <= Entry | Long Target <= Entry | Short Target >= Entry | Zero Target Dist | Stop Dist < 0.25% | Multiple Out of Bounds | Unique Violating Rows | Net R Impact |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -66,7 +66,7 @@ A comprehensive database audit of all 1,146 historical signals was conducted acr
 
 ### Key Violation Case Diagnostics
 
-> **Query ID:** `Q_P7_KNOWN_VIOLATIONS_DETAIL` | **Row Count:** `6` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
+> **Query ID:** `Q_P7_KNOWN_VIOLATIONS_DETAIL` | **Row Count:** `6` | **Code Git Hash:** `706f52c2f3bc9e975512b5050729c176848a6deb`
 
 | Signal ID | Market | Aggregator (Trade-Level Record) | Symbol | Label | Entry Price | Stop Price | Target Price | Realized PnL % | Net R Return | Invariant Violation Root Cause |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -108,7 +108,7 @@ To determine whether the paper ledger's apparent crypto performance was genuine 
 
 ### Same-Period Benchmark Comparison
 
-> **Query ID:** `Q_P7_SAME_PERIOD_BENCHMARK` | **Row Count:** `3` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
+> **Query ID:** `Q_P7_SAME_PERIOD_BENCHMARK` | **Row Count:** `3` | **Code Git Hash:** `706f52c2f3bc9e975512b5050729c176848a6deb`
 
 | Cohort / Benchmark Specification | Aggregator (Per-Trade Mean / Day-Block CI) | Same-Period Window | Trade Count (n) | Effective N (N_eff) | Mean Net R | 95% Day-Block CI | Sum Net R | Comparative Drift |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -120,7 +120,7 @@ To determine whether the paper ledger's apparent crypto performance was genuine 
 
 All 128 unique crypto ledger trades with closed-bar parquet coverage were replayed through the frozen simulation harness on strictly CLOSED bars (entry at next open, hybrid entry barrier, $(0.60\text{R}, 35\%)$ partial book, breakeven at $+0.75$R):
 
-> **Query ID:** `Q_P7_TRADE_REPLAY_GAP` | **Row Count:** `5` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
+> **Query ID:** `Q_P7_TRADE_REPLAY_GAP` | **Row Count:** `5` | **Code Git Hash:** `706f52c2f3bc9e975512b5050729c176848a6deb`
 
 | Replay Component / Gap Attribution | Aggregator (Per-Trade Mean / Delta) | Stored Ledger Value | Replayed Harness Value | Mean Difference | Gap Share (%) | Forensic Attribution Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -163,7 +163,7 @@ Prior to applying schema alterations, complete verified backups of production ta
 
 ### Production Hardening & Migration Summary
 
-> **Query ID:** `Q_P7_LOGGING_HARDENING` | **Row Count:** `5` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
+> **Query ID:** `Q_P7_LOGGING_HARDENING` | **Row Count:** `5` | **Code Git Hash:** `706f52c2f3bc9e975512b5050729c176848a6deb`
 
 | Hardening Component / Verification Check | Aggregator (Exact Count / State) | Expected Standard | Production Database State | Verification Status | Operational Impact |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -202,7 +202,7 @@ To ensure objective, tamper-proof tracking of out-of-sample forward paper tradin
 
 ### Pre-Registered Forward Specification & Current Status
 
-> **Query ID:** `Q_P7_FORWARD_EVAL_SPEC` | **Row Count:** `6` | **Code Git Hash:** `65031fb12eab594aab3d0882741c68a274510a34`
+> **Query ID:** `Q_P7_FORWARD_EVAL_SPEC` | **Row Count:** `6` | **Code Git Hash:** `706f52c2f3bc9e975512b5050729c176848a6deb`
 
 | Forward Evaluation Parameter / Gate | Aggregator (Governance Specification) | Pre-Registered Standard | Production Monitor State | Evaluation Status | Governance Mandate |
 | :--- | :---: | :---: | :---: | :---: | :---: |
