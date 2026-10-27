@@ -61,6 +61,12 @@ On the out-of-sample validation universe (ranks 51–100), the strategy must sat
   - Consume $\le 1.0\%$ of trailing 30-day average 4h volume for every constituent instrument.
 - **Carry Hurdle Gate (If Applicable):** For cash-management or funding-carry sleeves, net yield must exceed the risk-free rate by $\ge 2.0\%$ APR (minimum $+8.50\%$ net APR after all switching churn and negative funding bleed).
 
+### Criterion 7: Canonical Bar-Open Fingerprint Uniqueness & Concurrency Gate (Phase 6 Mandate)
+- **Requirement:** Every signal emitted by any scanner sweep must be uniquely indexed by its canonical fingerprint: $\text{fingerprint} = (\text{symbol}, \text{interval}, \text{strategy}, \text{direction}, \text{canonical\_bar\_open})$.
+- **Sub-Bar Idempotency:** Scanners running at sub-bar intervals (e.g. 30-minute sweeps on 4h bars) must resolve to the identical canonical bar open timestamp and cleanly de-duplicate, inserting at most one signal per candle.
+- **Risk Stacking Prohibition:** Duplicate signals on the same symbol/bar are strictly prohibited from stacking risk. Max concurrent risk per symbol is capped at $\le 1.0\times$ single-trade heat ($0.75\%$ equity).
+- **Split Contamination Guard:** All machine learning, meta-labeling, or cross-validation splits must verify zero fingerprint overlap between training and testing folds.
+
 ---
 
 ## 3. Review & Authorization Protocol

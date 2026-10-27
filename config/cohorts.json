@@ -19,9 +19,19 @@
       "shadow": false,
       "sql_where": "strategy = 'core' AND interval = '4h' AND label IN ('Buy', 'Strong Buy') AND r_net IS NOT NULL",
       "n_trades": 191,
+      "unique_trades": 184,
       "sum_r_net": 59.5535,
+      "unique_sum_r_net": 58.4063,
       "mean_r_net": 0.3118,
+      "unique_mean_r_net": 0.3174,
       "cost_adjusted_mean_r": 0.2627,
+      "market_breakdown": {
+        "crypto": {"stored_n": 163, "unique_n": 156, "stored_sum_r": 67.3121, "unique_sum_r": 66.1649, "stored_mean_r": 0.4130, "unique_mean_r": 0.4241},
+        "forex": {"stored_n": 11, "unique_n": 11, "stored_sum_r": 2.3574, "unique_sum_r": 2.3574, "stored_mean_r": 0.2143, "unique_mean_r": 0.2143},
+        "commodities": {"stored_n": 6, "unique_n": 6, "stored_sum_r": -6.2215, "unique_sum_r": -6.2215, "stored_mean_r": -1.0369, "unique_mean_r": -1.0369},
+        "indices": {"stored_n": 11, "unique_n": 11, "stored_sum_r": -3.8945, "unique_sum_r": -3.8945, "stored_mean_r": -0.3540, "unique_mean_r": -0.3540},
+        "rates": {"stored_n": 0, "unique_n": 0, "stored_sum_r": 0.0, "unique_sum_r": 0.0, "stored_mean_r": 0.0, "unique_mean_r": 0.0}
+      },
       "primary_entry": "hybrid",
       "notes": "Baseline ledger swing longs. Confirmed single-deduction net return is +0.2627R (Gross +0.4105R - confirmed costs 0.1479R)."
     },

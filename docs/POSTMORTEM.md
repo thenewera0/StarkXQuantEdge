@@ -56,6 +56,11 @@ During Phases 3 and 4, forensic audits identified seven distinct methodological 
 - **Empirical Impact:** Divergent numbers across reports and scripts, eroding research trust and requiring extensive forensic reconciliation.
 - **Automated Detection Test:** [`scripts/generate_report.py`](file:///c:/Users/Admin/Trading%20Bot%20app/scripts/generate_report.py) and `test_report_tables.py`. Every markdown table must be programmatically generated via named queries and print its `Query ID`, row count, and code git hash. CI fails if any numeric table lacks programmatic provenance.
 
+### Error 8: Duplicate Signal Logging and Sub-Bar Timestamp Collision (Phase 6)
+- **What Was Wrong:** With `SCANNER_INTERVAL_MINUTES=30` running across 4h bars (8 scans per 4h candle) or 1h bars, slight timestamp variations between exchange REST milliseconds (e.g. `11:59:59.999`) and rounded boundary timestamps (e.g. `12:00:00.000`) allowed the exact same setup to be inserted twice into `signals`. The database constraint `UNIQUE (symbol, interval, as_of)` failed to catch duplicates because the raw strings differed by 1 millisecond.
+- **Empirical Impact:** Artificially duplicated 15 trade setups across the ledger (including 7 duplicates in `core_4h_long_all`), causing concurrent position stacking up to $1.50\%$ equity risk ($2.0$ R), inflating apparent sample count ($191 \to 184$), and leaking duplicate rows across CV train/test splits.
+- **Automated Detection Test:** [`backend/scripts/test_duplicate_scan_prevention.py`](file:///c:/Users/Admin/Trading%20Bot%20app/backend/scripts/test_duplicate_scan_prevention.py) and [`backend/scripts/test_phase_6_invariants.py`](file:///c:/Users/Admin/Trading%20Bot%20app/backend/scripts/test_phase_6_invariants.py). Enforces canonical `bar_open_time` normalization before insertion, asserting that multiple scans across any bar collapse to exactly one row.
+
 ---
 
 ## Architectural State Going Forward

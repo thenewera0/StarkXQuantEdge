@@ -243,9 +243,32 @@ def test_phase_5_tables_have_query_ids():
     print(f"\nSUCCESS: All {len(tables)} numeric tables in phase_5.md verified against invariants & recomputations.")
 
 
+def test_phase_6_tables_have_query_ids():
+    p6_paths = [Path("docs/reports/phase_6.md"), Path("backend/docs/reports/phase_6.md")]
+    p6_path = next((p for p in p6_paths if p.exists()), None)
+    assert p6_path is not None, "Report docs/reports/phase_6.md not found"
+    tables = verify_table_provenance(p6_path)
+    q_map = {t["query_id"]: t for t in tables}
+    
+    # Verify core Phase 6 tables exist
+    expected_queries = [
+        "Q_P6_DUPLICATES_AUDIT",
+        "Q_P6_UNIQUE_RECOMPUTATIONS",
+        "Q_P6_SIZING_AND_SPLITS",
+        "Q_P6_ROOT_CAUSE_MIGRATION",
+        "Q_P6_MARKET_COMPOSITION",
+        "Q_P6_PARTIAL_BOOK_PARITY",
+        "Q_P6_COST_RECONCILIATION"
+    ]
+    for eq in expected_queries:
+        assert eq in q_map, f"Missing {eq} in phase_6.md tables!"
+    print(f"\nSUCCESS: All {len(tables)} numeric tables in phase_6.md verified.")
+
+
 def test_all_reports_tables():
     test_phase_4_tables_have_query_ids()
     test_phase_5_tables_have_query_ids()
+    test_phase_6_tables_have_query_ids()
 
 
 if __name__ == "__main__":
