@@ -1,0 +1,10 @@
+{
+  "version": "1.1",
+  "freeze_timestamp": "2026-10-26T08:17:53.184194+00:00",
+  "sha256": "d9c67acdcb37ea20f24c9e22e3c499060fb014e36736f739fbc5eb5d20597143",
+  "strategy": "core_4h_long",
+  "type": "signal_generating_parameters_only",
+  "parameters": {
+    "primary_entry_mode": "hybrid"
+  }
+}

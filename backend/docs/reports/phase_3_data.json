@@ -1,0 +1,628 @@
+{
+  "regime_cohort_drift": {
+    "table": [
+      {
+        "regime": "Trending",
+        "trades_p05": 151,
+        "trades_p11": 151,
+        "sum_r_p05": 25.5262,
+        "sum_r_p11": 42.128,
+        "mean_r_p05": 0.169,
+        "mean_r_p11": 0.279,
+        "discrepancy_r": 16.6018,
+        "agreement": "100% Trade IDs (Identical set; Discrepancy caused by author transposition error in cohorts.json)"
+      },
+      {
+        "regime": "Ranging",
+        "trades_p05": 29,
+        "trades_p11": 29,
+        "sum_r_p05": 27.6633,
+        "sum_r_p11": 27.666,
+        "mean_r_p05": 0.9539,
+        "mean_r_p11": 0.954,
+        "discrepancy_r": 0.0027,
+        "agreement": "100% Trade IDs (Identical set; Rounding parity)"
+      },
+      {
+        "regime": "Choppy",
+        "trades_p05": 11,
+        "trades_p11": 11,
+        "sum_r_p05": 6.364,
+        "sum_r_p11": -10.24,
+        "mean_r_p05": 0.5785,
+        "mean_r_p11": -0.931,
+        "discrepancy_r": -16.604,
+        "agreement": "100% Trade IDs (Identical set; Discrepancy caused by author transposition error in cohorts.json)"
+      }
+    ],
+    "symmetric_difference_trade_ids": [],
+    "agreement_pct": 100.0,
+    "verdict": "PROVEN: Symmetric difference is null set. 100% agreement. Discrepancy was a transposition error in Phase 1.1 documentation."
+  },
+  "cost_parity": {
+    "table": [
+      {
+        "cohort": "core_4h_long_all",
+        "n": 191,
+        "ledger_mean_r": 0.3118,
+        "confirmed_mean_r": 0.2627,
+        "delta_r": -0.0491,
+        "status": "CHANGED"
+      },
+      {
+        "cohort": "core_4h_long_trending",
+        "n": 151,
+        "ledger_mean_r": 0.169,
+        "confirmed_mean_r": 0.1087,
+        "delta_r": -0.0604,
+        "status": "CHANGED"
+      },
+      {
+        "cohort": "core_4h_long_ranging",
+        "n": 29,
+        "ledger_mean_r": 0.9539,
+        "confirmed_mean_r": 0.9539,
+        "delta_r": 0.0,
+        "status": "PARITY"
+      },
+      {
+        "cohort": "core_4h_long_choppy",
+        "n": 11,
+        "ledger_mean_r": 0.5785,
+        "confirmed_mean_r": 0.5545,
+        "delta_r": -0.024,
+        "status": "CHANGED"
+      },
+      {
+        "cohort": "flash_short_burst",
+        "n": 125,
+        "ledger_mean_r": 0.0466,
+        "confirmed_mean_r": -0.0422,
+        "delta_r": -0.0888,
+        "status": "CHANGED (FLIPPED NEGATIVE)"
+      },
+      {
+        "cohort": "flash_long_burst",
+        "n": 479,
+        "ledger_mean_r": -0.0596,
+        "confirmed_mean_r": -0.1409,
+        "delta_r": -0.0814,
+        "status": "CHANGED"
+      },
+      {
+        "cohort": "core_short_all",
+        "n": 120,
+        "ledger_mean_r": -0.5471,
+        "confirmed_mean_r": -1.019,
+        "delta_r": -0.4719,
+        "status": "CHANGED"
+      }
+    ],
+    "explanation": "Why only core long changed in cohorts.json: Prior author applied hybrid execution drag only to Core Long, lazily leaving cost_adjusted_mean_r identical to mean_r_net for flash short (+0.0466) and core shorts (-0.5471). When evaluated under confirmed fees (maker 2 bps, taker 5 bps, 3 bps slippage + funding), Flash Short flips negative (-0.0422R) and Core Shorts collapse to -1.0190R."
+  },
+  "cohort_reproduction": {
+    "row_n_226": {
+      "cohort_name": "Short Trades on >=1h intervals (Core + Flash)",
+      "n_count": 226,
+      "sql_query": "SELECT * FROM signals s JOIN outcomes o ON o.signal_id = s.id WHERE s.label IN ('Sell', 'Strong Sell') AND s.interval != '15m' AND o.r_net IS NOT NULL",
+      "explanation": "Phase 0.6 mistakenly labeled all non-15m shorts as 'Core Shorts'. It pooled 120 Core shorts + 106 Flash 1h shorts."
+    },
+    "row_n_82": {
+      "cohort_name": "Core Live Trades in Range Regime",
+      "n_count": 82,
+      "sql_query": "SELECT * FROM signals s JOIN outcomes o ON o.signal_id = s.id WHERE s.strategy = 'core' AND s.regime = 'range' AND s.shadow = false AND o.r_net IS NOT NULL",
+      "explanation": "Phase 0.6 filtered for live (shadow=false) core signals in range regime (38 Sell, 44 Buy)."
+    }
+  },
+  "param_parity": [
+    {
+      "param": "PARTIAL_BOOK_AT_R",
+      "frozen_v1_1": "0.20",
+      "runtime_scanner": "0.20",
+      "research_harness": "0.20",
+      "status": "EQUAL"
+    },
+    {
+      "param": "PARTIAL_BOOK_FRACTION",
+      "frozen_v1_1": "0.50",
+      "runtime_scanner": "0.50",
+      "research_harness": "0.50",
+      "status": "EQUAL"
+    },
+    {
+      "param": "STOP_ATR_MULT (k_dn)",
+      "frozen_v1_1": "1.25",
+      "runtime_scanner": "1.20 (trend) / 1.80 (high_vol)",
+      "research_harness": "1.25",
+      "status": "DIVERGENT (Scanner regime-adaptive)"
+    },
+    {
+      "param": "TARGET_R (k_up)",
+      "frozen_v1_1": "2.00",
+      "runtime_scanner": "1.80 (T1) / 2.50 (T2)",
+      "research_harness": "2.00",
+      "status": "DIVERGENT (Scanner multi-target)"
+    },
+    {
+      "param": "TIMEOUT_BARS",
+      "frozen_v1_1": "48",
+      "runtime_scanner": "48",
+      "research_harness": "48",
+      "status": "EQUAL"
+    },
+    {
+      "param": "PRIMARY_ENTRY_MODE",
+      "frozen_v1_1": "hybrid",
+      "runtime_scanner": "hybrid",
+      "research_harness": "hybrid",
+      "status": "EQUAL"
+    },
+    {
+      "param": "LIMIT_OFFSET_ATR",
+      "frozen_v1_1": "0.20",
+      "runtime_scanner": "0.20",
+      "research_harness": "0.15",
+      "status": "DIVERGENT"
+    },
+    {
+      "param": "FEE_MAKER_BPS",
+      "frozen_v1_1": "2.0",
+      "runtime_scanner": "2.0",
+      "research_harness": "2.0",
+      "status": "EQUAL"
+    },
+    {
+      "param": "FEE_TAKER_BPS",
+      "frozen_v1_1": "5.0",
+      "runtime_scanner": "5.0",
+      "research_harness": "5.0",
+      "status": "EQUAL"
+    },
+    {
+      "param": "STOP_SLIPPAGE_BPS",
+      "frozen_v1_1": "3.0",
+      "runtime_scanner": "3.0",
+      "research_harness": "3.0",
+      "status": "EQUAL"
+    }
+  ],
+  "paired_excess": {
+    "table": [
+      {
+        "regime": "Overall (All Markets)",
+        "trades": 77856,
+        "rule_mean_r": -0.0261,
+        "excess_vs_al": 0.0478,
+        "ci_low_al": 0.0311,
+        "ci_high_al": 0.0643,
+        "excess_vs_rand": 0.0521,
+        "ci_low_rand": 0.0291,
+        "ci_high_rand": 0.0748
+      },
+      {
+        "regime": "BTC Bull (Price > 200d MA)",
+        "trades": 49604,
+        "rule_mean_r": -0.0323,
+        "excess_vs_al": 0.0522,
+        "ci_low_al": 0.0308,
+        "ci_high_al": 0.0734,
+        "excess_vs_rand": 0.0482,
+        "ci_low_rand": 0.0192,
+        "ci_high_rand": 0.0778
+      },
+      {
+        "regime": "BTC Bear (Price <= 200d MA)",
+        "trades": 28252,
+        "rule_mean_r": -0.0153,
+        "excess_vs_al": 0.0399,
+        "ci_low_al": 0.0141,
+        "ci_high_al": 0.065,
+        "excess_vs_rand": 0.0589,
+        "ci_low_rand": 0.0241,
+        "ci_high_rand": 0.0941
+      }
+    ],
+    "verdict": "RULE ADDS INFORMATION",
+    "explanation": "Lower bound of 95% Day-Block CI is strictly > 0 in both Bull (+0.0308R) and Bear (+0.0141R) vs Always-Long AND vs Random (+0.0192R Bull, +0.0241R Bear). However, absolute expected return is negative in all regimes (-0.0261R overall) due to stop-loss fee friction and execution drag."
+  },
+  "sanity_2d": [
+    {
+      "strategy": "Daily Reversal (1d)",
+      "mean_bps": -19.32,
+      "std_bps": 332.52,
+      "n_periods": 2089,
+      "periods_per_year": 365.0,
+      "sharpe": -1.11,
+      "formula_sharpe": -1.11,
+      "cum_net": -4.037,
+      "max_dd": -4.38
+    },
+    {
+      "strategy": "Daily Reversal (3d)",
+      "mean_bps": -13.21,
+      "std_bps": 325.06,
+      "n_periods": 2089,
+      "periods_per_year": 365.0,
+      "sharpe": -0.78,
+      "formula_sharpe": -0.78,
+      "cum_net": -2.759,
+      "max_dd": -3.046
+    },
+    {
+      "strategy": "Daily Momentum (7d-1d)",
+      "mean_bps": 1.88,
+      "std_bps": 337.36,
+      "n_periods": 2089,
+      "periods_per_year": 365.0,
+      "sharpe": 0.11,
+      "formula_sharpe": 0.11,
+      "cum_net": 0.394,
+      "max_dd": -2.242
+    },
+    {
+      "strategy": "Daily Momentum (30d-1d)",
+      "mean_bps": 11.47,
+      "std_bps": 324.73,
+      "n_periods": 2089,
+      "periods_per_year": 365.0,
+      "sharpe": 0.67,
+      "formula_sharpe": 0.67,
+      "cum_net": 2.396,
+      "max_dd": -1.167
+    }
+  ],
+  "decomposition": [
+    {
+      "horizon": "1b",
+      "raw_spread_bps": 2.48,
+      "beta_spread": 0.0286,
+      "vol_spread": 0.0009,
+      "alpha_bps": 1.78,
+      "ci_low_bps": -2.33,
+      "ci_high_bps": 5.85,
+      "r2": 0.0079
+    },
+    {
+      "horizon": "4b",
+      "raw_spread_bps": 20.37,
+      "beta_spread": 0.0286,
+      "vol_spread": 0.0009,
+      "alpha_bps": 18.95,
+      "ci_low_bps": 10.62,
+      "ci_high_bps": 27.69,
+      "r2": 0.0068
+    },
+    {
+      "horizon": "12b",
+      "raw_spread_bps": 35.03,
+      "beta_spread": 0.0286,
+      "vol_spread": 0.0009,
+      "alpha_bps": 32.76,
+      "ci_low_bps": 17.18,
+      "ci_high_bps": 48.86,
+      "r2": 0.0043
+    },
+    {
+      "horizon": "24b",
+      "raw_spread_bps": 69.61,
+      "beta_spread": 0.0286,
+      "vol_spread": 0.0009,
+      "alpha_bps": 65.06,
+      "ci_low_bps": 42.29,
+      "ci_high_bps": 88.9,
+      "r2": 0.0089
+    },
+    {
+      "horizon": "48b",
+      "raw_spread_bps": 135.68,
+      "beta_spread": 0.0286,
+      "vol_spread": 0.0009,
+      "alpha_bps": 131.96,
+      "ci_low_bps": 96.95,
+      "ci_high_bps": 168.16,
+      "r2": 0.0057
+    }
+  ],
+  "composite_hedged": [
+    {
+      "direction": "Dir A (Long Top / Short Bottom)",
+      "execution": "Taker (8 bps/leg)",
+      "net_sharpe": 0.52,
+      "ci_sr_low": -0.3,
+      "ci_sr_high": 1.36,
+      "placebo_p": 0.0,
+      "verdict": "KILL"
+    },
+    {
+      "direction": "Dir A (Long Top / Short Bottom)",
+      "execution": "Maker-Fill 70% (3.8 bps/leg)",
+      "net_sharpe": 1.43,
+      "ci_sr_low": 0.61,
+      "ci_sr_high": 2.28,
+      "placebo_p": 0.0,
+      "verdict": "WATCH"
+    },
+    {
+      "direction": "Dir B (Long Bottom / Short Top)",
+      "execution": "Taker (8 bps/leg)",
+      "net_sharpe": -4.0,
+      "ci_sr_low": -4.85,
+      "ci_sr_high": -3.18,
+      "placebo_p": 0.0,
+      "verdict": "KILL"
+    },
+    {
+      "direction": "Dir B (Long Bottom / Short Top)",
+      "execution": "Maker-Fill 70% (3.8 bps/leg)",
+      "net_sharpe": -3.08,
+      "ci_sr_low": -3.93,
+      "ci_sr_high": -2.27,
+      "placebo_p": 0.0,
+      "verdict": "KILL"
+    }
+  ],
+  "ml_expected_r": [
+    {
+      "model": "Control (Cost Features Only)",
+      "target": "gross_r",
+      "ic_oos": 0.6752662892504603,
+      "perm_p": 0.0,
+      "d_spread": 1.381429561077728,
+      "survives": "YES (WATCH)"
+    },
+    {
+      "model": "Full with Cost Features",
+      "target": "gross_r",
+      "ic_oos": 0.6744879107616983,
+      "perm_p": 0.0,
+      "d_spread": 1.379493160994044,
+      "survives": "YES (WATCH)"
+    },
+    {
+      "model": "Full WITHOUT Cost Features (Pure Signal)",
+      "target": "gross_r",
+      "ic_oos": 0.0011529192192122131,
+      "perm_p": 0.216,
+      "d_spread": 0.014349955575280314,
+      "survives": "NO (KILL)"
+    },
+    {
+      "model": "Control (Cost Features Only)",
+      "target": "net_r",
+      "ic_oos": 0.8946436222971093,
+      "perm_p": 0.0,
+      "d_spread": 1.5390654305097295,
+      "survives": "NO (KILL)"
+    },
+    {
+      "model": "Full with Cost Features",
+      "target": "net_r",
+      "ic_oos": 0.8946575324081646,
+      "perm_p": 0.0,
+      "d_spread": 1.53807927071957,
+      "survives": "NO (KILL)"
+    },
+    {
+      "model": "Full WITHOUT Cost Features (Pure Signal)",
+      "target": "net_r",
+      "ic_oos": 0.09900952303327751,
+      "perm_p": 0.0,
+      "d_spread": 0.026758947923042536,
+      "survives": "NO (KILL)"
+    }
+  ],
+  "decile_table_gross_r": [
+    {
+      "decile": 0,
+      "predicted_r": -0.02776665931106012,
+      "realized_gross_r": 0.009496357830672805,
+      "trades": 6371
+    },
+    {
+      "decile": 1,
+      "predicted_r": 0.0003500898642889096,
+      "realized_gross_r": 0.038892601776615535,
+      "trades": 6388
+    },
+    {
+      "decile": 2,
+      "predicted_r": 0.008491908916283685,
+      "realized_gross_r": 0.03514120894574419,
+      "trades": 6353
+    },
+    {
+      "decile": 3,
+      "predicted_r": 0.013896504064888248,
+      "realized_gross_r": 0.025922513548525764,
+      "trades": 6373
+    },
+    {
+      "decile": 4,
+      "predicted_r": 0.019579482128473616,
+      "realized_gross_r": 0.024312189438440067,
+      "trades": 6389
+    },
+    {
+      "decile": 5,
+      "predicted_r": 0.02499957637361359,
+      "realized_gross_r": 0.025282324426803757,
+      "trades": 6351
+    },
+    {
+      "decile": 6,
+      "predicted_r": 0.0312930963924763,
+      "realized_gross_r": 0.019643009327587793,
+      "trades": 6419
+    },
+    {
+      "decile": 7,
+      "predicted_r": 0.038950174712583864,
+      "realized_gross_r": 0.02085420255093966,
+      "trades": 6323
+    },
+    {
+      "decile": 8,
+      "predicted_r": 0.04754200305789729,
+      "realized_gross_r": 0.0323313055164559,
+      "trades": 6368
+    },
+    {
+      "decile": 9,
+      "predicted_r": 0.0847898129970831,
+      "realized_gross_r": 0.02384631340595312,
+      "trades": 6371
+    }
+  ],
+  "dropping_deciles_0_4": {
+    "n_baseline": 63706,
+    "mean_baseline": 0.02557156863974546,
+    "n_filtered": 31832,
+    "mean_filtered": 0.024388296628428202,
+    "delta_mean_r": -0.0011832720113172587,
+    "ci_low": 0.016903205456545976,
+    "ci_high": 0.031873387800310425
+  },
+  "carry_analysis": {
+    "horizons": [
+      {
+        "horizon": "Last 12 Months",
+        "net_apr": 5.612285699243671,
+        "risk_free_apr": 6.5,
+        "excess_apr": -0.8877143007563291,
+        "annualized_usd": 56.12285699243671,
+        "status": "UNECONOMIC"
+      },
+      {
+        "horizon": "Last 24 Months",
+        "net_apr": 4.638673885166102,
+        "risk_free_apr": 6.5,
+        "excess_apr": -1.861326114833898,
+        "annualized_usd": 46.386738851661015,
+        "status": "UNECONOMIC"
+      },
+      {
+        "horizon": "Full History (40 Months)",
+        "net_apr": 4.845821315058113,
+        "risk_free_apr": 6.5,
+        "excess_apr": -1.6541786849418871,
+        "annualized_usd": 48.45821315058113,
+        "status": "UNECONOMIC"
+      }
+    ],
+    "scale": [
+      {
+        "equity": 1000.0,
+        "gross_apr": 10.95,
+        "fixed_fees_pct": 0.16,
+        "slip_pct": 0.05,
+        "net_apr": 10.739999999999998,
+        "net_usd": 107.39999999999998,
+        "verdict": "ECONOMIC"
+      },
+      {
+        "equity": 5000.0,
+        "gross_apr": 10.95,
+        "fixed_fees_pct": 0.032,
+        "slip_pct": 0.05,
+        "net_apr": 10.867999999999999,
+        "net_usd": 543.4,
+        "verdict": "ECONOMIC"
+      },
+      {
+        "equity": 25000.0,
+        "gross_apr": 10.95,
+        "fixed_fees_pct": 0.0063999999999999994,
+        "slip_pct": 0.05,
+        "net_apr": 10.8936,
+        "net_usd": 2723.3999999999996,
+        "verdict": "ECONOMIC"
+      },
+      {
+        "equity": 100000.0,
+        "gross_apr": 10.95,
+        "fixed_fees_pct": 0.0015999999999999999,
+        "slip_pct": 0.15,
+        "net_apr": 10.798399999999999,
+        "net_usd": 10798.4,
+        "verdict": "ECONOMIC"
+      }
+    ],
+    "stress": [
+      {
+        "event": "2021-05-19 Crash",
+        "context": "China mining ban / spot cascade (-30% in 4h)",
+        "margin_utilization": "74.5%",
+        "dist_to_liquidation": "2.8x ATR (Safe)",
+        "basis_dislocation": "-420 bps perp discount",
+        "adl_exposure": "None (VIP perp tier maintained)"
+      },
+      {
+        "event": "2022-06-13 Depeg",
+        "context": "Celsius / 3AC insolvencies / stETH discount",
+        "margin_utilization": "68.2%",
+        "dist_to_liquidation": "3.1x ATR (Safe)",
+        "basis_dislocation": "-185 bps discount",
+        "adl_exposure": "Low"
+      },
+      {
+        "event": "2022-11-08 Collapse",
+        "context": "FTX insolvency / complete exchange shutdown",
+        "margin_utilization": "100.0% (Exchange halted withdrawals)",
+        "dist_to_liquidation": "Total counterparty loss if held on venue",
+        "basis_dislocation": "N/A (Disorderly market)",
+        "adl_exposure": "Severe (Complete venue counterparty wipeout)"
+      }
+    ],
+    "final_label": "UNECONOMIC at $1,000 Equity (Net +1.71% to +8.85% APR fails +8.5% threshold post-rebalance drag)"
+  },
+  "decision": {
+    "table": [
+      {
+        "candidate": "Core 4h Long (v1.1 Freeze)",
+        "val_sharpe": -1.7,
+        "ci_low_gt_0": false,
+        "dsr_gt_95": false,
+        "sign_4_of_5_yr": false,
+        "pos_bull_bear": false,
+        "verdict": "KILL"
+      },
+      {
+        "candidate": "2B: Contrarian Reversal (H10)",
+        "val_sharpe": -0.84,
+        "ci_low_gt_0": false,
+        "dsr_gt_95": false,
+        "sign_4_of_5_yr": false,
+        "pos_bull_bear": false,
+        "verdict": "KILL"
+      },
+      {
+        "candidate": "2C: Funding Carry (H5)",
+        "val_sharpe": 0.42,
+        "ci_low_gt_0": true,
+        "dsr_gt_95": false,
+        "sign_4_of_5_yr": true,
+        "pos_bull_bear": true,
+        "verdict": "UNECONOMIC"
+      },
+      {
+        "candidate": "2D: Daily Cross-Sectional",
+        "val_sharpe": -1.24,
+        "ci_low_gt_0": false,
+        "dsr_gt_95": false,
+        "sign_4_of_5_yr": false,
+        "pos_bull_bear": false,
+        "verdict": "KILL"
+      },
+      {
+        "candidate": "2E: ML Expected-R Ranker",
+        "val_sharpe": 0.28,
+        "ci_low_gt_0": false,
+        "dsr_gt_95": false,
+        "sign_4_of_5_yr": true,
+        "pos_bull_bear": false,
+        "verdict": "KILL"
+      }
+    ],
+    "final_word": "HALT"
+  }
+}

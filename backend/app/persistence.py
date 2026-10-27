@@ -89,6 +89,7 @@ def log_decision(sig: dict) -> int | None:
 def record_outcome(
     signal_id: int, result: str, *, pnl: float | None = None,
     mfe: float | None = None, mae: float | None = None, bars_held: int | None = None,
+    r_net: float | None = None, cost_r: float | None = None,
 ) -> bool:
     """Label a stored signal with what actually happened. The fuel for the learning loop."""
     if not db.enabled():
@@ -97,15 +98,16 @@ def record_outcome(
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                insert into outcomes (signal_id, resolved_at, result, pnl, mfe, mae, bars_held)
-                values (%s, now(), %s, %s, %s, %s, %s)
+                insert into outcomes (signal_id, resolved_at, result, pnl, mfe, mae, bars_held, r_net, cost_r)
+                values (%s, now(), %s, %s, %s, %s, %s, %s, %s)
                 """,
-                (signal_id, result, pnl, mfe, mae, bars_held),
+                (signal_id, result, pnl, mfe, mae, bars_held, r_net, cost_r),
             )
             conn.commit()
             return True
     except Exception:
         return False
+
 
 
 def update_signal_stop(signal_id: int, new_stop: float) -> bool:

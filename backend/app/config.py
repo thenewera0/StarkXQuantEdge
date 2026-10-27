@@ -58,6 +58,23 @@ class Settings(BaseSettings):
     # Self-calibration monitor (Blueprint v2 §4.6): shrink size when the calibrated probabilities
     # stop matching outcomes (rolling Brier worse than the base rate). "Knows when it doesn't know."
     calibration_monitor_enabled: bool = True
+
+    # --- Phase 0 & 0.6: Institutional Measurement & Fee Rehabilitation Flags ---
+    live_trading_enabled: bool = False  # R7 hard rule: paper-only; live trading permanently blocked
+    resolver_same_bar_rule: str = "stop_first"  # "stop_first" resolves same-candle dual touch conservatively as STOP
+    fee_spot_maker_bps: float = 10.0
+    fee_spot_taker_bps: float = 10.0
+    fee_perp_maker_bps: float = 2.0
+    fee_perp_taker_bps: float = 5.0
+    fee_maker_bps: float = 2.0
+    fee_taker_bps: float = 5.0
+    stop_extra_slippage_bps: float = 3.0
+
+    # Phase 0.6.4 / 0.6.5: Sizing mode and evaluation entry mode
+    sizing_mode: str = "kelly"  # "kelly" or "flat_risk"
+    flat_risk_pct: float = 0.50
+    primary_entry_mode: str = "hybrid"
+
     calibration_min_trades: int = 20
     calibration_size_floor: float = 0.4
 
@@ -101,8 +118,9 @@ class Settings(BaseSettings):
     # expectancy over a rolling window; re-enables automatically as the losing trades age out
     # of the window (auto re-exploration) or it turns profitable again.
     direction_perf_gate_enabled: bool = True
-    direction_perf_min_sample: int = 8
+    direction_perf_min_sample: int = 6
     direction_perf_window_days: int = 90
+
 
     # Per-symbol performance gate: pause any symbol with proven negative expectancy (e.g. forex
     # pairs that lack derivatives/on-chain data and lose). Re-tests as losing trades age out.
@@ -150,8 +168,9 @@ class Settings(BaseSettings):
     # finish. The giveback is mostly trades that never worked (68% of stops never reached +0.5%
     # unrealised), not winners reversing — which is why tightening the stop cannot recover it.
     partial_book_enabled: bool = True
-    partial_book_at_r: float = 0.60    # book when the trade is this many R in profit (0.60R lets winners breathe, optimal duration 12-50 bars)
-    partial_book_fraction: float = 0.35 # take 35% off, leaving 65% to run to full target
+    partial_book_at_r: float = 0.20     # book when the trade is this many R in profit (0.20R peak)
+    partial_book_fraction: float = 0.5  # take half off
+
 
     # Performance / P&L (fixed notional per trade for the paper track record)
     standard_trade_size_usd: float = 1000.0
@@ -274,16 +293,24 @@ class Settings(BaseSettings):
     solana_dislocation_gross: float = 0.005
     solana_flash_fee: float = 0.0        # Balancer V2 / Morpho lend at 0%; Aave V3 would be 0.0005
 
+    # --- Phase 0.5 Strategy Status Pre-Registration ---
+    strategy_status_core_4h_long: str = "CANDIDATE"      # emission continues in paper tracking
+    strategy_status_flash_short_burst: str = "SHADOW"    # log only, no emission
+    strategy_status_core_shorts: str = "DISABLED"        # blocked
+    strategy_status_flash_dip: str = "DISABLED"          # blocked
+    strategy_status_forex_commodities: str = "DISABLED"  # non-crypto blocked
+
     # Triangular-arb detector (§6.2): Bellman-Ford negative-cycle over the currency graph.
-    arb_triangular_enabled: bool = True
+    arb_triangular_enabled: bool = False  # Disabled per Phase 0.5 / Phase 4.4 protocol
     arb_tri_fee: float = 0.001          # taker fee per conversion (0.075% with BNB discount)
     arb_tri_buffer: float = 0.0005      # net must clear this to count as an opportunity
 
     # Cross-exchange inventory-arb detector (§6.3): Binance vs Bybit spot, simultaneous (no transfer).
-    arb_cross_enabled: bool = True
+    arb_cross_enabled: bool = False       # Disabled per Phase 0.5 / Phase 4.4 protocol
     arb_cross_fee_binance: float = 0.001
     arb_cross_fee_bybit: float = 0.001
     arb_cross_buffer: float = 0.0005
+
 
     @property
     def arb_symbols_list(self) -> list[str]:

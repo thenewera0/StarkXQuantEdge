@@ -1,0 +1,30 @@
+{
+  "version": "1.1",
+  "freeze_timestamp": "2026-10-26T08:22:03.134738+00:00",
+  "sha256": "3fae909fb085597400a1d00de04431893172008963eca38cf2742a96ee3b6928",
+  "strategy": "core_4h_long",
+  "type": "signal_generating_parameters_only",
+  "parameters": {
+    "limit_orders_enabled": true,
+    "limit_offset_atr": 0.2,
+    "limit_expiry_bars": 2,
+    "partial_book_enabled": true,
+    "partial_book_at_r": 0.2,
+    "partial_book_fraction": 0.5,
+    "min_reward_risk": 1.5,
+    "conviction_floor": 18.0,
+    "ev_gate_enabled": true,
+    "min_ev_r": 0.0,
+    "regime_filter_enabled": true,
+    "direction_perf_gate_enabled": true,
+    "symbol_perf_gate_enabled": true,
+    "max_stop_loss_pct": 6.0,
+    "min_token_nominal_price": 0.001,
+    "resolver_same_bar_rule": "stop_first",
+    "crypto_long_only": true,
+    "fee_perp_maker_bps": 2.0,
+    "fee_perp_taker_bps": 5.0,
+    "stop_extra_slippage_bps": 3.0,
+    "primary_entry_mode": "hybrid"
+  }
+}

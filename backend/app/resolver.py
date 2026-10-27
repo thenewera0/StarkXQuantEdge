@@ -111,13 +111,15 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
 
     start = 0
     if use_limit:
+        from .execution import tick_size
+        t = tick_size(entry)
         filled_at = None
         for i in range(min(settings.limit_expiry_bars, n)):
             if direction == "long":
-                if float(lows.iloc[i]) <= entry:
+                if float(lows.iloc[i]) <= (entry - t):
                     filled_at = i
                     break
-            elif float(highs.iloc[i]) >= entry:
+            elif float(highs.iloc[i]) >= (entry + t):
                 filled_at = i
                 break
         if filled_at is None:
@@ -127,8 +129,10 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
                 # Expired unfilled. pnl is NULL rather than 0 so it closes the signal without being
                 # counted as a losing trade in any hit-rate or expectancy query.
                 return {"result": "unfilled", "pnl": None, "pnl_frac": None,
-                        "mfe": None, "mae": None, "bars_held": settings.limit_expiry_bars}
+                        "mfe": None, "mae": None, "bars_held": settings.limit_expiry_bars,
+                        "r_net": None, "cost_r": None}
         start = filled_at
+
 
     # PARTIAL BOOK.
     # Calibrated to secure early profit while leaving 65% of the position running for the big target.
@@ -235,16 +239,23 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
         # rest for several bars before filling, and charging that waiting time against max_hold
         # would cut trades short by however long they queued.
         if hit_stop and hit_target:
-            # Ambiguous bar: resolve intra-bar with 1m candles instead of always assuming stop.
-            if _subbar_first(symbol, market, interval, future.index[i], direction, stop_exit_px, target) == "target":
-                return _finalize(direction, entry, target, "target", held, mfe, mae, cost, booked_frac, booked_pnl)
-            res_label = "trailing_stop" if stop_exit_px != stop else "stop"
-            return _finalize(direction, entry, stop_exit_px, res_label, held, mfe, mae, cost, booked_frac, booked_pnl)
+            # Phase 0.2: Resolver Pessimism
+            # When TP and SL are both touched inside the same candle, resolve as STOP (conservative)
+            # under RESOLVER_SAME_BAR_RULE=stop_first (default).
+            same_bar_rule = getattr(settings, "resolver_same_bar_rule", "stop_first")
+            if same_bar_rule == "stop_first":
+                res_label = "trailing_stop" if stop_exit_px != stop else "stop"
+                return _finalize(direction, entry, stop_exit_px, res_label, held, mfe, mae, cost, booked_frac, booked_pnl, orig_stop=stop)
+            else:
+                if _subbar_first(symbol, market, interval, future.index[i], direction, stop_exit_px, target) == "target":
+                    return _finalize(direction, entry, target, "target", held, mfe, mae, cost, booked_frac, booked_pnl, orig_stop=stop)
+                res_label = "trailing_stop" if stop_exit_px != stop else "stop"
+                return _finalize(direction, entry, stop_exit_px, res_label, held, mfe, mae, cost, booked_frac, booked_pnl, orig_stop=stop)
         if hit_stop:
             res_label = "trailing_stop" if stop_exit_px != stop else "stop"
-            return _finalize(direction, entry, stop_exit_px, res_label, held, mfe, mae, cost, booked_frac, booked_pnl)
+            return _finalize(direction, entry, stop_exit_px, res_label, held, mfe, mae, cost, booked_frac, booked_pnl, orig_stop=stop)
         if hit_target:
-            return _finalize(direction, entry, target, "target", held, mfe, mae, cost, booked_frac, booked_pnl)
+            return _finalize(direction, entry, target, "target", held, mfe, mae, cost, booked_frac, booked_pnl, orig_stop=stop)
 
         # Stagnation exit for Flash momentum scalps:
         # If held >= 12 bars (out of 16) and pnl is negative with zero forward progress (< 0.25R MFE),
@@ -252,10 +263,10 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
         if strategy == "flash" and held >= 12:
             cur_pnl_r = ((cl - entry) / entry if direction == "long" else (entry - cl) / entry) / (risk_dist / entry)
             if cur_pnl_r <= -0.50 and mfe_r < 0.25:
-                return _finalize(direction, entry, cl, "stagnation_stop", held, mfe, mae, cost, booked_frac, booked_pnl)
+                return _finalize(direction, entry, cl, "stagnation_stop", held, mfe, mae, cost, booked_frac, booked_pnl, orig_stop=stop)
 
         if held >= max_hold:
-            return _finalize(direction, entry, cl, "timeout", held, mfe, mae, cost, booked_frac, booked_pnl)
+            return _finalize(direction, entry, cl, "timeout", held, mfe, mae, cost, booked_frac, booked_pnl, orig_stop=stop)
 
     # If still open, return a dict containing trailing_stop so caller can sync signals.stop in DB
     return {"status": "open", "trailing_stop": current_stop if current_stop != stop else None}
@@ -263,7 +274,8 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
 
 def _finalize(direction: str, entry: float, exit_px: float, result: str,
               bars: int, mfe: float, mae: float, cost: float,
-              booked_frac: float = 0.0, booked_pnl: float = 0.0) -> dict:
+              booked_frac: float = 0.0, booked_pnl: float = 0.0,
+              orig_stop: float | None = None) -> dict:
     """Blend the partial that was already taken off with whatever the runner did.
 
     `booked_frac` of the position exited earlier at a locked-in profit; the remaining
@@ -272,14 +284,28 @@ def _finalize(direction: str, entry: float, exit_px: float, result: str,
     """
     gross = (exit_px - entry) / entry if direction == "long" else (entry - exit_px) / entry
     total = booked_pnl + (1.0 - booked_frac) * gross
+    net_pnl = total - cost
+
+    stop_dist = abs(entry - orig_stop) if orig_stop is not None else 0.0
+    stop_frac = (stop_dist / entry) if (entry and stop_dist > 0) else 0.0
+    if stop_frac > 0:
+        cost_r = cost / stop_frac
+        r_net = net_pnl / stop_frac
+    else:
+        cost_r = 0.0
+        r_net = 0.0
+
     return {
         "result": result,
-        "pnl": round(total - cost, 6),   # net of modelled round-trip cost (fees + slippage)
+        "pnl": round(net_pnl, 6),
+        "r_net": round(r_net, 4),
+        "cost_r": round(cost_r, 4),
         "mfe": round(mfe, 6),
         "mae": round(mae, 6),
         "bars_held": bars,
         "partial_booked": round(booked_frac, 4) if booked_frac else None,
     }
+
 
 
 def _open_signals(limit: int) -> list[dict]:
@@ -360,7 +386,9 @@ def resolve_open_signals(max_signals: int = 50) -> dict:
         if persistence.record_outcome(
             s["id"], outcome["result"], pnl=outcome["pnl"],
             mfe=outcome["mfe"], mae=outcome["mae"], bars_held=outcome["bars_held"],
+            r_net=outcome.get("r_net"), cost_r=outcome.get("cost_r"),
         ):
             resolved += 1
+
 
     return {"enabled": True, "checked": len(rows), "resolved": resolved, "still_open": still_open}

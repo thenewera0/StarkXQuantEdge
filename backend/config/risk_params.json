@@ -1,0 +1,9 @@
+{
+  "sizing_mode": "flat_risk",
+  "flat_risk_pct": 0.5,
+  "risk_per_trade_pct": 0.75,
+  "max_position_leverage": 1.0,
+  "calibration_monitor_enabled": true,
+  "drift_enabled": true,
+  "circuit_breaker_enabled": true
+}

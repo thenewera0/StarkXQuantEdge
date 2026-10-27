@@ -24,6 +24,14 @@ function tone(n: number | null | undefined): string {
   return n > 0 ? "text-[var(--profit)]" : "text-[var(--loss)]";
 }
 
+export interface LedgerStatus {
+  reconciled: boolean;
+  deltaUsd: number;
+  nSized: number;
+  nShadowExcluded: number;
+  asOf: string;
+}
+
 export function PerformancePanel({ refreshKey }: { refreshKey: number }) {
   const [perf, setPerf] = useState<Performance | null>(null);
   const [size, setSize] = useState(1000);
@@ -54,14 +62,29 @@ export function PerformancePanel({ refreshKey }: { refreshKey: number }) {
   }
 
   const c = perf?.combined;
+  const ls = perf?.ledger_status;
 
   return (
     <Card className="card-pad">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Wallet size={16} className="text-[var(--accent-bright)]" />
           <span className="text-sm font-semibold tracking-tight">Paper-Trading Performance</span>
           <span className="text-xs text-slate-400">every asset · {usd(size)}/trade</span>
+          {ls && (
+            <span
+              style={{
+                backgroundColor: Math.abs(ls.deltaUsd) < 0.01 ? "#0B3B30" : "#3B0B14",
+                color: Math.abs(ls.deltaUsd) < 0.01 ? "#00E5A8" : "#FF4D6A",
+              }}
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium font-mono"
+            >
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: Math.abs(ls.deltaUsd) < 0.01 ? "#00E5A8" : "#FF4D6A" }} />
+              {Math.abs(ls.deltaUsd) < 0.01
+                ? "Ledger-verified"
+                : `Ledger Δ: ${ls.deltaUsd > 0 ? "+" : ""}$${ls.deltaUsd.toFixed(2)}`}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <div className="seg">

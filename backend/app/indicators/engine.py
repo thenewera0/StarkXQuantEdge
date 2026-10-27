@@ -378,12 +378,17 @@ def htf_trend(df: pd.DataFrame, interval: str) -> int:
     """Higher-timeframe trend state (+1 up / -1 down / 0 flat) by resampling the base OHLCV.
 
     Aligns a lower-timeframe signal with the bigger picture: price above a rising HTF EMA = +1.
+    Uses ONLY closed HTF bars (dropping unclosed current bar) to guarantee zero lookahead.
     Returns 0 when there isn't enough resampled history to judge (safe/neutral)."""
     rule = _HTF_RULE.get(interval)
     if rule is None or "close" not in df.columns or len(df) < 20:
         return 0
     try:
         htf = df["close"].resample(rule).last().dropna()
+        # Truncation-invariance fix: resample bin containing the latest timestamp is in-progress.
+        # Drop the unclosed bar so decisions strictly depend on completed HTF bars.
+        if len(htf) > 1:
+            htf = htf.iloc[:-1]
         if len(htf) < 12:
             return 0
         span = min(20, max(5, len(htf) // 3))

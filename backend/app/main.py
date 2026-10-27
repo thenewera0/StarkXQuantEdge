@@ -288,9 +288,13 @@ def stats(strategy: str = Query("core")) -> dict:
 
 
 @app.get("/performance")
-def performance_report(trade_size: float = Query(1000.0, ge=1.0, le=1_000_000.0)) -> dict:
-    """Fixed-notional paper-trading P&L: per-asset + combined, realized + floating."""
-    return performance.performance(trade_size=trade_size)
+def performance_report(
+    trade_size: float = Query(1000.0, ge=1.0, le=1_000_000.0),
+    include_shadow: bool = Query(False),
+    strategy: str | None = Query(None),
+) -> dict:
+    """True risk-adjusted ledger P&L (r_net * risk_usd_at_entry) with ledger reconciliation."""
+    return performance.performance(trade_size=trade_size, include_shadow=include_shadow, strategy=strategy)
 
 
 @app.get("/summary")

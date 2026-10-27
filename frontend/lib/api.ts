@@ -439,12 +439,21 @@ export type Performance = {
     hit_rate: number | null;
     total_return_pct: number | null;
   };
+  ledger_status?: LedgerStatus;
   per_symbol?: SymbolPnl[];
   per_regime?: RegimePnl[];
   equity_curve?: EquityPoint[];
   trades?: PnlTrade[];
   open_positions?: PnlTrade[];
 };
+
+export interface LedgerStatus {
+  reconciled: boolean;
+  deltaUsd: number;
+  nSized: number;
+  nShadowExcluded: number;
+  asOf: string;
+}
 
 export async function fetchPerformance(tradeSize = 1000): Promise<Performance> {
   const res = await fetch(`${API_BASE}/performance?trade_size=${tradeSize}`, { cache: "no-store" });

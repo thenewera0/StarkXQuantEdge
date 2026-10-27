@@ -63,18 +63,44 @@ def limit_entry(price: float, atr: float, direction: str,
     )
 
 
-def fill_bar(highs, lows, start: int, plan: LimitPlan, direction: str, n: int) -> int | None:
+def tick_size(price: float) -> float:
+    """Estimated minimum price variation (tick) for exchange matching engines."""
+    p = abs(float(price or 1.0))
+    if p >= 10000:
+        return 0.1
+    elif p >= 1000:
+        return 0.01
+    elif p >= 100:
+        return 0.01
+    elif p >= 10:
+        return 0.001
+    elif p >= 1:
+        return 0.0001
+    elif p >= 0.1:
+        return 0.00001
+    else:
+        return 0.000001
+
+
+def fill_bar(
+    highs, lows, start: int, plan: LimitPlan, direction: str, n: int,
+    tick: float | None = None,
+) -> int | None:
     """Index of the bar where the resting order fills, or None if it expires unfilled.
 
-    Deliberately conservative: the order is only considered filled when the bar's range actually
-    trades THROUGH the limit, and never on the signal bar itself (the order cannot be resting
-    before the bar that generated it has closed).
+    Institutional execution rule (Phase 0.3):
+    A resting limit order fills ONLY if a later candle's low (long) / high (short)
+    trades THROUGH the limit by >= 1 tick, and never on the signal candle (start).
     """
+    t = tick if tick is not None else tick_size(plan.limit_price)
     last = min(start + 1 + plan.expiry_bars, n)
     for j in range(start + 1, last):
         if direction == "long":
-            if lows[j] <= plan.limit_price:
+            # Buy limit requires low to trade through by at least 1 tick
+            if lows[j] <= (plan.limit_price - t):
                 return j
-        elif highs[j] >= plan.limit_price:
+        elif highs[j] >= (plan.limit_price + t):
+            # Sell limit requires high to trade through by at least 1 tick
             return j
     return None
+

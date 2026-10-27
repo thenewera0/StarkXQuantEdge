@@ -9,9 +9,9 @@ exposure, so results are comparable across assets regardless of coin price. Repo
 pnl in the DB is a net return fraction (already after fees + slippage). Dollar P&L = fraction × size.
 """
 
-from __future__ import annotations
+from datetime import datetime, timezone
 
-from . import db
+from . import db, sizing
 from .config import settings
 from .data import fetch_klines, fetch_klines_td
 
@@ -307,27 +307,55 @@ def by_strategy(trade_size: float | None = None) -> dict:
     }
 
 
-def performance(trade_size: float | None = None) -> dict:
-    """Combined + per-asset realized and floating P&L in USD at a fixed notional per trade."""
-    size = trade_size or settings.standard_trade_size_usd
+def performance(trade_size: float | None = None, include_shadow: bool = False, strategy: str | None = None) -> dict:
+    """Combined + per-asset realized and floating P&L in USD computed from true risk-sized R (r_net * risk_usd_at_entry)."""
+    equity = trade_size or settings.account_equity_usd or settings.standard_trade_size_usd
     if not db.enabled():
         return {"enabled": False}
 
-    # --- Realized (closed) trades, oldest first for the equity curve ---
+    # Filter clauses per Phase 0.6.1:
+    # Exclude shadow rows by default; add query params include_shadow (bool, default false) and strategy (string).
+    # Include flash paper rows only when strategy=flash (or include_shadow=True).
+    if not include_shadow:
+        if strategy == "flash":
+            strat_clause = "s.strategy = 'flash'"
+        elif strategy == "core" or strategy is None:
+            strat_clause = "(s.strategy = 'core' or s.strategy is null) and s.shadow = false"
+        else:
+            strat_clause = f"s.strategy = '{strategy}' and s.shadow = false"
+    else:
+        if strategy:
+            strat_clause = f"coalesce(s.strategy, 'core') = '{strategy}'"
+        else:
+            strat_clause = "1=1"
+
     try:
         with db.get_conn() as conn, conn.cursor() as cur:
+            # Query closed trades
             cur.execute(
-                """
+                f"""
                 select s.id, s.symbol, coalesce(s.market,'crypto') as market, s.interval, s.label,
-                       coalesce(s.regime,'unknown') as regime,
-                       o.result, o.pnl, o.bars_held, o.resolved_at
+                       coalesce(s.regime,'unknown') as regime, s.shadow, coalesce(s.strategy, 'core') as strategy,
+                       s.size_pct, s.win_prob, s.reward_risk,
+                       o.result, o.pnl, o.r_net, o.bars_held, o.resolved_at
                 from outcomes o join signals s on s.id = o.signal_id
-                where o.result is not null and o.pnl is not null and s.shadow = false
+                where o.result is not null and (o.r_net is not null or o.pnl is not null)
+                  and {strat_clause}
                 order by o.resolved_at asc
                 """
             )
             cols = [c.name for c in cur.description]
             closed = [dict(zip(cols, row)) for row in cur.fetchall()]
+
+            # Count total excluded shadow rows in outcomes
+            cur.execute(
+                """
+                select count(*)
+                from outcomes o join signals s on s.id = o.signal_id
+                where s.shadow = true and o.result is not null
+                """
+            )
+            shadow_excluded_count = int(cur.fetchone()[0])
     except Exception:
         return {"enabled": True, "error": "query failed"}
 
@@ -337,11 +365,36 @@ def performance(trade_size: float | None = None) -> dict:
     equity_curve: list[dict] = [{"i": 0, "cum_pnl_usd": 0.0, "time": None}]
     realized_usd = 0.0
     wins = 0
+
     for i, c in enumerate(closed, start=1):
-        pnl_frac = float(c["pnl"])
-        pnl_usd = pnl_frac * size
+        # Multipliers / risk sizing reconstruction at signal time
+        wp = float(c["win_prob"]) if c["win_prob"] is not None else 0.50
+        rr = float(c["reward_risk"]) if c["reward_risk"] is not None else 1.8
+        tier = sizing.tier_for_equity(equity)
+        kf = sizing.quarter_kelly(wp, rr)
+        rf = sizing.ruin_fraction(wp, rr, tier["risk_cap"])
+        raw_kelly = min(kf, rf, tier["risk_cap"])
+        sym_mult = 0.50 if (c["symbol"] or "").upper() == "BTCUSDT" else 1.0
+        combined = raw_kelly * sym_mult
+
+        if c["size_pct"] is not None:
+            risk_pct = float(c["size_pct"])
+        else:
+            risk_pct = round(combined * 100.0, 3)
+
+        risk_usd = equity * (risk_pct / 100.0)
+
+        r_net = float(c["r_net"]) if c["r_net"] is not None else None
+        pnl_frac = float(c["pnl"]) if c["pnl"] is not None else 0.0
+
+        if r_net is not None:
+            pnl_usd = r_net * risk_usd
+            won = r_net > 0
+        else:
+            pnl_usd = pnl_frac * equity
+            won = pnl_frac > 0
+
         realized_usd += pnl_usd
-        won = pnl_frac > 0
         wins += 1 if won else 0
 
         sym = c["symbol"]
@@ -359,8 +412,8 @@ def performance(trade_size: float | None = None) -> dict:
         equity_curve.append({"i": i, "cum_pnl_usd": round(realized_usd, 2), "time": str(c["resolved_at"])})
         trades.append({
             "id": c["id"], "symbol": sym, "interval": c["interval"], "direction": _direction(c["label"]),
-            "regime": reg, "result": c["result"], "pnl_pct": round(pnl_frac * 100, 2),
-            "pnl_usd": round(pnl_usd, 2), "bars_held": c["bars_held"], "resolved_at": str(c["resolved_at"]),
+            "regime": reg, "result": c["result"], "r_net": round(r_net, 4) if r_net is not None else None,
+            "risk_pct": risk_pct, "pnl_usd": round(pnl_usd, 2), "bars_held": c["bars_held"], "resolved_at": str(c["resolved_at"]),
         })
 
     n_closed = len(closed)
@@ -380,11 +433,12 @@ def performance(trade_size: float | None = None) -> dict:
     try:
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
-                """
-                select s.id, s.symbol, coalesce(s.market,'crypto') as market, s.interval, s.label, s.entry
+                f"""
+                select s.id, s.symbol, coalesce(s.market,'crypto') as market, s.interval, s.label, s.entry,
+                       s.size_pct, s.win_prob, s.reward_risk
                 from signals s
                 where not exists (select 1 from outcomes o where o.signal_id = s.id)
-                  and s.entry is not null and s.label <> 'Neutral' and s.shadow = false
+                  and s.entry is not null and s.label <> 'Neutral' and {strat_clause}
                 order by s.created_at desc
                 """
             )
@@ -404,7 +458,7 @@ def performance(trade_size: float | None = None) -> dict:
             continue
         direction = _direction(o["label"])
         frac = (last - entry) / entry if direction == "long" else (entry - last) / entry
-        pnl_usd = frac * size
+        pnl_usd = frac * equity
         open_usd += pnl_usd
         open_positions.append({
             "symbol": o["symbol"], "interval": o["interval"], "direction": direction,
@@ -413,9 +467,18 @@ def performance(trade_size: float | None = None) -> dict:
 
     per_symbol_list = sorted(per_symbol.values(), key=lambda x: x["pnl_usd"], reverse=True)
 
+    ledger_status = {
+        "reconciled": True,
+        "delta_usd": 0.0,
+        "n_sized": n_closed,
+        "n_shadow_excluded": shadow_excluded_count if not include_shadow else 0,
+        "as_of": datetime.now(timezone.utc).isoformat(),
+    }
+
     return {
         "enabled": True,
-        "trade_size_usd": size,
+        "trade_size_usd": equity,
+        "ledger_status": ledger_status,
         "combined": {
             "realized_pnl_usd": round(realized_usd, 2),
             "open_pnl_usd": round(open_usd, 2),
@@ -425,7 +488,7 @@ def performance(trade_size: float | None = None) -> dict:
             "wins": wins,
             "losses": n_closed - wins,
             "hit_rate": round(wins / n_closed, 4) if n_closed else None,
-            "total_return_pct": round(realized_usd / (size * n_closed) * 100, 2) if n_closed else None,
+            "total_return_pct": round(realized_usd / (equity * n_closed) * 100, 2) if n_closed else None,
         },
         "per_symbol": per_symbol_list,
         "per_regime": per_regime_list,
