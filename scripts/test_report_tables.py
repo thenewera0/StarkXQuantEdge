@@ -348,6 +348,38 @@ def test_phase_9_tables_have_query_ids():
     print(f"\nSUCCESS: All {len(tables)} numeric tables in phase_9.md verified with query IDs, git hashes, and aggregator declarations.")
 
 
+def test_phase_11_tables_have_query_ids():
+    p11_paths = [Path("docs/reports/phase_11.md"), Path("backend/docs/reports/phase_11.md")]
+    p11_path = next((p for p in p11_paths if p.exists()), None)
+    assert p11_path is not None, "Report docs/reports/phase_11.md not found"
+    tables = verify_table_provenance(p11_path)
+    q_map = {t["query_id"]: t for t in tables}
+    
+    # Verify core Phase 11 tables exist
+    expected_queries = [
+        "Q_P11_TAX_MODULE_SPEC",
+        "Q_P11_DATA_INVENTORY",
+        "Q_P11_E1_FORCED_FLOW",
+        "Q_P11_E2_UNLOCKS",
+        "Q_P11_E3_CROSS_VENUE_FUNDING",
+        "Q_P11_E4_SLOW_TREND_OVERLAY",
+        "Q_P11_MASTER_PROMOTION_TABLE"
+    ]
+    for eq in expected_queries:
+        assert eq in q_map, f"Missing {eq} in phase_11.md tables!"
+    
+    # Verify that every table header names the aggregator
+    for t in tables:
+        has_aggregator = any("aggregator" in h.lower() for h in t["headers"])
+        assert has_aggregator, f"Table {t['query_id']} in phase_11.md does not name its aggregator in headers: {t['headers']}"
+
+    # Verify that report contains the mandatory tax disclaimer
+    content = p11_path.read_text(encoding="utf-8")
+    assert "Not tax advice; every tax figure is a labelled scenario." in content, "Missing mandatory tax disclaimer in phase_11.md!"
+        
+    print(f"\nSUCCESS: All {len(tables)} numeric tables in phase_11.md verified with query IDs, git hashes, aggregator declarations, and tax disclaimers.")
+
+
 def test_all_reports_tables():
     test_phase_4_tables_have_query_ids()
     test_phase_5_tables_have_query_ids()
@@ -355,6 +387,7 @@ def test_all_reports_tables():
     test_phase_7_tables_have_query_ids()
     test_phase_8_tables_have_query_ids()
     test_phase_9_tables_have_query_ids()
+    test_phase_11_tables_have_query_ids()
 
 
 if __name__ == "__main__":
