@@ -29,6 +29,7 @@ const navItems = [
   { icon: Activity, label: "Analytics", href: "#analytics" },
   { icon: ListOrdered, label: "History", href: "#history" },
   { icon: ArrowRightLeft, label: "Arbitrage", href: "#arb" },
+  { icon: Landmark, label: "v2 Portfolio", href: "/portfolio" },
 ];
 
 export function Sidebar() {

@@ -1,0 +1,133 @@
+{
+  "version": "2.0",
+  "as_of": "2026-10-28T00:00:00Z",
+  "trial_counter_start": 517,
+  "trial_counter_end": 518,
+  "sleeves": {
+    "sleeve_t_trend": {
+      "trial_id": 517,
+      "hypothesis": "Multi-horizon momentum and moving average crossovers with dynamic inverse-volatility weighting and portfolio volatility targeting (15% annualized) deliver positive net returns beating cash across 70%+ of start windows with drawdown capped <= 60% of buy-and-hold",
+      "signals": {
+        "price_momentum_lookbacks": [
+          20,
+          60,
+          120,
+          250
+        ],
+        "ema_crossover_pairs": [
+          [
+            16,
+            64
+          ],
+          [
+            32,
+            128
+          ],
+          [
+            64,
+            256
+          ]
+        ],
+        "composite": "equal_weight_mean_7_signals",
+        "exposure_mapping": "long_only_max_s_0"
+      },
+      "volatility_model": {
+        "estimator": "daily_log_returns_ewma",
+        "halflife_days": 30,
+        "annualization_factor": 19.1049731745428,
+        "vol_floor": 0.2
+      },
+      "portfolio_sizing": {
+        "sigma_target": 0.15,
+        "per_asset_weight_cap": 0.25,
+        "gross_exposure_cap": 1.0,
+        "covariance_window_days": 90,
+        "sleeve_equity_cap": 0.7
+      },
+      "execution_filters": {
+        "no_trade_band_rel": 0.2,
+        "no_trade_band_abs": 0.02,
+        "min_order_notional_usd": 10.0
+      },
+      "neighbourhood_variants": {
+        "v_lookbacks_0_75x": [
+          15,
+          45,
+          90,
+          188
+        ],
+        "v_lookbacks_1_25x": [
+          25,
+          75,
+          150,
+          312
+        ],
+        "v_ema_0_75x": [
+          [
+            12,
+            48
+          ],
+          [
+            24,
+            96
+          ],
+          [
+            48,
+            192
+          ]
+        ],
+        "v_ema_1_25x": [
+          [
+            20,
+            80
+          ],
+          [
+            40,
+            160
+          ],
+          [
+            80,
+            320
+          ]
+        ]
+      },
+      "evidence_gates_a_to_b": {
+        "rolling_36m_start_beat_cash_pct_min": 70.0,
+        "max_drawdown_vs_bnh_ratio_max": 0.6,
+        "pre_tax_net_sharpe_basket_min": 0.6,
+        "neighbourhood_drawdown_gate": true,
+        "neighbourhood_max_switches_per_year": 12.0,
+        "min_market_cycles": 2
+      }
+    },
+    "sleeve_c_carry": {
+      "trial_id": 518,
+      "hypothesis": "Basis and funding rate convergence with dynamic AR(1) forecasting delivers structural cash-plus carry strictly when net APR exceeds risk-free rate + 4.0%",
+      "universe": [
+        "BTCUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+        "BNBUSDT",
+        "DOGEUSDT"
+      ],
+      "forecast_model": "ar1_30d_funding",
+      "hurdle_rate_formula": "RISK_FREE_APR + 0.02 + 0.02",
+      "rebalance_drag_annual": 0.005,
+      "allocation_caps": {
+        "total_equity_max": 0.25,
+        "per_venue_max": 0.15,
+        "liquidation_buffer_atr_mult": 3.0
+      },
+      "evidence_gates_a_to_b": {
+        "economic_last_12m": true,
+        "economic_last_24m": true,
+        "stress_test_survived": [
+          "2021-05-19",
+          "2022-06-13",
+          "2022-11-08"
+        ]
+      }
+    }
+  },
+  "sha256": "3704e9e742e5ee9bcaa491df0c919fba0af23e65417ce106369e09a3803f6497"
+}

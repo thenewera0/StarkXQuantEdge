@@ -380,6 +380,70 @@ def test_phase_11_tables_have_query_ids():
     print(f"\nSUCCESS: All {len(tables)} numeric tables in phase_11.md verified with query IDs, git hashes, aggregator declarations, and tax disclaimers.")
 
 
+def test_v2_verification_tables_have_query_ids():
+    v2_paths = [Path("docs/reports/v2_verification.md"), Path("backend/docs/reports/v2_verification.md")]
+    v2_path = next((p for p in v2_paths if p.exists()), None)
+    assert v2_path is not None, "Report docs/reports/v2_verification.md not found"
+    tables = verify_table_provenance(v2_path)
+    q_map = {t["query_id"]: t for t in tables}
+    
+    expected_queries = [
+        "Q_V2_VERIF_STAGE_CORRECTION",
+        "Q_V2_VERIF_SIMULATION_TABLE",
+        "Q_V2_VERIF_36_START_DATES",
+        "Q_V2_VERIF_DATA_SPANS",
+        "Q_V2_VERIF_SURVIVORSHIP",
+        "Q_V2_VERIF_CURRENCY_SENSITIVITY",
+        "Q_V2_VERIF_VOL_SENSITIVITY",
+        "Q_V2_VERIF_FINAL_PROMOTION_MATRIX"
+    ]
+    for eq in expected_queries:
+        assert eq in q_map, f"Missing {eq} in v2_verification.md tables!"
+    
+    for t in tables:
+        has_aggregator = any("aggregator" in h.lower() for h in t["headers"])
+        assert has_aggregator, f"Table {t['query_id']} in v2_verification.md does not name its aggregator in headers: {t['headers']}"
+
+    content = v2_path.read_text(encoding="utf-8")
+    assert "Not tax advice; consult a CA." in content, "Missing mandatory tax disclaimer in v2_verification.md!"
+        
+    print(f"\nSUCCESS: All {len(tables)} numeric tables in v2_verification.md verified with query IDs, git hashes, aggregator declarations, and tax disclaimers.")
+
+
+def test_v2_final_pass_tables_have_query_ids():
+    v2_paths = [Path("docs/reports/v2_final_pass.md"), Path("backend/docs/reports/v2_final_pass.md")]
+    v2_path = next((p for p in v2_paths if p.exists()), None)
+    assert v2_path is not None, "Report docs/reports/v2_final_pass.md not found"
+    tables = verify_table_provenance(v2_path)
+    q_map = {t["query_id"]: t for t in tables}
+    
+    expected_queries = [
+        "Q_V2_FINAL_SIM_ENGINE_SPEC",
+        "Q_V2_FINAL_SIM_UNCAPPED",
+        "Q_V2_FINAL_36_START_DATES_CREDITED",
+        "Q_V2_FINAL_36_START_DATES_UNCREDITED",
+        "Q_V2_FINAL_VOL_SENSITIVITY_SPEC",
+        "Q_V2_FINAL_GATE_AMENDMENT",
+        "Q_V2_FINAL_BASKET_SURVIVORSHIP",
+        "Q_V2_FINAL_FX_AUDIT",
+        "Q_V2_FINAL_WINDOWS_BREAKDOWN",
+        "Q_V2_FINAL_ECONOMIC_SIGNIFICANCE",
+        "Q_V2_FINAL_HYGIENE_SCAN",
+        "Q_V2_FINAL_PROMOTION_MATRIX"
+    ]
+    for eq in expected_queries:
+        assert eq in q_map, f"Missing {eq} in v2_final_pass.md tables!"
+    
+    for t in tables:
+        has_aggregator = any("aggregator" in h.lower() for h in t["headers"])
+        assert has_aggregator, f"Table {t['query_id']} in v2_final_pass.md does not name its aggregator in headers: {t['headers']}"
+
+    content = v2_path.read_text(encoding="utf-8")
+    assert "Not tax advice; consult a CA." in content, "Missing mandatory tax disclaimer in v2_final_pass.md!"
+        
+    print(f"\nSUCCESS: All {len(tables)} numeric tables in v2_final_pass.md verified with query IDs, git hashes, aggregator declarations, and tax disclaimers.")
+
+
 def test_all_reports_tables():
     test_phase_4_tables_have_query_ids()
     test_phase_5_tables_have_query_ids()
@@ -388,6 +452,8 @@ def test_all_reports_tables():
     test_phase_8_tables_have_query_ids()
     test_phase_9_tables_have_query_ids()
     test_phase_11_tables_have_query_ids()
+    test_v2_verification_tables_have_query_ids()
+    test_v2_final_pass_tables_have_query_ids()
 
 
 if __name__ == "__main__":

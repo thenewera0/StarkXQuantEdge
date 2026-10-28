@@ -1,0 +1,43 @@
+{
+  "version": "1.0",
+  "effective_date": "2026-10-28",
+  "jurisdiction": "IN",
+  "statutory_references": [
+    "Income Tax Act, 1961 - Section 115BBH",
+    "Income Tax Act, 1961 - Section 194S",
+    "Finance Act Section 2(11) (Health and Education Cess)",
+    "Central Goods and Services Tax Act, 2017"
+  ],
+  "rates": {
+    "base_tax_rate": 0.30,
+    "cess_rate": 0.04,
+    "effective_vda_tax_rate": 0.312,
+    "tds_rate": 0.01,
+    "gst_rate": 0.18,
+    "risk_free_apr": 0.065
+  },
+  "scenarios": {
+    "scenario_a": {
+      "name": "Strict Statutory (No Loss Offset)",
+      "description": "31.2% flat tax levied on every individual profitable trade or positive settlement per Indian financial year (April 1 to March 31). Absolutely no offset permitted for loss-making trades. 1% TDS tracked as cash-flow withholding credit.",
+      "allow_loss_offset": false,
+      "allow_carry_forward": false
+    },
+    "scenario_b": {
+      "name": "Standard Netting Regime",
+      "description": "31.2% tax levied on net annual positive gains (gains minus losses) per financial year. 1% TDS tracked as cash-flow withholding credit.",
+      "allow_loss_offset": true,
+      "allow_carry_forward": false
+    }
+  },
+  "indirect_tax": {
+    "platform_fees_gst_multiplier": 1.18,
+    "description": "18.0% Goods and Services Tax added to all exchange maker and taker trading fees."
+  },
+  "compliance_requirements": {
+    "fifo_lot_accounting": true,
+    "transfer_event_on_disposal": true,
+    "ca_csv_export_supported": true,
+    "mandatory_disclaimer": "Not tax advice; consult a CA"
+  }
+}

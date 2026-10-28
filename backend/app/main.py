@@ -139,6 +139,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from .v2.api import router as v2_router
+app.include_router(v2_router)
+
 
 @app.exception_handler(RuntimeError)
 async def _data_error_handler(request: Request, exc: RuntimeError) -> JSONResponse:

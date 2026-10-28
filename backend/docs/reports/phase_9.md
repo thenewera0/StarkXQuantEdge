@@ -5,7 +5,7 @@
 **Baseline Freeze Hash:** `3fae909fb085597400a1d00de04431893172008963eca38cf2742a96ee3b6928` (HASH-LOCKED)  
 **Live Trading Kill-Switch:** `live_trading_enabled = False` (Rule R4 Permanently Enforced)  
 **Pre-Registration Amendment 1 Hash:** `1f3127b3eca41dd45db275bc66dad1b45fc2f4ce8805d636afc9b336e04ecd92`  
-**Report Code Git Hash:** `4e187651b47878a818462cf70f6880cea8a4f2c9`  
+**Report Code Git Hash:** `5e647597f40c3d16d1a71761ef45737c09674a6d`  
 **Report Generation Engine:** `scripts/generate_report.py` (Rule 4.0 Deterministic Provenance)  
 
 ---
@@ -41,7 +41,7 @@ Forensic verification of distinct UTC calendar trading dates, trades per active 
 
 ### Plain Counts Overview & Monthly Breakdown
 
-> **Query ID:** `Q_P9_PLAIN_COUNTS_OVERVIEW` | **Row Count:** `6` | **Code Git Hash:** `4e187651b47878a818462cf70f6880cea8a4f2c9`
+> **Query ID:** `Q_P9_PLAIN_COUNTS_OVERVIEW` | **Row Count:** `6` | **Code Git Hash:** `5e647597f40c3d16d1a71761ef45737c09674a6d`
 
 | Evaluation Cohort / Period | Aggregator (Distinct UTC Dates / Count) | Active Trading Days (active_days) | Total Unique Trades (n_trades) | Mean Trades / Day | Median Trades / Day | Max Trades / Day | Cohort Scope & Notes |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -54,7 +54,7 @@ Forensic verification of distinct UTC calendar trading dates, trades per active 
 
 ### Reconciliation of Stated Discrepancies
 
-> **Query ID:** `Q_P9_DISCREPANCY_RECONCILIATION` | **Row Count:** `6` | **Code Git Hash:** `4e187651b47878a818462cf70f6880cea8a4f2c9`
+> **Query ID:** `Q_P9_DISCREPANCY_RECONCILIATION` | **Row Count:** `6` | **Code Git Hash:** `5e647597f40c3d16d1a71761ef45737c09674a6d`
 
 | Forensic Discrepancy Case | Aggregator (Forensic SQL Dissection) | Stated / Audit Figure | Verified True Figure | Reconciled Causal Mechanism | Verification Query / Protocol |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -67,7 +67,7 @@ Forensic verification of distinct UTC calendar trading dates, trades per active 
 
 ### Single-Query Resolution of Mutated Stops (357 vs 330/328)
 
-> **Query ID:** `Q_P9_MUTATED_STOPS_RESOLUTION` | **Row Count:** `1` | **Code Git Hash:** `4e187651b47878a818462cf70f6880cea8a4f2c9`
+> **Query ID:** `Q_P9_MUTATED_STOPS_RESOLUTION` | **Row Count:** `1` | **Code Git Hash:** `5e647597f40c3d16d1a71761ef45737c09674a6d`
 
 | Database Table | Aggregator (SQL Conditional FILTER) | Total Signals | Trailing Stop Set (Mutated) | Stop != Initial Stop | Trailing Stop == Initial Stop | Single-Query Reconciliation Identity |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -116,7 +116,7 @@ A candidate strategy satisfies the pre-registered PASS rule if and only if:
 
 ### Statistical Power & Detection Probabilities (10,000 Resamples)
 
-> **Query ID:** `Q_P9_POWER_TABLE` | **Row Count:** `4` | **Code Git Hash:** `4e187651b47878a818462cf70f6880cea8a4f2c9`
+> **Query ID:** `Q_P9_POWER_TABLE` | **Row Count:** `4` | **Code Git Hash:** `5e647597f40c3d16d1a71761ef45737c09674a6d`
 
 | Active Days (K) | Aggregator (Day-Block Resample B=10,000) | Standard Error (SE) | Min Mean for PASS | P(PASS | mu=0.0) | P(PASS | mu=+0.1) | P(PASS | mu=+0.2) | P(PASS | mu=+0.4) | Statistical Power Assessment |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -135,7 +135,7 @@ Formal research amendment executed prior to any forward data evaluation:
 
 ### Pre-Registration Amendment Specification Matrix
 
-> **Query ID:** `Q_P9_AMENDMENT_SPECIFICATION` | **Row Count:** `1` | **Code Git Hash:** `4e187651b47878a818462cf70f6880cea8a4f2c9`
+> **Query ID:** `Q_P9_AMENDMENT_SPECIFICATION` | **Row Count:** `1` | **Code Git Hash:** `5e647597f40c3d16d1a71761ef45737c09674a6d`
 
 | Governance Artifact | Aggregator (SHA-256 Bitwise Digest) | Effective Timestamp | Amended Evaluation Trigger | Pre-Registered PASS Rule | Operational Status Prior to Trigger | Cryptographic Artifact Hash |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -161,7 +161,7 @@ Verification that data hygiene and logging changes are infrastructure fixes that
 
 ### Infrastructure Fix Classification Matrix
 
-> **Query ID:** `Q_P9_VALIDATION_FIXES_AUDIT` | **Row Count:** `3` | **Code Git Hash:** `4e187651b47878a818462cf70f6880cea8a4f2c9`
+> **Query ID:** `Q_P9_VALIDATION_FIXES_AUDIT` | **Row Count:** `3` | **Code Git Hash:** `5e647597f40c3d16d1a71761ef45737c09674a6d`
 
 | Hardened Component | Aggregator (Validation Classification) | Nature of Change | Parameter Invariance Impact | Governance Standard Enforced | Tracking & Reporting Channel | Compliance & Verification Status |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
