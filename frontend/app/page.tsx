@@ -133,7 +133,7 @@ export default function Dashboard() {
       {/* ---------------- OVERVIEW ---------------- */}
       {view === "overview" && (
         <>
-          <ViewHeader title="Overview" subtitle="Live capital, open risk, and what the engine is doing right now." />
+          <ViewHeader title="Overview" subtitle="Virtual capital, open risk, and what the engine is doing right now." />
           <div className="space-y-6">
             <MetricCards />
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -167,7 +167,7 @@ export default function Dashboard() {
       {/* ---------------- LIVE TRADES ---------------- */}
       {view === "live" && (
         <>
-          <ViewHeader title="Live Trades" subtitle="Every open position, marked to the live price." />
+          <ViewHeader title="Open Positions (Paper)" subtitle="Every open position, marked to the public price." />
           <div className="space-y-6">
             <RiskPanel refreshKey={historyKey} />
             <LiveTradesPanel refreshKey={historyKey} />

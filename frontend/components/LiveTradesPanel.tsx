@@ -79,7 +79,7 @@ export function LiveTradesPanel({ refreshKey = 0 }: { refreshKey?: number }) {
         <div className="rounded-xl border surface-raised p-3">
           <div className="text-[10px] uppercase tracking-wide text-[var(--ink-muted)]">Open positions</div>
           <div className="mt-1 text-xl font-bold tabular-nums text-white">
-            {strat === "flash" ? (d?.paper_count ?? paper.length) : strat === "core" ? (d?.count ?? live.length) : `${d?.count ?? live.length} Live / ${d?.paper_count ?? paper.length} Paper`}
+            {strat === "flash" ? (d?.paper_count ?? paper.length) : strat === "core" ? (d?.count ?? live.length) : `${d?.count ?? live.length} Core / ${d?.paper_count ?? paper.length} Flash (Paper)`}
           </div>
           <div className="text-[10px] text-[var(--ink-muted)]">{strat === "flash" ? "paper scalps" : strat === "core" ? "core paper execution" : "combined book"}</div>
         </div>

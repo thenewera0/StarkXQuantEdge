@@ -5,7 +5,7 @@
 **Baseline Freeze Hash:** `3fae909fb085597400a1d00de04431893172008963eca38cf2742a96ee3b6928` (HASH-LOCKED)  
 **Pre-Registration Spec SHA-256:** `e19501803e85290ad03b304613df1255d26647f6a5dcc121657b3288ab018e00` (`config/structural_spec.json`)  
 **Live Trading Kill-Switch:** `live_trading_enabled = False` (Rule R4 Permanently Enforced)  
-**Report Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`  
+**Report Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`  
 **Report Generation Engine:** `scripts/generate_report.py` (Rule 4.0 Deterministic Provenance)  
 > [!IMPORTANT]
 > **MANDATORY STATUTORY TAX DISCLAIMER:** Not tax advice; every tax figure is a labelled scenario.
@@ -43,7 +43,7 @@ Implementation of `tax.py` and unit test suite `scripts/test_tax.py` enforcing I
 
 ### Tax Regime & Policy Matrix
 
-> **Query ID:** `Q_P11_TAX_MODULE_SPEC` | **Row Count:** `7` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_P11_TAX_MODULE_SPEC` | **Row Count:** `7` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Tax Rule / Policy Component | Aggregator (Statutory Tax Formula & Engine) | Pre-Tax Baseline | Scenario A (No Loss Offset, 1% TDS) | Scenario B (31.2% Netted) | Statutory Reference & Accounting Rationale |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -73,7 +73,7 @@ Forensic data check verifying historical depth, resolution, and distinct calenda
 
 ### Empirical Data Inventory & Sample Size Verification
 
-> **Query ID:** `Q_P11_DATA_INVENTORY` | **Row Count:** `4` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_P11_DATA_INVENTORY` | **Row Count:** `4` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Structural Hypothesis | Aggregator (Data Verification & Sample Engine) | Venue / Infrastructure Feed | Available Local History | Independent Days (K) | Min Required Days | After-Tax (Scenario A) Yield | After-Tax (Scenario B) Yield | 11.1 Data Sufficiency Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -98,7 +98,7 @@ Evaluation of liquidation flush mean-reversion on top-30 perpetual contracts (OI
 
 ### E1 Execution & Performance Metrics
 
-> **Query ID:** `Q_P11_E1_FORCED_FLOW` | **Row Count:** `2` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_P11_E1_FORCED_FLOW` | **Row Count:** `2` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Cohort / Execution Leg | Aggregator (Maker Simulation & Bootstrap B=10,000) | Total Events | Filled Events | Fill Rate (%) | Mean R Net | 95% Day-Block CI | Adverse Excursion (MAE) | After-Tax (Scenario A) Mean R | After-Tax (Scenario B) Mean R | Operational Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -123,7 +123,7 @@ Event study evaluating token cliff unlocks $\ge 2.0\%$ of circulating supply and
 
 ### E2 Abnormal Return & Friction Breakdown
 
-> **Query ID:** `Q_P11_E2_UNLOCKS` | **Row Count:** `3` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_P11_E2_UNLOCKS` | **Row Count:** `3` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Event Study Window / Strategy | Aggregator (BTC-Beta Residual Model B=10,000) | Events (>=2% Circ) | Independent Days (K) | Mean Abnormal Return | 95% Day-Block CI | Borrow & Execution Cost Drag | After-Tax (Scenario A) Net Return | After-Tax (Scenario B) Net Return | Operational Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -149,7 +149,7 @@ Two-leg delta-neutral cash-and-carry model across Binance, Bybit, and OKX with $
 
 ### E3 Multi-Venue Yield & Hurdle Comparison
 
-> **Query ID:** `Q_P11_E3_CROSS_VENUE_FUNDING` | **Row Count:** `5` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_P11_E3_CROSS_VENUE_FUNDING` | **Row Count:** `5` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Arbitrage Position Metric | Aggregator (Delta-Neutral Margin & Carry Engine) | Pre-Tax Annual Yield / Dollars | After-Tax (Scenario A: No Loss Offset) | After-Tax (Scenario B: Netted 31.2%) | Hurdle APR (Risk-Free + 2.0%) | Shortfall vs Hurdle | Liquidation Buffer Margin | Operational Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -181,7 +181,7 @@ Empirical simulation on BTC and ETH daily bars over 1,925 evaluation days (2021-
 
 ### E4 Overlay vs Buy-and-Hold Performance Matrix
 
-> **Query ID:** `Q_P11_E4_SLOW_TREND_OVERLAY` | **Row Count:** `6` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_P11_E4_SLOW_TREND_OVERLAY` | **Row Count:** `6` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Asset / Strategy Configuration | Aggregator (Daily Bar Trend Simulation 2021-2026) | Switches / Year | Pre-Tax CAGR | Pre-Tax MDD | Pre-Tax Calmar | Scenario A After-Tax CAGR | Scenario A After-Tax MDD | Scenario A Final Eq ($1k) | Scenario B After-Tax CAGR | Scenario B After-Tax MDD | Scenario B Final Eq ($1k) | Risk Gate Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -245,7 +245,7 @@ Evaluation against unconstrained alpha candidate promotion criteria (Net Sharpe 
 
 ### Master Hypothesis Screening Table
 
-> **Query ID:** `Q_P11_MASTER_PROMOTION_TABLE` | **Row Count:** `4` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_P11_MASTER_PROMOTION_TABLE` | **Row Count:** `4` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Structural Hypothesis Candidate | Trial ID | Aggregator (Promotion Bar Screening Engine) | Independent Days (K) | Net Sharpe Ratio | 95% CI Lower Bound | DSR (N=516 Trials) | Consistency (4/5 Yrs & Bull/Bear) | Expected After-Tax $/Yr (Scenario A @ $1k) | Expected After-Tax $/Yr (Scenario B @ $1k) | Final Operational Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |

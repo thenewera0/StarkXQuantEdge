@@ -479,6 +479,67 @@ def test_lab_build_tables_have_query_ids():
     print(f"\nSUCCESS: All {len(tables)} numeric tables in lab_build.md verified with query IDs, git hashes, aggregator declarations, and tax disclaimers.")
 
 
+def test_lab_ops_acceptance_tables_have_query_ids():
+    ops_paths = [Path("docs/reports/lab_ops_acceptance.md"), Path("backend/docs/reports/lab_ops_acceptance.md")]
+    ops_path = next((p for p in ops_paths if p.exists()), None)
+    if ops_path is None:
+        print("[INFO] lab_ops_acceptance.md not yet generated; skipping until generated.")
+        return
+    tables = verify_table_provenance(ops_path)
+    q_map = {t["query_id"]: t for t in tables}
+    
+    expected_queries = [
+        "Q_LAB_OPS_HOSTING",
+        "Q_LAB_OPS_RESTORE_DRILL",
+        "Q_LAB_OPS_DOWNTIME_CATCHUP",
+        "Q_LAB_OPS_WARM_START_POSITIONS",
+        "Q_LAB_OPS_BACKFILL_ROW_COUNTS",
+        "Q_LAB_OPS_TAX_ALIGNMENT",
+        "Q_LAB_OPS_HEALTH_ALERTS",
+        "Q_LAB_OPS_CHANGE_CONTROL",
+        "Q_LAB_OPS_DASHBOARD_CHECKS",
+        "Q_LAB_OPS_TEST_SUITES",
+    ]
+    for eq in expected_queries:
+        assert eq in q_map, f"Missing {eq} in lab_ops_acceptance.md tables!"
+    
+    for t in tables:
+        has_aggregator = any("aggregator" in h.lower() for h in t["headers"])
+        assert has_aggregator, f"Table {t['query_id']} in lab_ops_acceptance.md does not name its aggregator in headers: {t['headers']}"
+
+    content = ops_path.read_text(encoding="utf-8")
+    assert "Not tax advice; consult a CA." in content, "Missing mandatory tax disclaimer in lab_ops_acceptance.md!"
+        
+    print(f"\nSUCCESS: All {len(tables)} numeric tables in lab_ops_acceptance.md verified with query IDs, git hashes, aggregator declarations, and tax disclaimers.")
+
+
+def test_lab_weekly_tables_have_query_ids():
+    weekly_paths = [Path("docs/reports/lab_weekly_2026W44.md"), Path("backend/docs/reports/lab_weekly_2026W44.md")]
+    weekly_path = next((p for p in weekly_paths if p.exists()), None)
+    if weekly_path is None:
+        print("[INFO] lab_weekly_2026W44.md not yet generated; skipping until generated.")
+        return
+    tables = verify_table_provenance(weekly_path)
+    q_map = {t["query_id"]: t for t in tables}
+    
+    expected_queries = [
+        "Q_LAB_WEEKLY_EXECUTIVE_SUMMARY",
+        "Q_LAB_WEEKLY_OPEN_POSITIONS",
+        "Q_LAB_WEEKLY_LEDGER_RECONCILIATION",
+    ]
+    for eq in expected_queries:
+        assert eq in q_map, f"Missing {eq} in lab_weekly_2026W44.md tables!"
+    
+    for t in tables:
+        has_aggregator = any("aggregator" in h.lower() for h in t["headers"])
+        assert has_aggregator, f"Table {t['query_id']} in lab_weekly_2026W44.md does not name its aggregator in headers: {t['headers']}"
+
+    content = weekly_path.read_text(encoding="utf-8")
+    assert "Not tax advice; consult a CA." in content, "Missing mandatory tax disclaimer in lab_weekly_2026W44.md!"
+        
+    print(f"\nSUCCESS: All {len(tables)} numeric tables in lab_weekly_2026W44.md verified with query IDs, git hashes, aggregator declarations, and tax disclaimers.")
+
+
 def test_all_reports_tables():
     test_phase_4_tables_have_query_ids()
     test_phase_5_tables_have_query_ids()
@@ -490,8 +551,11 @@ def test_all_reports_tables():
     test_v2_verification_tables_have_query_ids()
     test_v2_final_pass_tables_have_query_ids()
     test_lab_build_tables_have_query_ids()
+    test_lab_ops_acceptance_tables_have_query_ids()
+    test_lab_weekly_tables_have_query_ids()
 
 
 if __name__ == "__main__":
     test_all_reports_tables()
+
 

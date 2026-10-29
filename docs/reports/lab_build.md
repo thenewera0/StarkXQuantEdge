@@ -29,7 +29,7 @@
 6. **Evidence-Gated Self-Improvement (Rule 0.6):** Parameter mutations strictly within pre-registered bounds in `config/lab_spec.json`. Every spawn increments `research_trials`. System never edits its own code.
 
 
-> **Query ID:** `Q_LAB_SPEC_PROVENANCE` | **Row Count:** `6` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_LAB_SPEC_PROVENANCE` | **Row Count:** `6` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Configuration Field | Variable / File Path | Aggregator (Specification Provenance Engine) | Registered Value | Verification Status |
 | :--- | :---: | :---: | :---: | :---: |
@@ -50,7 +50,7 @@
 All 10 strategy families implement the canonical `Strategy` protocol (`on_bar_close(MarketContext) -> list[Signal]`):
 
 
-> **Query ID:** `Q_LAB_STRATEGY_CATALOG` | **Row Count:** `10` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_LAB_STRATEGY_CATALOG` | **Row Count:** `10` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Tier Level | Strategy Identifier | Timeframe | Strategy Family | Aggregator (Strategy Catalog Registry) | Direction Permissions | Default Stop Model | Default Exit / Target | Cost Gate Hurdle |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -75,7 +75,7 @@ All 10 strategy families implement the canonical `Strategy` protocol (`on_bar_cl
 Initial state across active variants deployed on virtual accounts ($10,000 initial cash each):
 
 
-> **Query ID:** `Q_LAB_ACTIVE_VARIANTS_LEADERBOARD` | **Row Count:** `15` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_LAB_ACTIVE_VARIANTS_LEADERBOARD` | **Row Count:** `15` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Variant ID | Strategy ID | Timeframe | Direction | Evidence Tier | Status | Aggregator (Variant State Ledger) | Total Trades (Count) | Active Days (Count) | Mean Net R (Mean) | Profit Factor (Mean) | Risk Weight (Sum) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -105,7 +105,7 @@ Initial state across active variants deployed on virtual accounts ($10,000 initi
 Live open paper positions generated from closed bars, with flat 0.5% risk ($50.00) and immutable initial stops:
 
 
-> **Query ID:** `Q_LAB_OPEN_POSITIONS_AUDIT` | **Row Count:** `11` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_LAB_OPEN_POSITIONS_AUDIT` | **Row Count:** `11` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Position ID | Variant ID | Symbol | Direction | Entry Mode | Aggregator (Position Execution Ledger) | Entry Price USD | Initial Stop USD | Target Price USD | Risk USD (Flat 0.5%) | Floating Unrealized R (Sum) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -131,7 +131,7 @@ Live open paper positions generated from closed bars, with flat 0.5% risk ($50.0
 Every variant without an open paper position has a deterministic logged reason from its bar evaluation:
 
 
-> **Query ID:** `Q_LAB_NO_SIGNAL_LOGGED_REASONS` | **Row Count:** `4` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_LAB_NO_SIGNAL_LOGGED_REASONS` | **Row Count:** `4` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Variant ID | Strategy ID | Timeframe | Candidate Symbol | Aggregator (Bar Close Signal Audit) | Evaluation Result / Logged Reason for No Signal |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -150,7 +150,7 @@ Every variant without an open paper position has a deterministic logged reason f
 Exact mathematical reconciliation proving that `Total Virtual Equity = Virtual Cash + Floating Unrealized P&L` to the cent ($0.00 delta):
 
 
-> **Query ID:** `Q_LAB_LEDGER_RECONCILIATION` | **Row Count:** `6` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_LAB_LEDGER_RECONCILIATION` | **Row Count:** `6` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Reconciliation Field | Recorded Figure | Accounting Rule / Metric Basis | Aggregator (Cent-Level Ledger Reconciliation) | Audited Value | Reconciliation Status |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -171,7 +171,7 @@ Exact mathematical reconciliation proving that `Total Virtual Equity = Virtual C
 Comparison against RandomEntryControl (1,000 permutations) and AlwaysLongControl, with cost gate enforcement:
 
 
-> **Query ID:** `Q_LAB_CONTROLS_AND_COSTS` | **Row Count:** `10` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_LAB_CONTROLS_AND_COSTS` | **Row Count:** `10` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Strategy ID | Timeframe | RandomEntry Permutations | Random Baseline Mean R | AlwaysLong Frequency | AlwaysLong Mean R | Aggregator (Statistical Permutation Engine) | Median Cost R (Measured) | Cost Gate Hurdle | Cost Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -196,7 +196,7 @@ Comparison against RandomEntryControl (1,000 permutations) and AlwaysLongControl
 Parallel tracking of both execution mechanisms to avoid assuming maker fill advantages:
 
 
-> **Query ID:** `Q_LAB_TWIN_EXECUTION_AUDIT` | **Row Count:** `5` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_LAB_TWIN_EXECUTION_AUDIT` | **Row Count:** `5` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Variant ID | Taker Fill Rate (Mean) | Taker Cost Model | Aggregator (Execution Twin Comparative Engine) | Taker Baseline Mean R (Mean) | Maker Fill Rate (Mean) | Maker Cost Model | Maker Twin Mean R (Mean) | Execution Delta R (Twin Proof) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -216,7 +216,7 @@ Parallel tracking of both execution mechanisms to avoid assuming maker fill adva
 Multiplicative Hedge weighting ($\eta = 0.10$, 2% floor, 30% cap) and net BTC-beta exposure control:
 
 
-> **Query ID:** `Q_LAB_PORTFOLIO_AND_BETA_EXPOSURE` | **Row Count:** `7` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_LAB_PORTFOLIO_AND_BETA_EXPOSURE` | **Row Count:** `7` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Portfolio Risk Parameter | Measured Value | Governance Rule / Definition | Aggregator (Portfolio Factor & Beta Governor) | Statutory Limit / Hurdle | Compliance Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -235,15 +235,15 @@ Multiplicative Hedge weighting ($\eta = 0.10$, 2% floor, 30% cap) and net BTC-be
 ## 9. Statutory Indian Tax Assessment (Scenarios A & B)
 
 
-Evaluation of after-tax wealth under Section 115BBH (31.2% flat, zero loss offset) vs Ordinary Business Income:
+Evaluation of after-tax wealth under Section 115BBH (Scenario A: 31.2% flat, zero loss offset vs Scenario B: 31.2% netted, identical to v2):
 
 
-> **Query ID:** `Q_LAB_STATUTORY_TAX_SCENARIOS` | **Row Count:** `2` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_LAB_STATUTORY_TAX_SCENARIOS` | **Row Count:** `2` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Statutory Tax Scenario | Tax Rate Model | TDS Rate | Loss Offset Permission | Aggregator (Statutory Tax Assessment) | Gross Gains USD (Sum) | Gross Losses USD (Sum) | TDS Deducted USD (Sum) | Total Tax Liability USD (Sum) | Effective Tax Rate % (Mean) | Statutory Disclaimer |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | Scenario A: VDA Section 115BBH (No Loss Offset) | 30% + 4% Cess = 31.2% Flat | 1.0% Withholding | 0% (Strictly Zero) | Aggregator (Statutory Tax Assessment) | $0.00 | $0.00 | $0.00 | $0.00 | 31.2% on Gains | Consult a CA |
-| Scenario B: Ordinary Business Income (Offset Allowed) | 20.0% Corporate / LLP Base | 0.0% (Exempt Business) | 100% (Full Netting) | Aggregator (Statutory Tax Assessment) | $0.00 | $0.00 | $0.00 | $0.00 | 20.8% Net | Consult a CA |
+| Scenario B: Section 115BBH Netting Treatment (Identical to v2) | 30% + 4% Cess = 31.2% Netted | 0.0% (TDS Credit Allowed) | 100% (Full Netting) | Aggregator (Statutory Tax Assessment) | $0.00 | $0.00 | $0.00 | $0.00 | 31.2% on Net | Consult a CA |
 
 
 > [!IMPORTANT]
@@ -260,7 +260,7 @@ Evaluation of after-tax wealth under Section 115BBH (31.2% flat, zero loss offse
 All 12 test suites passing with 100% green status:
 
 
-> **Query ID:** `Q_LAB_TEST_SUITE_VERIFICATION` | **Row Count:** `12` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_LAB_TEST_SUITE_VERIFICATION` | **Row Count:** `12` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Test Suite Script | Rule Specification | Invariant Verification Engine | Aggregator (Automated CI Test Suite) | Execution Verdict | Audited Invariant Guarantee |
 | :--- | :---: | :---: | :---: | :---: | :---: |

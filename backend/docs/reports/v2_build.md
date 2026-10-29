@@ -5,7 +5,7 @@
 **Baseline Code Freeze Guard:** `3fae909fb085597400a1d00de04431893172008963eca38cf2742a96ee3b6928` (100% GREEN)  
 **Pre-Registration Spec SHA-256:** `3704e9e742e5ee9bcaa491df0c919fba0af23e65417ce106369e09a3803f6497` (`config/v2_spec.json`)  
 **Live Trading Invariant:** `LIVE_TRADING_ENABLED=false` | `V2_LIVE_ENABLED=false` (Rule 0.2 Permanently Enforced)  
-**Report Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`  
+**Report Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`  
 **Report Generation Engine:** `scripts/generate_report.py` (Rule 0.4 Named Query Provenance)  
 > [!IMPORTANT]
 > **MANDATORY STATUTORY TAX DISCLAIMER:** Not tax advice; consult a CA. All tax figures represent labelled hypothetical statutory scenarios (Scenario A vs Scenario B) modeled under Indian Virtual Digital Asset (VDA) provisions (Income Tax Act Section 115BBH, Section 194S, and CGST Act 2017).
@@ -41,7 +41,7 @@
 
 StarkX QuantEdge v2 was designed and executed as an evidence-gated, paper-first multi-sleeve portfolio architecture under non-negotiable Operating Rules (0.1–0.6):
 
-> **Query ID:** `Q_V2_BUILD_MANIFEST` | **Row Count:** `12` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_BUILD_MANIFEST` | **Row Count:** `12` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Engine Component / Module | File System Location | Aggregator (Architectural Verification Engine) | Operating Rule Specification | Enforcement Mechanism | Status |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -63,7 +63,7 @@ StarkX QuantEdge v2 was designed and executed as an evidence-gated, paper-first 
 
 All 12 automated test suites (including 3 baseline CI freeze guards and 9 new v2 engine test suites) pass 100%:
 
-> **Query ID:** `Q_V2_TEST_VERIFICATION_SUITE` | **Row Count:** `12` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_TEST_VERIFICATION_SUITE` | **Row Count:** `12` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Test Suite Name | Target Source Module | Aggregator (Automated CI Test Harness) | Core Invariant Asserted | Observed Test Result | Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -85,7 +85,7 @@ All 12 automated test suites (including 3 baseline CI freeze guards and 9 new v2
 
 Performance of Sleeve T evaluated per asset and window (out-of-sample 2017-2020, modern 2021-2026, and full 9.2-year history) showing net of costs, after-tax scenario A/B, versus cash and buy-and-hold:
 
-> **Query ID:** `Q_V2_SLEEVE_T_SIMULATION` | **Row Count:** `7` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_SLEEVE_T_SIMULATION` | **Row Count:** `7` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Asset / Window Configuration | Aggregator (Day-Block Bootstrap B=10,000, seed=17) | Pre-Tax Net CAGR | Pre-Tax Net Sharpe | Max Drawdown | Scenario A After-Tax CAGR | Scenario B After-Tax CAGR | Buy & Hold CAGR | Buy & Hold Max DD | Cash After-Tax CAGR | Comparative Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -105,7 +105,7 @@ Performance of Sleeve T evaluated per asset and window (out-of-sample 2017-2020,
 
 Formal evaluation of Stage A -> Stage B promotion criteria per Section 7 specification (verdicts strictly binary, pass/fail, not argued):
 
-> **Query ID:** `Q_V2_EVIDENCE_GATES_AUDIT` | **Row Count:** `9` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_EVIDENCE_GATES_AUDIT` | **Row Count:** `9` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Sleeve Candidate | Evidence Gate Name | Target Specification | Aggregator (Evidence Verification Engine) | Observed Empirical Value | Required Hurdle / Threshold | Binary Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -124,7 +124,7 @@ Formal evaluation of Stage A -> Stage B promotion criteria per Section 7 specifi
 
 Promotion progression roadmap across Stages A -> B -> C -> D:
 
-> **Query ID:** `Q_V2_PROMOTION_LIFECYCLE` | **Row Count:** `5` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_PROMOTION_LIFECYCLE` | **Row Count:** `5` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Promotion Transition | Governing Specification | Aggregator (Lifecycle Verification Engine) | Observed Requirement Status | Current Promotion Status | Operational Action Required |
 | :--- | :---: | :---: | :---: | :---: | :---: |

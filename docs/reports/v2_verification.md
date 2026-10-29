@@ -6,7 +6,7 @@
 **Pre-Registration Spec Hash:** `3704e9e742e5ee9bcaa491df0c919fba0af23e65417ce106369e09a3803f6497` (BITWISE-LOCKED)  
 **Baseline Freeze Hash:** `3fae909fb085597400a1d00de04431893172008963eca38cf2742a96ee3b6928` (LOCKED)  
 **Pre-Registration Amendment 1 Hash:** `1f3127b3eca41dd45db275bc66dad1b45fc2f4ce8805d636afc9b336e04ecd92` (LOCKED)  
-**Report Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`  
+**Report Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`  
 **Live Trading Locks:** `LIVE_TRADING_ENABLED=false` | `V2_LIVE_ENABLED=false` (Rule R4 & 0.2 Permanently Enforced)  
 **Report Generation Engine:** `scripts/generate_report.py` (Rule 0.4 Deterministic Named Queries)  
 > [!IMPORTANT]
@@ -50,7 +50,7 @@ While Sleeve C successfully survived all three historical stress drawdowns with 
 Per Item 1 mandate, the previous passing gate row 'Economic Gate Discipline' is replaced with 'Net APR >= configured hurdle (12m, 24m)' = **FAIL**, and Sleeve C is formally designated as **HELD IN STAGE A**. Zero-allocation targets continue to be logged at 00:05 UTC strictly as research.
 
 
-> **Query ID:** `Q_V2_VERIF_STAGE_CORRECTION` | **Row Count:** `3` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_VERIF_STAGE_CORRECTION` | **Row Count:** `3` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Evidence Gate Name | Target Specification | Aggregator (Evidence Verification Engine) | Observed Empirical Value | Required Configured Hurdle | Binary Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -64,7 +64,7 @@ Per Item 1 mandate, the previous passing gate row 'Economic Gate Discipline' is 
 Full empirical performance of Sleeve T across out-of-sample, modern, and secular spans, augmented with mean gross exposure, percentage of days fully flat, realized annualized volatility, switches per year, return conventions, day-block bootstrap confidence intervals ($B=10,000, \text{seed}=17$), and after-tax terminal wealth comparisons:
 
 
-> **Query ID:** `Q_V2_VERIF_SIMULATION_TABLE` | **Row Count:** `9` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_VERIF_SIMULATION_TABLE` | **Row Count:** `9` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Asset / Span Configuration (Aggregator: Day-Block Bootstrap B=10,000, seed=17) | Bars | Mean Gross Exp | % Days Flat | Realized Ann Vol | Switches / Yr | Pre-Tax Net CAGR | CAGR 90% Bootstrap CI | Pre-Tax Sharpe (Excess) | Sharpe 90% Bootstrap CI | Pre-Tax Sharpe (Raw) | Max Drawdown | Scenario A After-Tax TW | Scenario B After-Tax TW | Taxed B&H After-Tax TW | Delta A vs Taxed B&H | Delta B vs Taxed B&H | Cash TW (4.47% Net) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -111,7 +111,7 @@ Under the strict pre-registered rule where idle cash is uncredited (0% cash yiel
 - **Basket:** 0 / 36 start dates beat cash (**0.0%** -> **`FAIL`** vs 70.0% threshold)
 
 
-> **Query ID:** `Q_V2_VERIF_36_START_DATES` | **Row Count:** `36` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_VERIF_36_START_DATES` | **Row Count:** `36` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Start Date (Aggregator: 36m Rolling Window Engine) | End Date | Horizon (Days) | BTC Sleeve TW | BTC Cash TW | BTC Taxed B&H TW | BTC Winner | ETH Sleeve TW | ETH Taxed B&H TW | ETH Winner | Basket Sleeve TW | Basket Taxed B&H TW | Basket Winner |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -173,7 +173,7 @@ Under the strict pre-registered rule where idle cash is uncredited (0% cash yiel
 Comprehensive inventory of data sources, spans, and resolution across all system assets:
 
 
-> **Query ID:** `Q_V2_VERIF_DATA_SPANS` | **Row Count:** `6` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_VERIF_DATA_SPANS` | **Row Count:** `6` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Asset / Universe | Primary Public Data Source | Aggregator (Data Provenance Engine) | Inception Date | End Date | Span (Days / Years) | Out-of-Sample Classification |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -207,7 +207,7 @@ Comprehensive inventory of data sources, spans, and resolution across all system
 A rigorous point-in-time universe selection audit reveals that in static backtests, **18.4% of total symbol-bars** originate from modern tokens (e.g., SOL, AVAX, NEAR, APT) that were not top-15 at the historical bar date but are top-15 today.
 
 
-> **Query ID:** `Q_V2_VERIF_SURVIVORSHIP` | **Row Count:** `3` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_VERIF_SURVIVORSHIP` | **Row Count:** `3` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Universe Specification | Symbol Qualification Rule | Aggregator (Survivorship Engine) | Pre-Tax Net CAGR | Excess Sharpe Ratio | Max Drawdown | Survivorship Delta Analysis |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -224,7 +224,7 @@ A rigorous point-in-time universe selection audit reveals that in static backtes
 Evaluation of macro currency impacts on sleeve economics under 31.2% tax:
 
 
-> **Query ID:** `Q_V2_VERIF_CURRENCY_SENSITIVITY` | **Row Count:** `2` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_VERIF_CURRENCY_SENSITIVITY` | **Row Count:** `2` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Currency Regime | Risk-Free APR | Aggregator (Macro FX Replay Engine) | Sleeve Net CAGR | Excess Sharpe | Max DD | After-Tax Sleeve TW | After-Tax Cash TW | Gate Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -243,7 +243,7 @@ Evaluation of macro currency impacts on sleeve economics under 31.2% tax:
 Grid evaluation across $\sigma_{\text{target}} \in \{10\%, 15\%, 25\%\}$ and the 4 parameter neighbourhood variants (confirming zero parameter tuning):
 
 
-> **Query ID:** `Q_V2_VERIF_VOL_SENSITIVITY` | **Row Count:** `7` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_VERIF_VOL_SENSITIVITY` | **Row Count:** `7` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Vol Target / Variant Specification | Target Vol | Aggregator (Parameter Grid Engine) | Mean Gross Exposure | Max Drawdown | Scenario B Terminal Wealth | Cash Benchmark TW | Start-Date Share Beating Cash |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -296,7 +296,7 @@ Prior to report finalization and git push, the automated Phase 10 secret scan wa
 Final consolidated promotion verdicts across all portfolio sleeves and execution layers:
 
 
-> **Query ID:** `Q_V2_VERIF_FINAL_PROMOTION_MATRIX` | **Row Count:** `3` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_VERIF_FINAL_PROMOTION_MATRIX` | **Row Count:** `3` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Sleeve / Component | Current Stage | Target Stage | Aggregator (Stage Auditor Engine) | Unmet Evidence Gate | Verdict | Operational Status |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |

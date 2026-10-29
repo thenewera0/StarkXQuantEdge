@@ -3,7 +3,7 @@
 **Date:** 2026-10-27  
 **Environment:** Quantitative Edge Rehabilitation & Final Institutional Closure Suite  
 **Operating Rules:** R1–R7 Enforced | v1.1 Parameter Freeze Maintained | `LIVE_TRADING_ENABLED = False`  
-**Code Git Commit:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`  
+**Code Git Commit:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`  
 **Git Archival Tag:** `halt-2026-10-27`  
 **Report Provenance Engine:** `scripts/generate_report.py` (Rule 4.0 / 5.0 Compliant: Numbers Are Computed, Never Typed)
 
@@ -28,7 +28,7 @@
 
 `config/cohorts.json` is the sole, authoritative cohort registry. Every cohort has an explicit market filter, interval, strategy, label set, and shadow flag.
 
-> **Query ID:** `Q_P5_COHORTS_SSOT` | **Row Count:** `7` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_P5_COHORTS_SSOT` | **Row Count:** `7` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Cohort Key | Market Filter | Interval | Strategy | Direction | Labels | Shadow | Trades (n) | Sum R_net | Mean R_net | Cost-Adjusted Mean R |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -86,7 +86,7 @@ This explains why applying crypto perpetual taker fees (8 bps round-trip) to 8-p
 
 Always-Long and Random-Entry baselines evaluated across ALL eligible bars of the same symbols and dates, utilizing identical exit geometry (partial booking at $+0.20$ R taking $50\%$, stop $1.25\times$ ATR, target $2.0\times$ ATR, timeout $48$ bars):
 
-> **Query ID:** `Q_P5_BENCHMARKS_ALL_BARS` | **Row Count:** `3` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_P5_BENCHMARKS_ALL_BARS` | **Row Count:** `3` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Regime Cohort | Calendar Days (n) | Rule Trades | Universe Baseline Trades | Rule Daily Mean R | Always-Long All-Bars Mean R | Paired Excess vs AL | 95% Day-Block CI vs AL | Excess vs Random | 95% Day-Block CI vs Random | Pre-Registered Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -108,7 +108,7 @@ Always-Long and Random-Entry baselines evaluated across ALL eligible bars of the
 
 Stored database fields and cost recomputations across 20 random Core 4h Long trades:
 
-> **Query ID:** `Q_P5_TRADE_LEVEL_PROOF` | **Row Count:** `20` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_P5_TRADE_LEVEL_PROOF` | **Row Count:** `20` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Signal ID | Symbol | Entry Fill | Exit Price | Stop | Target | Partial-Book Event | Gross R | Fee (R) | Slippage (R) | Funding (R) | Stored r_net | Recomputed r_net |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -137,7 +137,7 @@ Stored database fields and cost recomputations across 20 random Core 4h Long tra
 
 ## 5.4 Funding Carry Stats & Identity Reconciliation
 
-> **Query ID:** `Q_P5_CARRY_RECON` | **Row Count:** `12` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_P5_CARRY_RECON` | **Row Count:** `12` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Reconciliation Dimension | Reported Value | Verified Value | Forensic Attribution & Proof |
 | :--- | :---: | :---: | :---: |
@@ -166,7 +166,7 @@ Stored database fields and cost recomputations across 20 random Core 4h Long tra
 
 Empirical Direction A cross-sectional results with corrected positive-gain concentration shares:
 
-> **Query ID:** `Q_P5_DIR_A_VALIDATED` | **Row Count:** `6` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_P5_DIR_A_VALIDATED` | **Row Count:** `6` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Horizon (H) | Execution Model | Net Sharpe | 95% Day-Block CI | DSR (n=512) | Positive Years | Placebo p-value | Incremental Alpha t | Top 5% Gain Share | 1-Bar Lag Sharpe (% Fall) | Gate Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -183,7 +183,7 @@ Empirical Direction A cross-sectional results with corrected positive-gain conce
 
 ## 5.6 Operating State & Archival Governance
 
-> **Query ID:** `Q_P5_OPERATING_GOVERNANCE` | **Row Count:** `8` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_P5_OPERATING_GOVERNANCE` | **Row Count:** `8` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Operational Subsystem | Configuration / Checksum | Current Enforced State | Verification Artifact |
 | :--- | :---: | :---: | :---: |

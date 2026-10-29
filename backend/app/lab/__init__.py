@@ -16,10 +16,12 @@ from __future__ import annotations
 # Constant Rule 0.1: Strict paper execution mode
 LAB_EXECUTION_MODE: str = "paper"
 LAB_SPEC_SHA256: str = "30410905d364ab6e4d3f8c6d7940ce0c112944de7891103a68aa776dbd7590ae"
+LAB_START_TIMESTAMP: str = "2026-10-29T00:00:00Z"
 LAB_VERSION: str = "1.0.0"
 
 __all__ = [
     "LAB_EXECUTION_MODE",
     "LAB_SPEC_SHA256",
+    "LAB_START_TIMESTAMP",
     "LAB_VERSION",
 ]

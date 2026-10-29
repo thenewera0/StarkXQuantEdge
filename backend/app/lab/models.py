@@ -114,6 +114,8 @@ class LabPosition:
     slippage_usd: float = 0.0
     funding_paid_usd: float = 0.0
     twin_pnl_usd: float = 0.0      # Section 4 twin execution tracking
+    is_backfill: bool = False      # Section 6 backfill flag
+    warm_start: bool = False       # Flagged True if entered before next bar open; excluded from tier evidence
 
     @property
     def net_pnl_usd(self) -> float:
@@ -136,6 +138,8 @@ class LabEvent:
         "TIER_UP",
         "REJECTED_GEOMETRY",
         "FEED_STALE",
+        "RECONCILIATION_BREAK",
+        "JOB_FAILURE",
     ]
     variant_id: str | None
     message: str

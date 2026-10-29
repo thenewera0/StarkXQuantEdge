@@ -29,3 +29,5 @@ Thumbs.db
 backend/data_cache/
 data_cache/
 scratch/
+backend/data/backups/
+

@@ -40,8 +40,8 @@ class EvidenceProgress(BaseModel):
 
 
 class TaxYears(BaseModel):
-    a: float  # Scenario A (31.2% flat VDA, no offset)
-    b: float  # Scenario B (20% business income)
+    a: float  # Scenario A (31.2% flat VDA, zero loss offset)
+    b: float  # Scenario B (31.2% VDA, gains & losses netted, identical to v2)
 
 
 class VariantRow(BaseModel):
@@ -78,6 +78,7 @@ class OpenPaperPosition(BaseModel):
     unrealizedR: float
     ageBars: int
     entryMode: Literal["taker", "maker"]
+    warmStart: bool = False
 
 
 class LabEventResponse(BaseModel):
@@ -93,6 +94,8 @@ class LabEventResponse(BaseModel):
         "TIER_UP",
         "REJECTED_GEOMETRY",
         "FEED_STALE",
+        "RECONCILIATION_BREAK",
+        "JOB_FAILURE",
     ]
     variantId: Optional[str]
     message: str
@@ -159,8 +162,8 @@ def get_leaderboard() -> List[VariantRow]:
             target_t, target_d = 120, 120
 
         # After tax USD per year at $1k capital
-        # Scenario A: 30% tax on winning trades with no loss offset
-        # Scenario B: 20% on net gains
+        # Scenario A: 31.2% tax on winning trades with no loss offset
+        # Scenario B: 31.2% on gains and losses netted (identical to v2)
         mean_r = v["mean_net_r"]
         trades_per_year = max(12, n_trades * (365 / max(active_days, 1)))
         gross_win_r = max(0.0, mean_r * 1.5)
@@ -174,9 +177,9 @@ def get_leaderboard() -> List[VariantRow]:
         tax_a = annual_gross_win * 0.312
         net_a = (annual_gross_win - annual_gross_loss) - tax_a
 
-        # Scenario B: 20% on net
+        # Scenario B: 31.2% on net (gains and losses netted, identical to v2)
         net_b_pre = annual_gross_win - annual_gross_loss
-        tax_b = max(0.0, net_b_pre * 0.20)
+        tax_b = max(0.0, net_b_pre * 0.312)
         net_b = net_b_pre - tax_b
 
         rows.append(VariantRow(
@@ -229,6 +232,7 @@ def get_positions(variantId: Optional[str] = Query(default=None)) -> List[OpenPa
             unrealizedR=p["unrealized_r"],
             ageBars=p["age_bars"],
             entryMode=p["entry_mode"],
+            warmStart=bool(p.get("warm_start", False)),
         )
         for p in positions
     ]
@@ -295,47 +299,55 @@ def get_portfolio() -> LabPortfolioResponse:
 @router.get("/tax", response_model=List[LabTaxScenarioRow])
 def get_tax() -> List[LabTaxScenarioRow]:
     """Statutory Indian tax assessment (Scenarios A and B). Not tax advice."""
-    disclaimer = "Not tax advice; consult a Chartered Accountant. Illustrative statutory scenarios under Section 115BBH & Business Income rules."
+    disclaimer = "Not tax advice; consult a Chartered Accountant. Illustrative statutory scenarios under Section 115BBH (Scenario A: No Loss Offset vs Scenario B: Netted at 31.2%)."
     
     # Calculate portfolio-wide gains and losses
     positions = _engine.storage.get_all_variants()
     gains = sum(max(0.0, (v["equity_usd"] - 10000.0)) for v in positions)
     losses = sum(max(0.0, (10000.0 - v["equity_usd"])) for v in positions)
+    net_pnl = gains - losses
 
     # Scenario A: 30% flat tax on gains + 1% TDS + 4% cess = 31.2% without loss offset
     tds_a = gains * 0.01
     cess_a = gains * 0.30 * 0.04
     tax_a = (gains * 0.30) + cess_a
-    net_a = (gains - losses) - tax_a
+    net_a = net_pnl - tax_a
 
-    # Scenario B: 20% on net gains (gains - losses - expenses)
-    net_pre_b = max(0.0, gains - losses - 200.0)  # $200 server/data expense
-    tax_b = net_pre_b * 0.20
-    net_b = (gains - losses - 200.0) - tax_b
+    # Scenario B: 31.2% on gains & losses netted (identical to v2)
+    if net_pnl > 0.0:
+        tax_b = net_pnl * 0.312
+        cess_b = (net_pnl * 0.30) * 0.04
+        net_b = net_pnl - tax_b
+        eff_rate_b = 31.2
+    else:
+        tax_b = 0.0
+        cess_b = 0.0
+        net_b = net_pnl
+        eff_rate_b = 0.0
 
     return [
         LabTaxScenarioRow(
             scenario="A",
-            name="Section 115BBH Flat VDA Regime (30% + 4% Cess + 1% TDS, No Loss Offset)",
+            name="Section 115BBH Flat VDA Regime (31.2% on Gains, Zero Loss Offset, 1% TDS)",
             grossGainUsd=round(gains, 2),
             grossLossUsd=round(losses, 2),
             tdsDeductedUsd=round(tds_a, 2),
             cessUsd=round(cess_a, 2),
             totalTaxUsd=round(tax_a, 2),
             netProfitAfterTaxUsd=round(net_a, 2),
-            effectiveTaxRatePct=round((tax_a / max(gains - losses, 1e-4)) * 100.0, 2) if gains > losses else 0.0,
+            effectiveTaxRatePct=round((tax_a / max(net_pnl, 1e-4)) * 100.0, 2) if gains > losses else 0.0,
             disclaimer=disclaimer,
         ),
         LabTaxScenarioRow(
             scenario="B",
-            name="Ordinary Business Income Regime (20% Corporate Rate, Full Loss & Expense Deduction)",
+            name="Section 115BBH Netting Treatment (31.2% on Net Gains, Full Loss Offset, Identical to v2)",
             grossGainUsd=round(gains, 2),
             grossLossUsd=round(losses, 2),
             tdsDeductedUsd=0.0,
-            cessUsd=round(tax_b * 0.04, 2),
-            totalTaxUsd=round(tax_b * 1.04, 2),
+            cessUsd=round(cess_b, 2),
+            totalTaxUsd=round(tax_b, 2),
             netProfitAfterTaxUsd=round(net_b, 2),
-            effectiveTaxRatePct=20.8,
+            effectiveTaxRatePct=eff_rate_b,
             disclaimer=disclaimer,
         ),
     ]

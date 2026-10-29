@@ -136,9 +136,16 @@ class LabStorage:
                     slippage_usd REAL NOT NULL DEFAULT 0.0,
                     funding_paid_usd REAL NOT NULL DEFAULT 0.0,
                     twin_pnl_usd REAL NOT NULL DEFAULT 0.0,
-                    is_backfill INTEGER NOT NULL DEFAULT 0
+                    is_backfill INTEGER NOT NULL DEFAULT 0,
+                    warm_start INTEGER NOT NULL DEFAULT 0
                 )
             """)
+
+            # Migration: Ensure warm_start column exists in existing databases
+            cursor = cur.execute("PRAGMA table_info(lab_positions)")
+            cols = [r[1] for r in cursor.fetchall()]
+            if "warm_start" not in cols:
+                cur.execute("ALTER TABLE lab_positions ADD COLUMN warm_start INTEGER NOT NULL DEFAULT 0")
 
             # 4. lab_events
             cur.execute("""
@@ -219,15 +226,16 @@ class LabStorage:
                     target_price, risk_r_usd, max_hold_bars, age_bars, unrealized_r,
                     status, exit_price, exit_time, exit_reason, realized_r,
                     realized_pnl_usd, fee_paid_usd, gst_paid_usd, slippage_usd,
-                    funding_paid_usd, twin_pnl_usd, is_backfill
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    funding_paid_usd, twin_pnl_usd, is_backfill, warm_start
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 pos.position_id, pos.strategy_id, pos.variant_id, pos.symbol, pos.side, pos.entry_mode,
                 pos.entry_price, t_entry, pos.size_qty, pos.initial_stop, pos.trailing_stop,
                 pos.target_price, pos.risk_r_usd, pos.max_hold_bars, pos.age_bars, pos.unrealized_r,
                 pos.status, pos.exit_price, t_exit, pos.exit_reason, pos.realized_r,
                 pos.realized_pnl_usd, pos.fee_paid_usd, pos.gst_paid_usd, pos.slippage_usd,
-                pos.funding_paid_usd, pos.twin_pnl_usd, 1 if is_backfill else 0
+                pos.funding_paid_usd, pos.twin_pnl_usd, 1 if is_backfill else 0,
+                1 if getattr(pos, "warm_start", False) else 0
             ))
             conn.commit()
 
@@ -243,10 +251,10 @@ class LabStorage:
             return [dict(r) for r in rows]
 
     def get_variant_trades(self, variant_id: str, forward_only: bool = True) -> List[Dict]:
-        """Queries closed trades for a variant."""
+        """Queries closed trades for a variant (excludes backfill and warm start when forward_only=True)."""
         query = "SELECT * FROM lab_positions WHERE variant_id = ? AND status = 'closed'"
         if forward_only:
-            query += " AND is_backfill = 0"
+            query += " AND is_backfill = 0 AND warm_start = 0"
         with self._get_conn() as conn:
             rows = conn.execute(query, [variant_id]).fetchall()
             return [dict(r) for r in rows]

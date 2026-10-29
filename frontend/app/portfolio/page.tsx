@@ -659,7 +659,7 @@ export default function PortfolioPage() {
             Evidence Gates &amp; Stage Promotion Tracker
           </h2>
           <p className="text-xs text-[#8B98A9] mt-0.5">
-            Stage A (Research) → Stage B (Shadow) → Stage C (Paper-Executed) → Stage D (Micro-Live)
+            Stage A (Research) → Stage B (Shadow) → Stage C (Paper-Executed) → Stage D (Micro-Paper Gated)
           </p>
         </div>
 

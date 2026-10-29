@@ -62,7 +62,7 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
           <div className="seg">
             {(["core", "flash", "all"] as Strat[]).map((s) => (
               <button key={s} data-active={strat === s} onClick={() => setStrat(s)} className="capitalize text-xs">
-                {s === "core" ? "Core (Live)" : s === "flash" ? "Flash (Paper)" : "All Strategies"}
+                {s === "core" ? "Core (Paper)" : s === "flash" ? "Flash (Paper)" : "All Strategies"}
               </button>
             ))}
           </div>

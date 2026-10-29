@@ -5,7 +5,7 @@ test_lab_tax:
 Enforces:
 1. Scenario A: 31.2% flat tax on every winning trade P&L (Section 115BBH: 30% + 4% cess),
    strictly ZERO loss offset and zero expense deductions.
-2. Scenario B: Business income model with net gain/loss netting.
+2. Scenario B: 31.2% on gains & losses netted (identical to v2).
 3. 1% TDS cash-flow withholding tracking.
 4. 18% GST on all platform fees.
 5. Statutory Tax Disclaimer: "Not tax advice; consult a qualified Chartered Accountant."
@@ -53,7 +53,7 @@ def main():
     assert abs(res_a["effective_tax_rate"] - 0.624) < 1e-4
     print(f"[PASS] Scenario A zero loss offset verified: Tax=${res_a['tax_liability']:.2f} on $200 gain, effective rate={res_a['effective_tax_rate']:.1%}")
 
-    # 3. Scenario B: Business Income Netting Invariant
+    # 3. Scenario B: Netting Invariant (Identical to v2: 31.2% on netted gains)
     res_b = calculate_tax_scenario_b(trades)
     # Net gain = $100. Tax is 31.2% on $100 = $31.20
     assert abs(res_b["tax_liability"] - 31.20) < 1e-4, f"Expected tax $31.20, got {res_b['tax_liability']}"

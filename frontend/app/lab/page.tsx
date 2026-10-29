@@ -470,6 +470,11 @@ export default function LabPage() {
                           <span className="text-[10px] px-1 py-0.2 rounded bg-[#1E2733] text-[#8B98A9]">
                             {p.entryMode}
                           </span>
+                          {p.warmStart && (
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-[#FFB020]/20 text-[#FFB020] border border-[#FFB020]/40">
+                              WARM START
+                            </span>
+                          )}
                         </div>
                         <div
                           className={`text-xs font-bold tabular-nums ${

@@ -868,11 +868,12 @@ export interface OpenPaperPosition {
   unrealizedR: number;
   ageBars: number;
   entryMode: "taker" | "maker";
+  warmStart?: boolean;
 }
 
 export interface LabEvent {
   ts: string;
-  kind: "SIGNAL" | "FILL" | "EXIT" | "PAUSE" | "RETIRE" | "SPAWN" | "SWAP" | "TIER_UP" | "REJECTED_GEOMETRY" | "FEED_STALE";
+  kind: "SIGNAL" | "FILL" | "EXIT" | "PAUSE" | "RETIRE" | "SPAWN" | "SWAP" | "TIER_UP" | "REJECTED_GEOMETRY" | "FEED_STALE" | "RECONCILIATION_BREAK" | "JOB_FAILURE";
   variantId: string | null;
   message: string;
 }

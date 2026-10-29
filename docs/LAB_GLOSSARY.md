@@ -43,5 +43,5 @@
 
 ### 5. Statutory Tax Regimes (India)
 - **Scenario A (VDA Section 115BBH):** Flat 30% tax on every profitable trade + 4% Health & Education Cess ($31.2\%$ total tax liability) with strictly zero loss offset across trades and zero deduction for expenses or platform fees. 1% TDS withheld on gross turnover.
-- **Scenario B (Ordinary Business Income):** Corporate/LLP trading business model taxing net gains at 20% (plus cess) with full deduction of trading losses, depreciation, server infrastructure, and exchange fees.
+- **Scenario B (Section 115BBH Netting Treatment):** Netting model taxing net positive gains at 31.2% (30% + 4% cess) with full offset of trading losses within the period, identical to the v2 model.
 - **Mandatory Notice:** *Not tax advice; consult a qualified Chartered Accountant.*

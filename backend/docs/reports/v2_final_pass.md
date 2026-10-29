@@ -6,7 +6,7 @@
 **Pre-Registration Spec Hash:** `3704e9e742e5ee9bcaa491df0c919fba0af23e65417ce106369e09a3803f6497` (BITWISE-LOCKED)  
 **Baseline Freeze Hash:** `3fae909fb085597400a1d00de04431893172008963eca38cf2742a96ee3b6928` (LOCKED)  
 **Gate Amendment Hash:** `34b628ab0111359bf8cb421f1494fe67eecd866b7f6d443444aa1b1c06c9bb02` (`docs/GATE_AMENDMENT_V2.md`)  
-**Report Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`  
+**Report Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`  
 **Live Trading Locks:** `LIVE_TRADING_ENABLED=false` | `V2_LIVE_ENABLED=false` (Rule R4 & 0.2 Permanently Enforced)  
 **Report Generation Engine:** `scripts/generate_report.py` (Rule 0.4 Deterministic Named Queries)  
 > [!IMPORTANT]
@@ -47,7 +47,7 @@
 Performance of Sleeve T evaluated per asset and window under pre-registered architectural constraints (`per_asset_cap = 0.25`, $\sigma_{\text{target}} = 15\%$, $\sigma_{\text{floor}} = 20\%$, idle cash credited at $6.50\%$ APR [$4.472\%$ net]):
 
 
-> **Query ID:** `Q_V2_FINAL_SIM_ENGINE_SPEC` | **Row Count:** `9` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_FINAL_SIM_ENGINE_SPEC` | **Row Count:** `9` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Asset / Span Configuration (Aggregator: Day-Block Bootstrap B=10,000, seed=17) | Bars | Mean Gross Exp | % Days Flat | Realized Ann Vol | Switches / Yr | Pre-Tax Net CAGR | CAGR 90% Bootstrap CI | Pre-Tax Sharpe (Excess) | Sharpe 90% Bootstrap CI | Pre-Tax Sharpe (Raw) | Max Drawdown | Scenario A After-Tax TW | Scenario B After-Tax TW | Taxed B&H After-Tax TW | Delta A vs Taxed B&H | Delta B vs Taxed B&H | Cash TW (4.47% Net) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -67,7 +67,7 @@ Performance of Sleeve T evaluated per asset and window under pre-registered arch
 Performance under standalone unconstrained allocation (`per_asset_cap = 1.0`, uncredited idle cash drag at 0% yield):
 
 
-> **Query ID:** `Q_V2_FINAL_SIM_UNCAPPED` | **Row Count:** `9` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_FINAL_SIM_UNCAPPED` | **Row Count:** `9` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Asset / Span Configuration (Aggregator: Uncapped Standalone Engine B=10,000, seed=17) | Bars | Mean Gross Exp | % Days Flat | Realized Ann Vol | Switches / Yr | Pre-Tax Net CAGR | CAGR 90% Bootstrap CI | Pre-Tax Sharpe (Excess) | Sharpe 90% Bootstrap CI | Pre-Tax Sharpe (Raw) | Max Drawdown | Scenario A After-Tax TW | Scenario B After-Tax TW | Taxed B&H After-Tax TW | Delta A vs Taxed B&H | Delta B vs Taxed B&H | Cash TW (4.47% Net) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -87,7 +87,7 @@ Performance under standalone unconstrained allocation (`per_asset_cap = 1.0`, un
 Full evaluation of all 36 monthly start dates from **2021-01-01 to 2023-12-01** evaluated to **2026-10-26** with idle cash credited at $6.5\%$ APR ($4.47\%$ net):
 
 
-> **Query ID:** `Q_V2_FINAL_36_START_DATES_CREDITED` | **Row Count:** `36` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_FINAL_36_START_DATES_CREDITED` | **Row Count:** `36` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Start Date (Aggregator: 36m Credited Rolling Window Engine) | End Date | Horizon (Days) | BTC Sleeve TW | BTC Cash TW | BTC Taxed B&H TW | BTC Winner | ETH Sleeve TW | ETH Taxed B&H TW | ETH Winner | Basket Sleeve TW | Basket Taxed B&H TW | Basket Winner |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -134,7 +134,7 @@ Full evaluation of all 36 monthly start dates from **2021-01-01 to 2023-12-01** 
 Full evaluation of all 36 monthly start dates under the original uncredited cash drag (0% cash yield on idle margin):
 
 
-> **Query ID:** `Q_V2_FINAL_36_START_DATES_UNCREDITED` | **Row Count:** `36` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_FINAL_36_START_DATES_UNCREDITED` | **Row Count:** `36` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Start Date (Aggregator: 36m Uncredited Rolling Window Engine) | End Date | Horizon (Days) | BTC Sleeve TW | BTC Cash TW | BTC Taxed B&H TW | BTC Winner | ETH Sleeve TW | ETH Taxed B&H TW | ETH Winner | Basket Sleeve TW | Basket Taxed B&H TW | Basket Winner |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -181,7 +181,7 @@ Full evaluation of all 36 monthly start dates under the original uncredited cash
 Sensitivity grid across $\sigma_{\text{target}} \in \{10\%, 15\%, 25\%\}$ and 4 neighbourhood parameter variants:
 
 
-> **Query ID:** `Q_V2_FINAL_VOL_SENSITIVITY_SPEC` | **Row Count:** `7` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_FINAL_VOL_SENSITIVITY_SPEC` | **Row Count:** `7` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Vol Target / Variant Specification | Target Vol | Aggregator (Parameter Grid Engine) | Mean Gross Exposure | Max Drawdown | Scenario B Terminal Wealth | Cash Benchmark TW | Start-Date Share Beating Cash |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -202,7 +202,7 @@ Sensitivity grid across $\sigma_{\text{target}} \in \{10\%, 15\%, 25\%\}$ and 4 
 Formal amendment ratified in [`docs/GATE_AMENDMENT_V2.md`](file:///c:/Users/Admin/Trading%20Bot%20app/docs/GATE_AMENDMENT_V2.md) (SHA-256 `34b628ab0111359bf8cb421f1494fe67eecd866b7f6d443444aa1b1c06c9bb02`).
 
 
-> **Query ID:** `Q_V2_FINAL_GATE_AMENDMENT` | **Row Count:** `2` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_FINAL_GATE_AMENDMENT` | **Row Count:** `2` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Gate Treatment Specification | Evaluation Logic | Aggregator (Gate Accounting Engine) | BTC Win Rate | ETH Win Rate | Basket Win Rate | Configured Hurdle | Official Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -230,7 +230,7 @@ Where credited cash compounds at $4.472\%$ net APR over horizon $h_t$ days. Prog
 Recomputation of pre-tax net Sharpe ratio on the multi-asset liquid basket with strict survivorship control (requiring $\ge 3$ years of continuous trading history at each date):
 
 
-> **Query ID:** `Q_V2_FINAL_BASKET_SURVIVORSHIP` | **Row Count:** `4` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_FINAL_BASKET_SURVIVORSHIP` | **Row Count:** `4` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Universe Specification | Cash Treatment | Aggregator (Survivorship Control Engine) | Pre-Tax Net CAGR | CAGR 90% Bootstrap CI | Excess Sharpe Ratio | Sharpe 90% Bootstrap CI | Max Drawdown | Gate Hurdle (0.60) | Verdict |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -257,7 +257,7 @@ Recomputation of pre-tax net Sharpe ratio on the multi-asset liquid basket with 
 Evaluation of macro currency exchange rates and compounding mechanics under Indian statutory taxation (31.2%):
 
 
-> **Query ID:** `Q_V2_FINAL_FX_AUDIT` | **Row Count:** `4` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_FINAL_FX_AUDIT` | **Row Count:** `4` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Asset / Series Specification | Currency Unit | Aggregator (Macro FX Replay Engine) | First Observation | Last Observation | Pre-Tax Terminal Wealth | After-Tax Terminal Wealth | Net CAGR | Reconciliation Note |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -302,7 +302,7 @@ Evaluation of macro currency exchange rates and compounding mechanics under Indi
 Performance partition across distinct secular market regimes:
 
 
-> **Query ID:** `Q_V2_FINAL_WINDOWS_BREAKDOWN` | **Row Count:** `3` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_FINAL_WINDOWS_BREAKDOWN` | **Row Count:** `3` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Historical Window | Bars / Span | Aggregator (Regime Partition Engine) | Engine Pre-Tax Net CAGR | CAGR 90% Bootstrap CI | Engine Excess Sharpe | Sharpe 90% Bootstrap CI | Engine Max DD | Taxed B&H CAGR | Taxed B&H Max DD | Cash Net CAGR |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -319,7 +319,7 @@ Performance partition across distinct secular market regimes:
 Real-world annual dollar economics after statutory 31.2% tax across capital tiers and volatility targets:
 
 
-> **Query ID:** `Q_V2_FINAL_ECONOMIC_SIGNIFICANCE` | **Row Count:** `12` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_FINAL_ECONOMIC_SIGNIFICANCE` | **Row Count:** `12` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Volatility Target | Starting Capital Equity | Aggregator (Capital Scale Sizing Engine) | Scenario A Net Profit / Yr | Scenario B Net Profit / Yr | Cash Benchmark Net / Yr | Taxed Buy-and-Hold Net / Yr | Overlay Excess Over Cash / Yr |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -349,7 +349,7 @@ Real-world annual dollar economics after statutory 31.2% tax across capital tier
 Comprehensive Git repository security audit executed prior to report finalization:
 
 
-> **Query ID:** `Q_V2_FINAL_HYGIENE_SCAN` | **Row Count:** `3` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_FINAL_HYGIENE_SCAN` | **Row Count:** `3` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Hygiene Parameter | System Specification | Aggregator (Git Secret Audit Engine) | Observed Verification Result | Safety Invariant Verdict |
 | :--- | :---: | :---: | :---: | :---: |
@@ -375,7 +375,7 @@ Comprehensive Git repository security audit executed prior to report finalizatio
 Final consolidated promotion verdicts across portfolio sleeves and system execution layers:
 
 
-> **Query ID:** `Q_V2_FINAL_PROMOTION_MATRIX` | **Row Count:** `3` | **Code Git Hash:** `63f0bd736215318f303be119c2ebec81d5ecf3e2`
+> **Query ID:** `Q_V2_FINAL_PROMOTION_MATRIX` | **Row Count:** `3` | **Code Git Hash:** `451299e6a8030ba95f404b3d09718a8cb04b1dca`
 
 | Sleeve / Component | Current Stage | Target Stage | Aggregator (Stage Auditor Engine) | Unmet Evidence Gates | Final Verdict | Operational Status |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
