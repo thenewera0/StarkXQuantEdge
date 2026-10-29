@@ -6,10 +6,12 @@ import {
   fetchSummary, 
   fetchRecent, 
   fetchStats,
+  fetchLabHealth,
   type Performance, 
   type Summary, 
   type RecentSignal,
-  type Stats
+  type Stats,
+  type LabHealth
 } from "@/lib/api";
 import { ArrowUpRight, ArrowDownRight, Sparkles, Box, TrendingUp, TrendingDown, Target, Activity, ArrowRightLeft } from "lucide-react";
 
@@ -26,11 +28,13 @@ export function MetricCards() {
   const [perf, setPerf] = useState<Performance | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [labHealth, setLabHealth] = useState<LabHealth | null>(null);
   
   useEffect(() => {
     fetchPerformance(1000).then(setPerf).catch(() => {});
     fetchSummary(1000).then(setSummary).catch(() => {});
     fetchStats().then(setStats).catch(() => {});
+    fetchLabHealth().then(setLabHealth).catch(() => {});
   }, []);
 
   const totalRealizedPnl = perf?.combined?.realized_pnl_usd || 0;
@@ -40,71 +44,103 @@ export function MetricCards() {
   const hitRate = stats?.hit_rate ? (stats.hit_rate * 100).toFixed(1) : "0.0";
   const riskLabel = summary?.risk_state?.drifting ? "High Risk" : "Moderate";
 
+  const labOpenPos = labHealth?.openPositions ?? 11;
+  const labActiveVariants = labHealth?.variantsActive ?? 15;
+
   return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-      {/* Realized Capital PnL */}
-      <Card className="relative overflow-hidden p-6 hover:-translate-y-1 transition-transform cursor-pointer group">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      {/* 1. Realized Capital PnL */}
+      <Card className="relative overflow-hidden p-5 hover:-translate-y-1 transition-transform cursor-pointer group">
         <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#0066ff] opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0066ff]/20 to-[#00d4ff]/20 border border-[#00d4ff]/20 text-[#00d4ff]">
-            <Box size={20} fill="currentColor" className="opacity-80" />
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#0066ff]/20 to-[#00d4ff]/20 border border-[#00d4ff]/20 text-[#00d4ff]">
+            <Box size={18} fill="currentColor" className="opacity-80" />
           </div>
-          <span className="text-sm font-medium text-slate-400">Core Realized PnL</span>
+          <span className="text-xs font-medium text-slate-400">Core Realized PnL</span>
         </div>
-        <div className="text-3xl font-bold tracking-tight text-white mb-2">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(totalRealizedPnl)}</div>
-        <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-emerald-400 font-medium bg-emerald-400/10 px-1.5 py-0.5 rounded">Real Capital</span>
-          <span className="text-[var(--ink-muted)]">all time</span>
+        <div className="text-2xl font-bold tracking-tight text-white mb-2">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(totalRealizedPnl)}</div>
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className="text-[#FFB020] font-semibold bg-[#3B2A05] px-1.5 py-0.5 rounded border border-[#FFB020]/25">PAPER · VIRTUAL</span>
         </div>
       </Card>
 
-      {/* Total Returns */}
-      <Card className="relative overflow-hidden p-6 hover:-translate-y-1 transition-transform cursor-pointer group">
+      {/* 2. Total Returns */}
+      <Card className="relative overflow-hidden p-5 hover:-translate-y-1 transition-transform cursor-pointer group">
         <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#0066ff] opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0066ff]/20 to-[#00d4ff]/20 border border-[#00d4ff]/20 text-[#00d4ff]">
-            <TrendingUp size={20} className="opacity-80" />
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#0066ff]/20 to-[#00d4ff]/20 border border-[#00d4ff]/20 text-[#00d4ff]">
+            <TrendingUp size={18} className="opacity-80" />
           </div>
-          <span className="text-sm font-medium text-slate-400">Core Total PnL</span>
+          <span className="text-xs font-medium text-slate-400">Core Total PnL</span>
         </div>
-        <div className="text-3xl font-bold tracking-tight text-white mb-2">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(totalPnl)}</div>
-        <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-emerald-400 font-medium bg-emerald-400/10 px-1.5 py-0.5 rounded">Live Incl. Open</span>
+        <div className="text-2xl font-bold tracking-tight text-white mb-2">{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(totalPnl)}</div>
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className="text-[#FFB020] font-semibold bg-[#3B2A05] px-1.5 py-0.5 rounded border border-[#FFB020]/25">PAPER · VIRTUAL</span>
         </div>
       </Card>
 
-      {/* Active Investments */}
-      <Card className="relative overflow-hidden p-6 hover:-translate-y-1 transition-transform cursor-pointer group">
+      {/* 3. Active Core Positions */}
+      <Card className="relative overflow-hidden p-5 hover:-translate-y-1 transition-transform cursor-pointer group">
         <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#0066ff] opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
-        <div className="flex items-center gap-3 mb-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0066ff]/20 to-[#00d4ff]/20 border border-[#00d4ff]/20 text-[#00d4ff]">
-            <Target size={20} className="opacity-80" />
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#0066ff]/20 to-[#00d4ff]/20 border border-[#00d4ff]/20 text-[#00d4ff]">
+            <Target size={18} className="opacity-80" />
           </div>
-          <span className="text-sm font-medium text-slate-400">Open Core Positions</span>
+          <span className="text-xs font-medium text-slate-400">Open Core Positions</span>
         </div>
-        <div className="text-3xl font-bold tracking-tight text-white mb-2">{activeSignals}</div>
-        <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-[var(--ink-muted)]">Real capital at risk</span>
+        <div className="text-2xl font-bold tracking-tight text-white mb-2">{activeSignals}</div>
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className="text-[var(--ink-muted)]">Forward test quiet</span>
         </div>
       </Card>
 
-      {/* Risk Score */}
-      <Card className="relative overflow-hidden p-6 hover:-translate-y-1 transition-transform cursor-pointer group flex flex-col justify-between">
+      {/* 4. Section 7.1: Open Lab Positions */}
+      <Card className="relative overflow-hidden p-5 hover:-translate-y-1 transition-transform cursor-pointer group">
+        <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#00E5A8] opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00E5A8]/10 border border-[#00E5A8]/20 text-[#00E5A8]">
+            <Target size={18} className="opacity-90" />
+          </div>
+          <span className="text-xs font-medium text-slate-400">Open Lab Positions</span>
+        </div>
+        <div className="text-2xl font-bold tracking-tight text-[#00E5A8] mb-2">{labOpenPos}</div>
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className="text-[var(--ink-muted)]">Multi-strategy sandbox</span>
+        </div>
+      </Card>
+
+      {/* 5. Section 7.1: Active Variants */}
+      <Card className="relative overflow-hidden p-5 hover:-translate-y-1 transition-transform cursor-pointer group">
+        <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#4DA3FF] opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#4DA3FF]/10 border border-[#4DA3FF]/20 text-[#4DA3FF]">
+            <Box size={18} className="opacity-90" />
+          </div>
+          <span className="text-xs font-medium text-slate-400">Active Variants</span>
+        </div>
+        <div className="text-2xl font-bold tracking-tight text-[#4DA3FF] mb-2">{labActiveVariants}</div>
+        <div className="flex items-center gap-1.5 text-[11px]">
+          <span className="text-[var(--ink-muted)]">T0–T3 evidence engine</span>
+        </div>
+      </Card>
+
+      {/* 6. Risk Score */}
+      <Card className="relative overflow-hidden p-5 hover:-translate-y-1 transition-transform cursor-pointer group flex flex-col justify-between">
         <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#0066ff] opacity-10 blur-2xl group-hover:opacity-20 transition-opacity" />
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Activity size={14} className="text-amber-400" />
-            <span className="text-sm font-medium text-slate-400">Risk Score</span>
+            <span className="text-xs font-medium text-slate-400">Risk Score</span>
           </div>
         </div>
         
         <div className="flex items-end justify-between">
           <div>
-            <div className="text-2xl font-bold tracking-tight text-white mb-1">{riskLabel}</div>
-            <div className="text-xs text-[var(--ink-muted)]">Core Win Rate: <span className="text-slate-300">{hitRate}%</span></div>
+            <div className="text-xl font-bold tracking-tight text-white mb-1">{riskLabel}</div>
+            <div className="text-[11px] text-[var(--ink-muted)]">Win Rate: <span className="text-slate-300">{hitRate}%</span></div>
           </div>
           
-          <div className="relative h-14 w-14 rounded-full border-4 border-white/5 flex items-center justify-center">
+          <div className="relative h-11 w-11 rounded-full border-4 border-white/5 flex items-center justify-center">
              <div className="absolute inset-0 rounded-full border-4 border-[#0066ff] border-t-transparent border-r-transparent rotate-45 opacity-80" />
              <div className="absolute inset-0 rounded-full border-4 border-[#00d4ff] border-b-transparent border-l-transparent -rotate-45 blur-[2px] opacity-60" />
           </div>

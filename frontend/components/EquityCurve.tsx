@@ -1,9 +1,9 @@
 "use client";
 
-import type { EquityPoint } from "@/lib/api";
+import type { LegacyEquityPoint } from "@/lib/api";
 
 /** Lightweight SVG cumulative-P&L curve. Green fill above 0, red below. */
-export function EquityCurve({ points, height = 140 }: { points: EquityPoint[]; height?: number }) {
+export function EquityCurve({ points, height = 140 }: { points: LegacyEquityPoint[]; height?: number }) {
   if (!points || points.length < 2) {
     return <div className="py-8 text-center text-xs text-slate-400">Equity curve appears once trades close.</div>;
   }

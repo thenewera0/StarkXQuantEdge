@@ -15,12 +15,15 @@ import {
   Radio,
   Landmark,
   PieChart,
-  Globe
+  Globe,
+  FlaskConical,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", href: "#overview" },
+  { icon: FlaskConical, label: "StarkX Lab", href: "/lab" },
+  { icon: Landmark, label: "v2 Portfolio", href: "/portfolio" },
   { icon: Zap, label: "Flash Bot", href: "#flash" },
   { icon: Radio, label: "Live Trades", href: "#live" },
   { icon: Globe, label: "Markets", href: "#markets" },
@@ -29,7 +32,6 @@ const navItems = [
   { icon: Activity, label: "Analytics", href: "#analytics" },
   { icon: ListOrdered, label: "History", href: "#history" },
   { icon: ArrowRightLeft, label: "Arbitrage", href: "#arb" },
-  { icon: Landmark, label: "v2 Portfolio", href: "/portfolio" },
 ];
 
 export function Sidebar() {

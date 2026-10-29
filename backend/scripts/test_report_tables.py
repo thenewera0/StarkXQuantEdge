@@ -444,6 +444,41 @@ def test_v2_final_pass_tables_have_query_ids():
     print(f"\nSUCCESS: All {len(tables)} numeric tables in v2_final_pass.md verified with query IDs, git hashes, aggregator declarations, and tax disclaimers.")
 
 
+def test_lab_build_tables_have_query_ids():
+    lab_paths = [Path("docs/reports/lab_build.md"), Path("backend/docs/reports/lab_build.md")]
+    lab_path = next((p for p in lab_paths if p.exists()), None)
+    if lab_path is None:
+        print("[INFO] lab_build.md not yet generated; skipping until generated.")
+        return
+    tables = verify_table_provenance(lab_path)
+    q_map = {t["query_id"]: t for t in tables}
+    
+    expected_queries = [
+        "Q_LAB_SPEC_PROVENANCE",
+        "Q_LAB_STRATEGY_CATALOG",
+        "Q_LAB_ACTIVE_VARIANTS_LEADERBOARD",
+        "Q_LAB_OPEN_POSITIONS_AUDIT",
+        "Q_LAB_NO_SIGNAL_LOGGED_REASONS",
+        "Q_LAB_LEDGER_RECONCILIATION",
+        "Q_LAB_CONTROLS_AND_COSTS",
+        "Q_LAB_TWIN_EXECUTION_AUDIT",
+        "Q_LAB_PORTFOLIO_AND_BETA_EXPOSURE",
+        "Q_LAB_STATUTORY_TAX_SCENARIOS",
+        "Q_LAB_TEST_SUITE_VERIFICATION",
+    ]
+    for eq in expected_queries:
+        assert eq in q_map, f"Missing {eq} in lab_build.md tables!"
+    
+    for t in tables:
+        has_aggregator = any("aggregator" in h.lower() for h in t["headers"])
+        assert has_aggregator, f"Table {t['query_id']} in lab_build.md does not name its aggregator in headers: {t['headers']}"
+
+    content = lab_path.read_text(encoding="utf-8")
+    assert "Not tax advice; consult a CA." in content, "Missing mandatory tax disclaimer in lab_build.md!"
+        
+    print(f"\nSUCCESS: All {len(tables)} numeric tables in lab_build.md verified with query IDs, git hashes, aggregator declarations, and tax disclaimers.")
+
+
 def test_all_reports_tables():
     test_phase_4_tables_have_query_ids()
     test_phase_5_tables_have_query_ids()
@@ -454,6 +489,7 @@ def test_all_reports_tables():
     test_phase_11_tables_have_query_ids()
     test_v2_verification_tables_have_query_ids()
     test_v2_final_pass_tables_have_query_ids()
+    test_lab_build_tables_have_query_ids()
 
 
 if __name__ == "__main__":

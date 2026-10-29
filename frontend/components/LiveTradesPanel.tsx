@@ -81,14 +81,14 @@ export function LiveTradesPanel({ refreshKey = 0 }: { refreshKey?: number }) {
           <div className="mt-1 text-xl font-bold tabular-nums text-white">
             {strat === "flash" ? (d?.paper_count ?? paper.length) : strat === "core" ? (d?.count ?? live.length) : `${d?.count ?? live.length} Live / ${d?.paper_count ?? paper.length} Paper`}
           </div>
-          <div className="text-[10px] text-[var(--ink-muted)]">{strat === "flash" ? "paper scalps" : strat === "core" ? "real capital execution" : "combined book"}</div>
+          <div className="text-[10px] text-[var(--ink-muted)]">{strat === "flash" ? "paper scalps" : strat === "core" ? "core paper execution" : "combined book"}</div>
         </div>
         <div className="rounded-xl border surface-raised p-3">
           <div className="text-[10px] uppercase tracking-wide text-[var(--ink-muted)]">Floating P&L</div>
           <div className={`mt-1 text-xl font-bold tabular-nums ${tone(strat === "flash" ? (d?.paper_pnl_usd ?? 0) : (d?.open_pnl_usd ?? 0))}`}>
             {usd(strat === "flash" ? (d?.paper_pnl_usd ?? 0) : (d?.open_pnl_usd ?? 0))}
           </div>
-          <div className="text-[10px] text-[var(--ink-muted)]">{strat === "flash" ? "paper floating" : "real capital floating"}</div>
+          <div className="text-[10px] text-[var(--ink-muted)]">{strat === "flash" ? "paper floating" : "core paper floating"}</div>
         </div>
         <div className="rounded-xl border surface-raised p-3">
           <div className="text-[10px] uppercase tracking-wide text-[var(--ink-muted)]">Active Capital Risk</div>

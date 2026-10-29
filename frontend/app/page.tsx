@@ -156,7 +156,7 @@ export default function Dashboard() {
         <>
           <ViewHeader
             title="Flash Bot (Paper Incubator)"
-            subtitle="Autonomous 1h crypto scalper testing environment. Runs 100% on paper — completely isolated from real capital balance."
+            subtitle="Autonomous 1h crypto scalper testing environment. Runs 100% on paper — completely isolated virtual sandbox."
           />
           <div className="w-full">
             <FlashBotPanel />

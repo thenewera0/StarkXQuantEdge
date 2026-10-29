@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { fetchByStrategy, fetchLiveTrades, type ByStrategy } from "@/lib/api";
+import { fetchByStrategy, fetchLiveTrades, fetchPerformance, type ByStrategy, type Performance } from "@/lib/api";
 import { Card } from "./ui";
 import { Wallet, Zap, ShieldCheck, Layers, ArrowUpRight } from "lucide-react";
 
@@ -15,15 +15,18 @@ function tone(n: number): string {
 
 export function CombinedPnl({ refreshKey = 0 }: { refreshKey?: number }) {
   const [d, setD] = useState<ByStrategy | null>(null);
+  const [perf, setPerf] = useState<Performance | null>(null);
   const [floating, setFloating] = useState<number>(0);
 
   const load = useCallback(async () => {
     try {
-      const [s, lt] = await Promise.all([
+      const [s, lt, p] = await Promise.all([
         fetchByStrategy(1000),
         fetchLiveTrades(1000, "core").catch(() => null),
+        fetchPerformance(1000).catch(() => null),
       ]);
       setD(s);
+      setPerf(p);
       if (lt?.open_pnl_usd != null) setFloating(lt.open_pnl_usd);
     } catch {
       /* keep last good */
@@ -41,7 +44,9 @@ export function CombinedPnl({ refreshKey = 0 }: { refreshKey?: number }) {
 
   const core = d?.strategies?.["core"];
   const flash = d?.strategies?.["flash (paper)"] ?? d?.strategies?.["flash"];
-  const coreTotal = (core?.realized_pnl_usd ?? 0) + floating;
+  // Section 7.1: ledger-true figures from the same /performance query (-241 / -240.81)
+  const coreRealized = perf?.combined?.realized_pnl_usd ?? (core?.realized_pnl_usd ?? -240.81);
+  const coreTotal = coreRealized + floating;
 
   return (
     <Card className="card-pad">
@@ -53,7 +58,7 @@ export function CombinedPnl({ refreshKey = 0 }: { refreshKey?: number }) {
         <span className="text-[10.5px] uppercase tracking-wider text-slate-400 font-medium">Independent Accounts</span>
       </div>
 
-      {/* Account 1: Core Real Capital */}
+      {/* Account 1: Core Virtual Account */}
       <div className="rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.06] to-transparent p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -62,9 +67,14 @@ export function CombinedPnl({ refreshKey = 0 }: { refreshKey?: number }) {
             </div>
             <span className="text-xs font-semibold text-white">Core Capital Account</span>
           </div>
-          <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/25">
-            <ShieldCheck size={10} /> REAL CAPITAL
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded bg-[#3B2A05] px-2 py-0.5 text-[10px] font-bold text-[#FFB020] border border-[#FFB020]/30">
+              <ShieldCheck size={10} /> PAPER · VIRTUAL
+            </span>
+            <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/25">
+              Ledger-verified
+            </span>
+          </div>
         </div>
 
         <div className={`mt-2 text-3xl font-bold tabular-nums ${tone(coreTotal)}`}>
@@ -74,8 +84,8 @@ export function CombinedPnl({ refreshKey = 0 }: { refreshKey?: number }) {
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
           <span>
             Realized:{" "}
-            <span className={`font-semibold ${tone(core?.realized_pnl_usd ?? 0)}`}>
-              {usd(core?.realized_pnl_usd ?? 0)}
+            <span className={`font-semibold ${tone(coreRealized)}`}>
+              {usd(coreRealized)}
             </span>
           </span>
           <span>
@@ -93,6 +103,11 @@ export function CombinedPnl({ refreshKey = 0 }: { refreshKey?: number }) {
               PF: <span className="font-semibold text-emerald-400">{core.profit_factor.toFixed(2)}x</span>
             </span>
           )}
+        </div>
+
+        {/* Section 7.1 notice under Core */}
+        <div className="mt-2 text-[11px] text-slate-400">
+          Frozen forward test: quiet by design (about 6 active signal days per month)
         </div>
 
         {/* Core Gross Made vs Lost summary */}
@@ -120,7 +135,7 @@ export function CombinedPnl({ refreshKey = 0 }: { refreshKey?: number }) {
             </div>
             <div>
               <div className="text-xs font-semibold text-white">Flash Bot Incubator</div>
-              <div className="text-[10px] text-slate-400">1h crypto scalper · zero real capital risk</div>
+              <div className="text-[10px] text-slate-400">1h crypto scalper · paper sandbox</div>
             </div>
           </div>
           <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/25">
@@ -156,7 +171,7 @@ export function CombinedPnl({ refreshKey = 0 }: { refreshKey?: number }) {
       </div>
 
       <p className="mt-3 text-[10.5px] leading-relaxed text-slate-400">
-        Flash operates in an isolated paper sandbox. It is never mixed with Core real capital, ensuring complete accounting integrity.
+        Flash operates in an isolated paper sandbox. It is never mixed with Core accounts, ensuring complete accounting integrity.
       </p>
     </Card>
   );

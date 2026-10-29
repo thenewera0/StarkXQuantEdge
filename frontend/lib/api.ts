@@ -423,7 +423,7 @@ export async function fetchFlashTrades(
 
 export type SymbolPnl = { symbol: string; trades: number; wins: number; pnl_usd: number };
 export type RegimePnl = { regime: string; trades: number; wins: number; pnl_usd: number; hit_rate: number | null };
-export type EquityPoint = { i: number; cum_pnl_usd: number; time: string | null };
+export type LegacyEquityPoint = { i: number; cum_pnl_usd: number; time: string | null };
 
 export type Performance = {
   enabled: boolean;
@@ -442,7 +442,7 @@ export type Performance = {
   ledger_status?: LedgerStatus;
   per_symbol?: SymbolPnl[];
   per_regime?: RegimePnl[];
-  equity_curve?: EquityPoint[];
+  equity_curve?: LegacyEquityPoint[];
   trades?: PnlTrade[];
   open_positions?: PnlTrade[];
 };
@@ -821,6 +821,141 @@ export type RebalanceModel = {
 };
 export async function fetchRebalanceModel(): Promise<RebalanceModel> {
   const res = await fetch(`${API_BASE}/investments/rebalance`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
+// ---- StarkX Lab API Client ----
+export type Tier = "T0" | "T1" | "T2" | "T3";
+export type VariantStatus = "active" | "paused" | "retired";
+
+export interface VariantRow {
+  strategyId: string;
+  variantId: string;
+  timeframe: "1h" | "4h" | "1d";
+  direction: "long" | "short" | "both";
+  tier: Tier;
+  status: VariantStatus;
+  nTrades: number;
+  activeDays: number;
+  meanNetR: number;
+  ciLow: number;
+  ciHigh: number;
+  profitFactor: number;
+  maxDdPct: number;
+  vsControlR: number;
+  vsControlCiLow: number;
+  afterTaxUsdPerYearAt1k: { a: number; b: number };
+  weightPct: number;
+  takerMeanR: number;
+  makerMeanR: number;
+  evidenceProgress: {
+    trades: number;
+    days: number;
+    targetTrades: number;
+    targetDays: number;
+  };
+}
+
+export interface OpenPaperPosition {
+  positionId: string;
+  variantId: string;
+  symbol: string;
+  side: "long" | "short";
+  entry: number;
+  stop: number;
+  target: number | null;
+  unrealizedR: number;
+  ageBars: number;
+  entryMode: "taker" | "maker";
+}
+
+export interface LabEvent {
+  ts: string;
+  kind: "SIGNAL" | "FILL" | "EXIT" | "PAUSE" | "RETIRE" | "SPAWN" | "SWAP" | "TIER_UP" | "REJECTED_GEOMETRY" | "FEED_STALE";
+  variantId: string | null;
+  message: string;
+}
+
+export interface LabHealth {
+  feedLagSec: number;
+  ledgerReconciled: boolean;
+  deltaUsd: number;
+  openPositions: number;
+  variantsActive: number;
+  trialsRegistered: number;
+  expectedFalsePositives: number;
+}
+
+export interface EquityPoint {
+  t: string;
+  variant: number;
+  control: number;
+  cashAfterTax: number;
+}
+
+export interface LabPortfolioResponse {
+  asOf: string;
+  totalEquityUsd: number;
+  activeVariantsCount: number;
+  betaAdjustedBtcExposure: number;
+  exposureCap: number;
+  weights: Record<string, number>;
+  status: string;
+}
+
+export interface LabTaxScenarioRow {
+  scenario: "A" | "B";
+  name: string;
+  grossGainUsd: number;
+  grossLossUsd: number;
+  tdsDeductedUsd: number;
+  cessUsd: number;
+  totalTaxUsd: number;
+  netProfitAfterTaxUsd: number;
+  effectiveTaxRatePct: number;
+  disclaimer: string;
+}
+
+export async function fetchLabLeaderboard(): Promise<VariantRow[]> {
+  const res = await fetch(`${API_BASE}/lab/leaderboard`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
+export async function fetchLabPositions(variantId?: string): Promise<OpenPaperPosition[]> {
+  const url = variantId ? `${API_BASE}/lab/positions?variantId=${encodeURIComponent(variantId)}` : `${API_BASE}/lab/positions`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
+export async function fetchLabEvents(limit = 50): Promise<LabEvent[]> {
+  const res = await fetch(`${API_BASE}/lab/events?limit=${limit}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
+export async function fetchLabHealth(): Promise<LabHealth> {
+  const res = await fetch(`${API_BASE}/lab/health`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
+export async function fetchLabEquity(variantId: string): Promise<EquityPoint[]> {
+  const res = await fetch(`${API_BASE}/lab/equity?variantId=${encodeURIComponent(variantId)}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
+export async function fetchLabPortfolio(): Promise<LabPortfolioResponse> {
+  const res = await fetch(`${API_BASE}/lab/portfolio`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
+}
+
+export async function fetchLabTax(): Promise<LabTaxScenarioRow[]> {
+  const res = await fetch(`${API_BASE}/lab/tax`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Backend ${res.status}`);
   return res.json();
 }
