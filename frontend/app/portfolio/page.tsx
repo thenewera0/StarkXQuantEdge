@@ -17,7 +17,7 @@ import {
   HelpCircle,
   Info,
 } from "lucide-react";
-import { createChart, ColorType, IChartApi, ISeriesApi } from "lightweight-charts";
+import { createChart, ColorType, IChartApi, ISeriesApi, LineSeries } from "lightweight-charts";
 
 // Exported TypeScript Interfaces strictly per Section 8 Specification
 export type Stage = "A" | "B" | "C" | "D";
@@ -249,21 +249,21 @@ export default function PortfolioPage() {
     chartRef.current = chart;
 
     // Series 1: Sleeve T Portfolio (Green #00E5A8)
-    const portfolioSeries = chart.addLineSeries({
+    const portfolioSeries = chart.addSeries(LineSeries, {
       color: "#00E5A8",
       lineWidth: 2,
       title: "Sleeve T (Vol-Targeted)",
     });
 
     // Series 2: BTC Buy & Hold (Amber #FFB020)
-    const btcSeries = chart.addLineSeries({
+    const btcSeries = chart.addSeries(LineSeries, {
       color: "#FFB020",
       lineWidth: 2,
       title: "BTC Buy-and-Hold",
     });
 
     // Series 3: Cash After-Tax (Blue #4DA3FF)
-    const cashSeries = chart.addLineSeries({
+    const cashSeries = chart.addSeries(LineSeries, {
       color: "#4DA3FF",
       lineWidth: 2,
       title: "Cash After-Tax (6.5%)",
@@ -678,7 +678,7 @@ export default function PortfolioPage() {
                 </span>
               </li>
               <li className="flex items-center justify-between">
-                <span className="text-[#8B98A9]">2. >= 2 Full Market Cycles</span>
+                <span className="text-[#8B98A9]">2. &gt;= 2 Full Market Cycles</span>
                 <span className="text-[#00E5A8] font-semibold flex items-center gap-1">
                   <CheckCircle2 className="w-3.5 h-3.5" /> 9.2 Years PASS
                 </span>
