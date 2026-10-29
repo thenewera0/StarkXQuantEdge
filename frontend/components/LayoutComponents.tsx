@@ -25,7 +25,7 @@ const navItems = [
   { icon: FlaskConical, label: "StarkX Lab", href: "/lab" },
   { icon: Landmark, label: "v2 Portfolio", href: "/portfolio" },
   { icon: Zap, label: "Flash Bot", href: "#flash" },
-  { icon: Radio, label: "Live Trades", href: "#live" },
+  { icon: Radio, label: "Open Positions", href: "#live" },
   { icon: Globe, label: "Markets", href: "#markets" },
   { icon: Landmark, label: "Investments", href: "#invest" },
   { icon: PieChart, label: "Fund", href: "#fund" },

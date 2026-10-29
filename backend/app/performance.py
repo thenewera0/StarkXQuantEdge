@@ -222,42 +222,56 @@ def live_trades(trade_size: float | None = None, strategy: str = "core") -> dict
 
 
 def by_strategy(trade_size: float | None = None) -> dict:
-    """Realized P&L split by strategy family (core swing vs flash scalper) + combined."""
+    """Realized P&L split by strategy family (core swing vs flash scalper) with true risk-sizing."""
     size = trade_size or settings.standard_trade_size_usd
     if not db.enabled():
         return {"enabled": False}
     try:
         with db.get_conn() as conn, conn.cursor() as cur:
             cur.execute(
-                """select coalesce(s.strategy,'core') strat, s.shadow, count(*),
-                          count(*) filter (where o.pnl > 0),
-                          coalesce(sum(o.pnl) filter (where o.pnl > 0), 0),
-                          coalesce(sum(o.pnl) filter (where o.pnl <= 0), 0),
-                          coalesce(sum(o.pnl), 0)
-                   from outcomes o join signals s on s.id = o.signal_id
-                   where o.pnl is not null
-                   group by strat, s.shadow"""
+                """
+                select s.id, s.symbol, coalesce(s.market,'crypto') as market, s.interval, s.label,
+                       coalesce(s.regime,'unknown') as regime, s.shadow, coalesce(s.strategy, 'core') as strategy,
+                       s.size_pct, s.win_prob, s.reward_risk,
+                       o.result, o.pnl, o.r_net, o.bars_held, o.resolved_at
+                from outcomes o join signals s on s.id = o.signal_id
+                where o.result is not null and (o.r_net is not null or o.pnl is not null)
+                order by o.resolved_at asc
+                """
             )
-            rows = cur.fetchall()
+            cols = [c.name for c in cur.description]
+            closed = [dict(zip(cols, row)) for row in cur.fetchall()]
     except Exception:
         return {"enabled": True, "error": "query failed"}
 
     fams: dict[str, dict] = {}
-    tot_n = tot_w = 0
-    tot_pnl = 0.0
-    tot_gross_profit = 0.0
-    tot_gross_loss = 0.0
-    for strat, shadow, n, w, win_pnl, loss_pnl, pnl in rows:
-        n, w = int(n), int(w)
-        win_pnl, loss_pnl, pnl = float(win_pnl), float(loss_pnl), float(pnl)
+    for c in closed:
+        strat = c["strategy"]
+        shadow = bool(c["shadow"])
         # 'core' shadow rows are legacy silenced candidates — not a strategy, skip them.
         if shadow and strat != "flash":
             continue
         key = "flash (paper)" if (shadow and strat == "flash") else strat
-        gross_profit_usd = round(win_pnl * size, 2)
-        gross_loss_usd = round(loss_pnl * size, 2)
-        realized_pnl_usd = round(pnl * size, 2)
-        losses = n - w
+
+        wp = float(c["win_prob"]) if c["win_prob"] is not None else 0.50
+        rr = float(c["reward_risk"]) if c["reward_risk"] is not None else 1.8
+        tier = sizing.tier_for_equity(size)
+        kf = sizing.quarter_kelly(wp, rr)
+        rf = sizing.ruin_fraction(wp, rr, tier["risk_cap"])
+        raw_kelly = min(kf, rf, tier["risk_cap"])
+        sym_mult = 0.50 if (c["symbol"] or "").upper() == "BTCUSDT" else 1.0
+        combined = raw_kelly * sym_mult
+        risk_pct = float(c["size_pct"]) if c["size_pct"] is not None else round(combined * 100.0, 3)
+        risk_usd = size * (risk_pct / 100.0)
+
+        r_net = float(c["r_net"]) if c["r_net"] is not None else None
+        pnl_frac = float(c["pnl"]) if c["pnl"] is not None else 0.0
+        if r_net is not None:
+            pnl_usd = r_net * risk_usd
+            won = r_net > 0
+        else:
+            pnl_usd = pnl_frac * size
+            won = pnl_frac > 0
 
         f = fams.setdefault(key, {
             "trades": 0, "wins": 0, "losses": 0,
@@ -268,43 +282,50 @@ def by_strategy(trade_size: float | None = None) -> dict:
             "avg_win_usd": 0.0,
             "avg_loss_usd": 0.0,
             "hit_rate": None,
-            "paper": bool(shadow),
+            "paper": True,
         })
-        f["trades"] += n
-        f["wins"] += w
-        f["losses"] += losses
-        f["realized_pnl_usd"] = round(f["realized_pnl_usd"] + realized_pnl_usd, 2)
-        f["gross_profit_usd"] = round(f["gross_profit_usd"] + gross_profit_usd, 2)
-        f["gross_loss_usd"] = round(f["gross_loss_usd"] + gross_loss_usd, 2)
+        f["trades"] += 1
+        f["realized_pnl_usd"] += pnl_usd
+        if won:
+            f["wins"] += 1
+            f["gross_profit_usd"] += pnl_usd
+        else:
+            f["losses"] += 1
+            f["gross_loss_usd"] += pnl_usd
+
+    for f in fams.values():
+        f["realized_pnl_usd"] = round(f["realized_pnl_usd"], 2)
+        f["gross_profit_usd"] = round(f["gross_profit_usd"], 2)
+        f["gross_loss_usd"] = round(f["gross_loss_usd"], 2)
         f["hit_rate"] = round(f["wins"] / f["trades"], 4) if f["trades"] else None
         f["profit_factor"] = round(abs(f["gross_profit_usd"] / f["gross_loss_usd"]), 2) if f["gross_loss_usd"] != 0 else None
         f["avg_win_usd"] = round(f["gross_profit_usd"] / f["wins"], 2) if f["wins"] else 0.0
         f["avg_loss_usd"] = round(f["gross_loss_usd"] / f["losses"], 2) if f["losses"] else 0.0
 
-        if not shadow:                       # only REAL money counts in the combined total
-            tot_n += n
-            tot_w += w
-            tot_pnl += pnl
-            tot_gross_profit += gross_profit_usd
-            tot_gross_loss += gross_loss_usd
 
-    tot_losses = tot_n - tot_w
-    tot_pf = round(abs(tot_gross_profit / tot_gross_loss), 2) if tot_gross_loss != 0 else None
-    tot_avg_w = round(tot_gross_profit / tot_w, 2) if tot_w else 0.0
-    tot_avg_l = round(tot_gross_loss / tot_losses, 2) if tot_losses else 0.0
+    core_stats = fams.get("core", {
+        "trades": 0, "wins": 0, "losses": 0, "hit_rate": None,
+        "realized_pnl_usd": 0.0, "gross_profit_usd": 0.0, "gross_loss_usd": 0.0,
+        "profit_factor": None, "avg_win_usd": 0.0, "avg_loss_usd": 0.0,
+    })
 
     return {
         "enabled": True, "trade_size_usd": size, "strategies": fams,
-        "combined": {"trades": tot_n, "wins": tot_w, "losses": tot_losses,
-                     "hit_rate": round(tot_w / tot_n, 4) if tot_n else None,
-                     "realized_pnl_usd": round(tot_pnl * size, 2),
-                     "gross_profit_usd": round(tot_gross_profit, 2),
-                     "gross_loss_usd": round(tot_gross_loss, 2),
-                     "profit_factor": tot_pf,
-                     "avg_win_usd": tot_avg_w,
-                     "avg_loss_usd": tot_avg_l,
-                     "note": "live capital only — flash paper P&L is tracked separately"},
+        "combined": {
+            "trades": core_stats["trades"],
+            "wins": core_stats["wins"],
+            "losses": core_stats["losses"],
+            "hit_rate": core_stats["hit_rate"],
+            "realized_pnl_usd": core_stats["realized_pnl_usd"],
+            "gross_profit_usd": core_stats["gross_profit_usd"],
+            "gross_loss_usd": core_stats["gross_loss_usd"],
+            "profit_factor": core_stats["profit_factor"],
+            "avg_win_usd": core_stats["avg_win_usd"],
+            "avg_loss_usd": core_stats["avg_loss_usd"],
+            "note": "paper virtual account only — flash paper P&L is tracked separately",
+        },
     }
+
 
 
 def performance(trade_size: float | None = None, include_shadow: bool = False, strategy: str | None = None) -> dict:
