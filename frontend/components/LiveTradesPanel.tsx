@@ -24,8 +24,22 @@ type StratFilter = "all" | "core" | "flash";
 
 export function LiveTradesPanel({ refreshKey = 0 }: { refreshKey?: number }) {
   const [strat, setStrat] = useState<StratFilter>("all");
+  const [marketFilter, setMarketFilter] = useState<"ALL" | "CRYPTO" | "NSE">("ALL");
   const [d, setD] = useState<LiveTrades | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("starkx_market_filter") as "ALL" | "CRYPTO" | "NSE" | null;
+      if (saved) setMarketFilter(saved);
+    }
+    const handleFilterChange = (e: Event) => {
+      const customEvent = e as CustomEvent<"ALL" | "CRYPTO" | "NSE">;
+      if (customEvent.detail) setMarketFilter(customEvent.detail);
+    };
+    window.addEventListener("starkx_market_filter_change", handleFilterChange);
+    return () => window.removeEventListener("starkx_market_filter_change", handleFilterChange);
+  }, []);
 
   const load = useCallback(async () => {
     try { setD(await fetchLiveTrades(1000, strat)); setError(null); }
@@ -39,7 +53,16 @@ export function LiveTradesPanel({ refreshKey = 0 }: { refreshKey?: number }) {
     return () => window.clearInterval(id);
   }, [load]);
 
-  const trades = d?.trades ?? [];
+  const rawTrades = d?.trades ?? [];
+  const trades = rawTrades.filter((t) => {
+    if (marketFilter === "NSE") {
+      return t.symbol.includes(".NS") || t.symbol.startsWith("^") || t.strategy?.includes("nse");
+    }
+    if (marketFilter === "CRYPTO") {
+      return !t.symbol.includes(".NS") && !t.symbol.startsWith("^") && !t.strategy?.includes("nse");
+    }
+    return true;
+  });
   const live = trades.filter((t) => !t.paper);
   const paper = trades.filter((t) => t.paper);
 
@@ -49,6 +72,11 @@ export function LiveTradesPanel({ refreshKey = 0 }: { refreshKey?: number }) {
         <div className="flex items-center gap-2">
           <Radio size={16} className="text-[var(--accent-bright)]" />
           <span className="text-sm font-semibold tracking-tight text-white">Running Trades</span>
+          {marketFilter !== "ALL" && (
+            <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] font-mono text-[var(--accent-bright)] border border-white/10">
+              {marketFilter}
+            </span>
+          )}
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--profit-dim)]0/10 px-2 py-0.5 text-[10px] font-semibold text-[var(--profit)] border border-emerald-500/20">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> LIVE
           </span>

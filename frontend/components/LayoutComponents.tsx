@@ -23,6 +23,7 @@ import {
   ExternalLink,
   CheckCircle2,
   Lock,
+  IndianRupee,
 } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { fetchNseStatus, type NSEMarketStatus } from "@/lib/api";
@@ -37,6 +38,7 @@ export interface NavItem {
 const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Overview", key: "overview", href: "/?tab=overview" },
   { icon: FlaskConical, label: "StarkX Lab", key: "lab", href: "/lab" },
+  { icon: IndianRupee, label: "NSE India F&O", key: "nse", href: "/?tab=nse" },
   { icon: Landmark, label: "v2 Portfolio", key: "portfolio", href: "/portfolio" },
   { icon: Zap, label: "Flash Bot", key: "flash", href: "/?tab=flash" },
   { icon: Radio, label: "Live Trades", key: "live", href: "/?tab=live" },
@@ -208,16 +210,65 @@ export function Header() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Sync marketFilter with active tab or saved state
+  useEffect(() => {
+    const syncFilter = () => {
+      if (typeof window === "undefined") return;
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab") || (window.location.hash || "").replace("#", "");
+      if (tab === "nse") {
+        setMarketFilter("NSE");
+      } else if (tab === "flash") {
+        setMarketFilter("CRYPTO");
+      } else {
+        const saved = localStorage.getItem("starkx_market_filter") as "ALL" | "CRYPTO" | "NSE" | null;
+        if (saved) setMarketFilter(saved);
+      }
+    };
+    syncFilter();
+    window.addEventListener("popstate", syncFilter);
+    window.addEventListener("hashchange", syncFilter);
+    window.addEventListener("starkx_tab_change", syncFilter);
+    return () => {
+      window.removeEventListener("popstate", syncFilter);
+      window.removeEventListener("hashchange", syncFilter);
+      window.removeEventListener("starkx_tab_change", syncFilter);
+    };
+  }, []);
+
   const handleMarketToggle = (val: "ALL" | "CRYPTO" | "NSE") => {
     setMarketFilter(val);
     if (typeof window !== "undefined") {
       localStorage.setItem("starkx_market_filter", val);
       window.dispatchEvent(new CustomEvent("starkx_market_filter_change", { detail: val }));
+
+      const isMainPage = window.location.pathname === "/";
+      if (val === "NSE") {
+        if (isMainPage) {
+          window.location.hash = "nse";
+          const url = new URL(window.location.href);
+          url.searchParams.set("tab", "nse");
+          window.history.pushState({}, "", url.toString());
+          window.dispatchEvent(new CustomEvent("starkx_tab_change", { detail: "nse" }));
+        } else {
+          window.location.href = "/?tab=nse";
+        }
+      } else if (val === "CRYPTO") {
+        const params = new URLSearchParams(window.location.search);
+        if (isMainPage && params.get("tab") === "nse") {
+          window.location.hash = "overview";
+          const url = new URL(window.location.href);
+          url.searchParams.set("tab", "overview");
+          window.history.pushState({}, "", url.toString());
+          window.dispatchEvent(new CustomEvent("starkx_tab_change", { detail: "overview" }));
+        }
+      }
     }
   };
 
   const searchableItems = [
     { type: "view", title: "Overview", desc: "Portfolio summary, equity curve & Core stats", link: "/?tab=overview" },
+    { type: "view", title: "NSE India F&O", desc: "Live IST clock, option chain PCR & Section 43(5) tax sleeve", link: "/?tab=nse" },
     { type: "view", title: "Flash Bot", desc: "Autonomous 15m/1h liquidation sweep & squeeze sniper", link: "/?tab=flash" },
     { type: "view", title: "Live Trades", desc: "Mark-to-market open Core, Flash, and Lab positions", link: "/?tab=live" },
     { type: "view", title: "Markets & Charting", desc: "Multi-asset charting workbench & factor confluence", link: "/?tab=markets" },

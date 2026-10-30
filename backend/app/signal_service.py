@@ -134,7 +134,15 @@ def _fetch_ohlcv(symbol: str, interval: str, limit: int, market: str):
     at. Twelve Data is kept only as a fallback: its free tier allows 800 requests/day, which a
     universe of this size would exhaust in a single sweep.
     """
-    if market in _CRYPTO_MARKETS:
+    # Auto-detect non-crypto symbols (NSE indices, equities, commodities, forex)
+    sym_upper = symbol.upper()
+    is_non_crypto = (
+        sym_upper.startswith("^")
+        or sym_upper.endswith(".NS")
+        or "/" in sym_upper
+        or sym_upper in ("NIFTY", "BANKNIFTY", "SENSEX", "INDIAVIX", "CNXIT")
+    )
+    if market in _CRYPTO_MARKETS and not is_non_crypto:
         df = fetch_klines(symbol, interval, limit)
     else:
         from . import universe

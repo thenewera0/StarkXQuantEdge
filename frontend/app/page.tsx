@@ -28,15 +28,16 @@ import { UniversePanel } from "@/components/UniversePanel";
 import { RiskPanel } from "@/components/RiskPanel";
 import { PortfolioPanel } from "@/components/PortfolioPanel";
 import { PerformancePanel } from "@/components/PerformancePanel";
+import { NSEPanel } from "@/components/NSEPanel";
 import { ViewHeader } from "@/components/PanelShell";
 import { Card } from "@/components/ui";
 import { Activity, Bitcoin, DollarSign, Sparkles, RefreshCw, Percent, ShieldCheck } from "lucide-react";
 import { fetchLabTax, type LabTaxScenarioRow } from "@/lib/api";
 
 type Market = "crypto" | "forex" | "nse_index" | "nse_eq";
-type View = "overview" | "flash" | "live" | "markets" | "invest" | "fund" | "analytics" | "history" | "arb";
+type View = "overview" | "flash" | "live" | "markets" | "invest" | "fund" | "analytics" | "history" | "arb" | "nse";
 
-const VIEWS: View[] = ["overview", "flash", "live", "markets", "invest", "fund", "analytics", "history", "arb"];
+const VIEWS: View[] = ["overview", "flash", "live", "markets", "invest", "fund", "analytics", "history", "arb", "nse"];
 
 const WATCHLISTS: Record<Market, string[]> = {
   crypto: ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"],
@@ -67,6 +68,7 @@ function useHashView(): View {
       let normalized: View = "overview";
       if (raw === "investments" || raw === "invest") normalized = "invest";
       else if (raw === "arbitrage" || raw === "arb") normalized = "arb";
+      else if (raw === "nse" || raw === "indian" || raw === "nse-india") normalized = "nse";
       else if (VIEWS.includes(raw as View)) normalized = raw as View;
       setView(normalized);
     };
@@ -79,6 +81,7 @@ function useHashView(): View {
       let normalized: View = "overview";
       if (raw === "investments" || raw === "invest") normalized = "invest";
       else if (raw === "arbitrage" || raw === "arb") normalized = "arb";
+      else if (raw === "nse" || raw === "indian" || raw === "nse-india") normalized = "nse";
       else if (VIEWS.includes(raw as View)) normalized = raw as View;
       setView(normalized);
     };
@@ -447,6 +450,17 @@ export default function Dashboard() {
         <>
           <ViewHeader title="Arbitrage" subtitle="Funding carry, triangular cycles and cross-exchange spreads — EV-gated after costs." />
           <ArbPanel />
+        </>
+      )}
+
+      {/* ---------------- NSE INDIA F&O ---------------- */}
+      {view === "nse" && (
+        <>
+          <ViewHeader
+            title="NSE India Equities &amp; F&amp;O Trading Engine"
+            subtitle="Live IST market hours, zero-cost public session data, option chain Greek radar, and Section 43(5) tax sleeve."
+          />
+          <NSEPanel />
         </>
       )}
     </div>

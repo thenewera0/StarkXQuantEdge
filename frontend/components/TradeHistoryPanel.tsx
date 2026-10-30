@@ -21,12 +21,26 @@ function tone(n: number): string {
 export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
   const [tab, setTab] = useState<Tab>("all");
   const [strat, setStrat] = useState<Strat>("core");
+  const [marketFilter, setMarketFilter] = useState<"ALL" | "CRYPTO" | "NSE">("ALL");
   const [rows, setRows] = useState<PnlTrade[]>([]);
   const [counts, setCounts] = useState({ all: 0, wins: 0, losses: 0 });
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("starkx_market_filter") as "ALL" | "CRYPTO" | "NSE" | null;
+      if (saved) setMarketFilter(saved);
+    }
+    const handleFilterChange = (e: Event) => {
+      const customEvent = e as CustomEvent<"ALL" | "CRYPTO" | "NSE">;
+      if (customEvent.detail) setMarketFilter(customEvent.detail);
+    };
+    window.addEventListener("starkx_market_filter_change", handleFilterChange);
+    return () => window.removeEventListener("starkx_market_filter_change", handleFilterChange);
+  }, []);
 
   const load = useCallback(async (t: Tab, s: Strat, off: number, append: boolean) => {
     setLoading(true);
@@ -46,6 +60,16 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
     setOffset(0);
     load(tab, strat, 0, false);
   }, [tab, strat, load, refreshKey]);
+
+  const filteredRows = rows.filter((r) => {
+    if (marketFilter === "NSE") {
+      return r.symbol.includes(".NS") || r.symbol.startsWith("^") || r.strategy?.includes("nse");
+    }
+    if (marketFilter === "CRYPTO") {
+      return !r.symbol.includes(".NS") && !r.symbol.startsWith("^") && !r.strategy?.includes("nse");
+    }
+    return true;
+  });
 
   const shown = tab === "all" ? counts.all : tab === "wins" ? counts.wins : counts.losses;
   const hasMore = rows.length < shown;
@@ -92,7 +116,7 @@ export function TradeHistoryPanel({ refreshKey }: { refreshKey: number }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((t, i) => {
+            {filteredRows.map((t, i) => {
               const isFlash = t.strategy === "flash" || t.regime?.startsWith("flash_") || strat === "flash";
               return (
                 <tr

@@ -224,6 +224,8 @@ def candles(
     market: str = Query("crypto"),
     limit: int = Query(300, ge=60, le=1000),
 ) -> dict:
+    if market == "crypto" and (symbol.startswith("^") or symbol.endswith(".NS") or "/" in symbol or symbol in ("NIFTY", "BANKNIFTY", "SENSEX", "INDIAVIX")):
+        market = "nse_index" if (symbol.startswith("^") or symbol in ("NIFTY", "BANKNIFTY", "SENSEX", "INDIAVIX")) else ("forex" if "/" in symbol else "nse_eq")
     return get_candles(symbol, interval, market=market, limit=limit)
 
 
