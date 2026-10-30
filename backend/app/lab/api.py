@@ -47,7 +47,7 @@ class TaxYears(BaseModel):
 class VariantRow(BaseModel):
     strategyId: str
     variantId: str
-    timeframe: Literal["1h", "4h", "1d"]
+    timeframe: Literal["5m", "15m", "30m", "1h", "4h", "1d"]
     direction: Literal["long", "short", "both"]
     tier: Literal["T0", "T1", "T2", "T3"]
     status: Literal["active", "paused", "retired"]
@@ -219,7 +219,8 @@ def get_leaderboard() -> List[VariantRow]:
 @router.get("/positions", response_model=List[OpenPaperPosition])
 def get_positions(variantId: Optional[str] = Query(default=None)) -> List[OpenPaperPosition]:
     """Live open paper positions polled every 5 seconds."""
-    positions = _engine.storage.get_open_positions(variant_id=variantId)
+    vid = variantId if isinstance(variantId, str) else None
+    positions = _engine.storage.get_open_positions(variant_id=vid)
     return [
         OpenPaperPosition(
             positionId=p["position_id"],

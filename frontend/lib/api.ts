@@ -834,7 +834,7 @@ export type VariantStatus = "active" | "paused" | "retired";
 export interface VariantRow {
   strategyId: string;
   variantId: string;
-  timeframe: "1h" | "4h" | "1d";
+  timeframe: "5m" | "15m" | "30m" | "1h" | "4h" | "1d";
   direction: "long" | "short" | "both";
   tier: Tier;
   status: VariantStatus;

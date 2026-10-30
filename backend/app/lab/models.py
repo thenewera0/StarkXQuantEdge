@@ -57,7 +57,7 @@ class Signal:
 class MarketContext:
     """Point-in-time market context presented to a Strategy on bar close."""
     symbol: str
-    timeframe: Literal["1h", "4h", "1d"]
+    timeframe: Literal["5m", "15m", "30m", "1h", "4h", "1d"]
     bars: pd.DataFrame  # OHLCV bars strictly closed before current time
     as_of: datetime
     funding_rate: float | None = None
@@ -69,7 +69,7 @@ class MarketContext:
 class Strategy(Protocol):
     """Canonical Lab Strategy Protocol per Section 1."""
     id: str
-    timeframe: Literal["1h", "4h", "1d"]
+    timeframe: Literal["5m", "15m", "30m", "1h", "4h", "1d"]
     params: dict
 
     def on_bar_close(self, ctx: MarketContext) -> list[Signal]:
