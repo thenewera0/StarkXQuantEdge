@@ -51,6 +51,19 @@ class PairsBTCETH1DStrategy:
             return []
 
         log_ratio = np.log(aligned["eth"] / aligned["btc"])
+
+        # Stationarity Gate (Phase 4):
+        from app.lab.strategies.base import calc_hurst, calc_ou_halflife
+        h_ratio = calc_hurst(log_ratio, lags=15)
+        if h_ratio > 0.55:
+            # Ratio is in a non-stationary trending regime -> STAND DOWN
+            return []
+
+        t_half = calc_ou_halflife(log_ratio.iloc[-p_lookback:])
+        if t_half > 20.0:
+            # Reversion too slow (> 20 days) -> STAND DOWN
+            return []
+
         rolling_mean = log_ratio.rolling(window=p_lookback).mean()
         rolling_std = log_ratio.rolling(window=p_lookback).std()
 
@@ -78,7 +91,7 @@ class PairsBTCETH1DStrategy:
                 target_r=2.0,
                 trail_atr=None,
                 max_hold_bars=int(self.params["max_hold_days"]),
-                meta={"z_score": z, "aligned_pair": "ETH/BTC", "atr": curr_atr},
+                meta={"z_score": z, "aligned_pair": "ETH/BTC", "h_ratio": h_ratio, "t_half": t_half, "atr": curr_atr},
             ))
         elif z > entry_z:
             # ETH overvalued vs BTC -> Short ETH
@@ -93,7 +106,7 @@ class PairsBTCETH1DStrategy:
                 target_r=2.0,
                 trail_atr=None,
                 max_hold_bars=int(self.params["max_hold_days"]),
-                meta={"z_score": z, "aligned_pair": "ETH/BTC", "atr": curr_atr},
+                meta={"z_score": z, "aligned_pair": "ETH/BTC", "h_ratio": h_ratio, "t_half": t_half, "atr": curr_atr},
             ))
 
         return signals

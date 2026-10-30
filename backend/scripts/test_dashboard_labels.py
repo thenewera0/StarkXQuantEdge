@@ -40,8 +40,8 @@ def main():
                 try:
                     with open(p, "r", encoding="utf-8", errors="ignore") as file:
                         content = file.read()
-                        # Search for "REAL CAPITAL" (case-insensitive)
-                        matches = re.finditer(r"\bREAL\s+CAPITAL\b", content, re.IGNORECASE)
+                        # Search for "REAL CAPITAL", "LIVE INCL", "CAPITAL AT RISK" (case-insensitive)
+                        matches = re.finditer(r"\b(REAL\s+CAPITAL|LIVE\s+INCL|REAL\s+CAPITAL\s+AT\s+RISK)\b", content, re.IGNORECASE)
                         for m in matches:
                             line_num = content[:m.start()].count("\n") + 1
                             found_forbidden.append(f"{p.relative_to(FRONTEND_DIR)}:{line_num} -> '{m.group(0)}'")

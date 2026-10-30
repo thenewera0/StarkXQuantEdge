@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     ev_gate_enabled: bool = True
     min_ev_r: float = 0.0
 
+    # Section 115BBH & GST tax-aware EV gate (Phase 5)
+    tax_ev_gate_enabled: bool = False
+    tax_ev_mode: str = "115bbh_scenario_a"
+    tax_min_ev_r: float = 0.10
+
     # Meta-labeling model (Blueprint v2 §5). Frozen in SHADOW mode during audit: its P(win) is computed and
     # logged on every signal, but does NOT feed the EV gate until out-of-fold CV calibration is implemented.
     meta_gate_enabled: bool = False  # frozen shadow-only mode; prevents in-sample PAVA distortion from driving EV

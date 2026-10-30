@@ -110,39 +110,56 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
     n = len(future)
 
     start = 0
+    risk_dist = abs(entry - stop)
     if use_limit:
         from .execution import tick_size
         t = tick_size(entry)
         filled_at = None
-        for i in range(min(settings.limit_expiry_bars, n)):
+        target_1r = entry + risk_dist if direction == "long" else entry - risk_dist
+        expiry_bars = settings.limit_expiry_bars
+        for i in range(min(expiry_bars, n)):
+            hi_i = float(highs.iloc[i])
+            lo_i = float(lows.iloc[i])
+            # Runaway check: if price touches +1.0R before filling, order is cancelled cleanly
             if direction == "long":
-                if float(lows.iloc[i]) <= (entry - t):
+                if hi_i >= target_1r:
+                    return {"result": "unfilled", "pnl": None, "pnl_frac": None,
+                            "mfe": None, "mae": None, "bars_held": i + 1,
+                            "r_net": None, "cost_r": None, "status": "EXPIRED_UNFILLED"}
+                if lo_i <= (entry - t):
                     filled_at = i
                     break
-            elif float(highs.iloc[i]) >= (entry + t):
-                filled_at = i
-                break
+            elif direction == "short":
+                if lo_i <= target_1r:
+                    return {"result": "unfilled", "pnl": None, "pnl_frac": None,
+                            "mfe": None, "mae": None, "bars_held": i + 1,
+                            "r_net": None, "cost_r": None, "status": "EXPIRED_UNFILLED"}
+                if hi_i >= (entry + t):
+                    filled_at = i
+                    break
         if filled_at is None:
-            if n < settings.limit_expiry_bars:
+            if n < expiry_bars:
                 return None          # window has not elapsed yet — still pending, not cancelled
             else:
                 # Expired unfilled. pnl is NULL rather than 0 so it closes the signal without being
                 # counted as a losing trade in any hit-rate or expectancy query.
                 return {"result": "unfilled", "pnl": None, "pnl_frac": None,
-                        "mfe": None, "mae": None, "bars_held": settings.limit_expiry_bars,
-                        "r_net": None, "cost_r": None}
+                        "mfe": None, "mae": None, "bars_held": expiry_bars,
+                        "r_net": None, "cost_r": None, "status": "EXPIRED_UNFILLED"}
         start = filled_at
 
-
-    # PARTIAL BOOK.
-    # Calibrated to secure early profit while leaving 65% of the position running for the big target.
-    # Flash scalps take partial at flash_partial_book_at_r (0.30R), while core swings take partial at partial_book_at_r (0.40R).
-    risk_dist = abs(entry - stop)
+    # PARTIAL BOOK / 2-TRANCHE SCALE-OUT.
+    # Phase 2: Tranche 1 (50%) books at T1 = +1.5R (or strategy configured partial).
+    # Stop ratchets to Breakeven + fees (+0.15R), while Tranche 2 trails dynamically via Chandelier Exit or T2 (+3.5R).
     partial_px = None
     booked_frac = 0.0
     booked_pnl = 0.0
-    if settings.partial_book_enabled and risk_dist > 0:
-        if strategy == "flash":
+    is_v3 = strategy in ("core_v3", "flash_v3", "v3", "lab") or getattr(settings, "two_tranche_scaleout", False)
+    if (settings.partial_book_enabled or is_v3) and risk_dist > 0:
+        if is_v3:
+            partial_at_r = 1.50
+            partial_frac = 0.50
+        elif strategy == "flash":
             partial_at_r = settings.flash_partial_book_at_r
             partial_frac = getattr(settings, "flash_partial_book_fraction", 0.35)
         else:
@@ -153,11 +170,16 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
 
     current_stop = stop
     best_fav = 0.0
+    peak_price = entry
 
     for i in range(start, n):
         hi, lo, cl = float(highs.iloc[i]), float(lows.iloc[i]), float(closes.iloc[i])
         held = i - start + 1
         bar_start_stop = current_stop
+        if direction == "long":
+            peak_price = max(peak_price, hi)
+        else:
+            peak_price = min(peak_price, lo)
 
         # Book the partial the first time price trades through the level. Checked BEFORE stop and
         # target so a bar that spans both books the partial rather than losing it.
@@ -168,6 +190,9 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
                 leg = ((partial_px - entry) / entry if direction == "long"
                        else (entry - partial_px) / entry)
                 booked_pnl = booked_frac * leg
+                # Immediately upon T1 hit, ratchet Stop Loss on remaining runner to Breakeven + Round-Trip Fees (+0.15R)
+                be_fees_px = entry + 0.15 * risk_dist if direction == "long" else entry - 0.15 * risk_dist
+                current_stop = max(current_stop, be_fees_px) if direction == "long" else min(current_stop, be_fees_px)
 
         # Favorable move tracking
         fav_pct = (hi - entry) / entry if direction == "long" else (entry - lo) / entry
@@ -257,13 +282,13 @@ def _resolve_one(symbol: str, market: str, interval: str, direction: str,
         if hit_target:
             return _finalize(direction, entry, target, "target", held, mfe, mae, cost, booked_frac, booked_pnl, orig_stop=stop)
 
-        # Stagnation exit for Flash momentum scalps:
-        # If held >= 12 bars (out of 16) and pnl is negative with zero forward progress (< 0.25R MFE),
-        # close out early to cut the loss in half rather than waiting for full stop.
+        # Velocity Decay Rule (Time-Stop for Flash Bot):
+        # If held >= 12 bars and unrealized PnL is between -0.3R and +0.4R (momentum stalled),
+        # exit at market close to free up capital and prevent slow stop-outs.
         if strategy == "flash" and held >= 12:
-            cur_pnl_r = ((cl - entry) / entry if direction == "long" else (entry - cl) / entry) / (risk_dist / entry)
-            if cur_pnl_r <= -0.50 and mfe_r < 0.25:
-                return _finalize(direction, entry, cl, "stagnation_stop", held, mfe, mae, cost, booked_frac, booked_pnl, orig_stop=stop)
+            cur_pnl_r = (((cl - entry) / entry if direction == "long" else (entry - cl) / entry) / (risk_dist / entry)) if risk_dist > 0 else 0.0
+            if -0.30 <= cur_pnl_r <= 0.40 or (cur_pnl_r <= -0.50 and mfe_r < 0.25):
+                return _finalize(direction, entry, cl, "velocity_decay_stop", held, mfe, mae, cost, booked_frac, booked_pnl, orig_stop=stop)
 
         if held >= max_hold:
             return _finalize(direction, entry, cl, "timeout", held, mfe, mae, cost, booked_frac, booked_pnl, orig_stop=stop)

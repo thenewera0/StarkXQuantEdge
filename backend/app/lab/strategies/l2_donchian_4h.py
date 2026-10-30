@@ -35,6 +35,12 @@ class Donchian4HStrategy:
         if len(df) < p_entry + 5:
             return []
 
+        # Volatility Squeeze Pre-Condition (Phase 4): bbw_pct_rank < 0.25
+        from app.lab.strategies.base import calc_bbw_pct_rank
+        bbw_rank = calc_bbw_pct_rank(df["close"], window=20, lookback=100)
+        if bbw_rank >= 0.25:
+            return []  # Do not enter when volatility is already blown out / exhausted
+
         atr = calc_atr(df, 14)
         curr_atr = float(atr.iloc[-1])
         curr_close = float(df["close"].iloc[-1])
@@ -52,12 +58,18 @@ class Donchian4HStrategy:
                 symbol=ctx.symbol,
                 direction="long",
                 bar_open_time=bar_open_time,
-                entry_mode="next_open",
+                entry_mode="maker",
                 stop_atr=float(self.params["stop_atr"]),
                 target_r=None,
                 trail_atr=float(self.params["trail_atr"]),
                 max_hold_bars=int(self.params["max_hold_bars"]),
-                meta={"highest_high": highest_high, "atr": curr_atr, "exit_period": p_exit},
+                meta={
+                    "highest_high": highest_high,
+                    "atr": curr_atr,
+                    "exit_period": p_exit,
+                    "maker_offset_atr": 0.35,
+                    "bbw_rank": bbw_rank,
+                },
             ))
         elif self.is_short_variant and curr_close < lowest_low:
             signals.append(Signal(
@@ -66,12 +78,18 @@ class Donchian4HStrategy:
                 symbol=ctx.symbol,
                 direction="short",
                 bar_open_time=bar_open_time,
-                entry_mode="next_open",
+                entry_mode="maker",
                 stop_atr=float(self.params["stop_atr"]),
                 target_r=None,
                 trail_atr=float(self.params["trail_atr"]),
                 max_hold_bars=int(self.params["max_hold_bars"]),
-                meta={"lowest_low": lowest_low, "atr": curr_atr, "exit_period": p_exit},
+                meta={
+                    "lowest_low": lowest_low,
+                    "atr": curr_atr,
+                    "exit_period": p_exit,
+                    "maker_offset_atr": 0.35,
+                    "bbw_rank": bbw_rank,
+                },
             ))
 
         return signals

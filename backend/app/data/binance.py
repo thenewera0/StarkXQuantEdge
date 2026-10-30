@@ -297,3 +297,146 @@ def fetch_long_short_ratio(symbol: str = "BTCUSDT", period: str = "1h") -> dict:
         "short_account": float(latest["shortAccount"]),
         "long_short_ratio": float(latest["longShortRatio"]),
     }
+
+
+def fetch_open_interest_history(symbol: str = "BTCUSDT", period: str = "4h", limit: int = 100) -> pd.DataFrame:
+    """Historical Open Interest (sumOpenInterestValue) indexed by UTC timestamp.
+
+    Falls back to Bybit linear perp if Binance futures is geo-blocked.
+    """
+    url = f"{FUTURES_DATA_BASE}/futures/data/openInterestHist"
+    params = {"symbol": symbol.upper(), "period": period, "limit": min(int(limit), 500)}
+    try:
+        resp = httpx.get(url, params=params, timeout=15.0)
+        resp.raise_for_status()
+        rows = resp.json()
+    except Exception:
+        from .bybit import fetch_open_interest_history as _bb_oi_hist
+        try:
+            return _bb_oi_hist(symbol, period, limit)
+        except Exception:
+            return pd.DataFrame()
+
+    if not rows:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+    df = df.set_index("timestamp").sort_index()
+    for col in ("sumOpenInterest", "sumOpenInterestValue"):
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df[["sumOpenInterest", "sumOpenInterestValue"]].dropna()
+
+
+def fetch_taker_volume_history(symbol: str = "BTCUSDT", period: str = "4h", limit: int = 100) -> pd.DataFrame:
+    """Historical taker buy/sell volume and ratio for true Perp CVD."""
+    url = f"{FUTURES_DATA_BASE}/futures/data/takerlongshortRatio"
+    params = {"symbol": symbol.upper(), "period": period, "limit": min(int(limit), 500)}
+    try:
+        resp = httpx.get(url, params=params, timeout=15.0)
+        resp.raise_for_status()
+        rows = resp.json()
+    except Exception:
+        return pd.DataFrame()
+
+    if not rows:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+    df = df.set_index("timestamp").sort_index()
+    for col in ("buySellRatio", "buyVol", "sellVol"):
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df[["buySellRatio", "buyVol", "sellVol"]].dropna()
+
+
+def fetch_funding_history_df(symbol: str = "BTCUSDT", limit: int = 120) -> pd.DataFrame:
+    """Historical 8h funding rates as a DataFrame indexed by UTC settlement time."""
+    url = f"{FUTURES_DATA_BASE}/fapi/v1/fundingRate"
+    try:
+        resp = httpx.get(url, params={"symbol": symbol.upper(), "limit": min(int(limit), 1000)}, timeout=15.0)
+        resp.raise_for_status()
+        rows = resp.json()
+    except Exception:
+        from .bybit import fetch_funding_history_df as _bb_fund_df
+        try:
+            return _bb_fund_df(symbol, limit)
+        except Exception:
+            return pd.DataFrame()
+
+    if not rows:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows)
+    df["fundingTime"] = pd.to_datetime(df["fundingTime"], unit="ms", utc=True)
+    df = df.set_index("fundingTime").sort_index()
+    if "fundingRate" in df.columns:
+        df["fundingRate"] = pd.to_numeric(df["fundingRate"], errors="coerce")
+    return df[["fundingRate"]].dropna()
+
+
+def align_microstructure_data(
+    klines_df: pd.DataFrame,
+    oi_df: pd.DataFrame | None = None,
+    funding_df: pd.DataFrame | None = None,
+    taker_df: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Merge derivatives microstructure data into OHLCV klines with strict zero lookahead.
+
+    Uses backward asof alignment so bar t closing at T only sees OI and funding settled <= T.
+    """
+    if klines_df.empty:
+        return klines_df
+
+    out = klines_df.copy().sort_index()
+    k_times = pd.DataFrame({"close_time": out.index}, index=out.index)
+
+    if oi_df is not None and not oi_df.empty:
+        oi_sorted = oi_df.sort_index().reset_index()
+        # Merge backward: latest available OI on or before candle close time
+        m_oi = pd.merge_asof(
+            k_times.reset_index(),
+            oi_sorted,
+            left_on="close_time",
+            right_on="timestamp",
+            direction="backward",
+        ).set_index("close_time")
+        if "sumOpenInterestValue" in m_oi.columns:
+            out["oi_value"] = m_oi["sumOpenInterestValue"]
+            out["oi_change_1bar"] = out["oi_value"].pct_change().fillna(0.0)
+            oi_mean = out["oi_value"].rolling(20, min_periods=5).mean()
+            oi_std = out["oi_value"].rolling(20, min_periods=5).std().replace(0.0, np.nan)
+            out["oi_z"] = (out["oi_value"] - oi_mean) / oi_std
+
+    if funding_df is not None and not funding_df.empty:
+        f_sorted = funding_df.sort_index().reset_index()
+        m_f = pd.merge_asof(
+            k_times.reset_index(),
+            f_sorted,
+            left_on="close_time",
+            right_on="fundingTime",
+            direction="backward",
+        ).set_index("close_time")
+        if "fundingRate" in m_f.columns:
+            out["funding_rate"] = m_f["fundingRate"]
+            f_mean = out["funding_rate"].rolling(60, min_periods=10).mean()
+            f_std = out["funding_rate"].rolling(60, min_periods=10).std().replace(0.0, np.nan)
+            out["funding_z"] = (out["funding_rate"] - f_mean) / f_std
+
+    if taker_df is not None and not taker_df.empty:
+        t_sorted = taker_df.sort_index().reset_index()
+        m_t = pd.merge_asof(
+            k_times.reset_index(),
+            t_sorted,
+            left_on="close_time",
+            right_on="timestamp",
+            direction="backward",
+        ).set_index("close_time")
+        for col in ("buyVol", "sellVol", "buySellRatio"):
+            if col in m_t.columns:
+                out[f"perp_{col}"] = m_t[col]
+
+    return out
+

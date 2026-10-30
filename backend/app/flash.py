@@ -180,15 +180,29 @@ def flash_score(ind: pd.DataFrame) -> dict | None:
     return {"score": round(score, 2), "direction": "long" if score > 0 else "short", "factors": f}
 
 
+def _calc_rsi(closes: pd.Series, period: int = 4) -> float:
+    if len(closes) < period + 1:
+        return 50.0
+    delta = closes.diff()
+    gain = delta.clip(lower=0.0)
+    loss = -delta.clip(upper=0.0)
+    avg_gain = gain.rolling(period).mean().iloc[-1]
+    avg_loss = loss.rolling(period).mean().iloc[-1]
+    if avg_loss == 0 or pd.isna(avg_loss):
+        return 100.0 if (avg_gain and avg_gain > 0) else 50.0
+    rs = avg_gain / avg_loss
+    return float(100.0 - (100.0 / (1.0 + rs)))
+
+
 def detect_trigger(ind: pd.DataFrame) -> dict | None:
     """Find a fast setup on the LAST CLOSED bar. Returns {direction, kind, strength} or None.
 
-    Three trigger families, all causal (computed from closed bars only):
-      * burst     — price thrusts through EMA9 with volume expansion and momentum confirming
-      * breakout  — close takes out the recent N-bar extreme with volatility expanding
-      * snap      — stretched from VWAP then reverses (fast mean-reversion scalp)
+    Phase 3 High-Expectancy Institutional Setups:
+      * liq_sweep_fade       — price sweeps 20-bar high/low by >= 0.3*ATR, volume > 2.2*SMA20, rejection wick >= 45%, RSI(4) < 15 or > 85, reverts inside channel
+      * vol_squeeze_ignition — extreme volatility compression (bbw_pct_rank <= 0.10), volume >= 1.8*SMA20, CVD_Z >= +1.2 / <= -1.2
+      * burst / breakout     — backward-compatible legacy momentum triggers
     """
-    if len(ind) < 30:
+    if len(ind) < 25:
         return None
     last, prev = ind.iloc[-1], ind.iloc[-2]
 
@@ -200,42 +214,87 @@ def detect_trigger(ind: pd.DataFrame) -> dict | None:
     vol = _f(last, "volume")
     vol_sma = _f(last, "vol_sma20")
     vwap_dist = _f(last, "vwap_dist")
-    if None in (close, ema9, ema21, rsi, atr) or atr <= 0 or close <= 0:
+    if None in (close, atr) or atr <= 0 or close <= 0:
         return None
 
     vol_exp = (vol / vol_sma) if (vol and vol_sma and vol_sma > 0) else 1.0
+
+    # =========================================================================
+    # SETUP A (liq_sweep_fade): Liquidation Sweep & Wick Rejection Fade
+    # =========================================================================
+    if len(ind) >= 22:
+        lookback_hi = float(ind["high"].iloc[-22:-1].max())
+        lookback_lo = float(ind["low"].iloc[-22:-1].min())
+        high_val = _f(last, "high") or close
+        low_val = _f(last, "low") or close
+        open_val = _f(last, "open") or close
+        b_range = high_val - low_val
+        rsi4 = _calc_rsi(ind["close"], period=4)
+
+        if b_range > 0:
+            lower_wick = min(open_val, close) - low_val
+            lower_wick_ratio = lower_wick / b_range
+            upper_wick = high_val - max(open_val, close)
+            upper_wick_ratio = upper_wick / b_range
+
+            # Long Setup A
+            if (low_val <= (lookback_lo - 0.30 * atr) and
+                vol_exp >= 2.20 and
+                lower_wick_ratio >= 0.45 and
+                rsi4 < 15.0 and
+                close >= lookback_lo):
+                return {"direction": "long", "kind": "liq_sweep_fade", "strength": min(100.0, 70.0 + 15.0 * vol_exp)}
+
+            # Short Setup A
+            if (high_val >= (lookback_hi + 0.30 * atr) and
+                vol_exp >= 2.20 and
+                upper_wick_ratio >= 0.45 and
+                rsi4 > 85.0 and
+                close <= lookback_hi):
+                return {"direction": "short", "kind": "liq_sweep_fade", "strength": min(100.0, 70.0 + 15.0 * vol_exp)}
+
+    # =========================================================================
+    # SETUP B (vol_squeeze_ignition): Volatility Squeeze Ignition
+    # =========================================================================
+    bbw_rank = _f(last, "bbw_pct_rank")
+    if bbw_rank is None and "close" in ind.columns and len(ind) >= 30:
+        from .indicators.engine import bbw_pct_rank
+        bbw_rank = float(bbw_pct_rank(ind["close"]).iloc[-1])
+    cvd_z = _f(last, "cvd_z") or 0.0
+
+    if bbw_rank is not None and bbw_rank <= 0.10 and vol_exp >= 1.80:
+        if cvd_z >= 1.2:
+            return {"direction": "long", "kind": "vol_squeeze_ignition", "strength": 90.0}
+        elif cvd_z <= -1.2:
+            return {"direction": "short", "kind": "vol_squeeze_ignition", "strength": 90.0}
+
+    # =========================================================================
+    # Backward-compatible momentum setups: burst / breakout
+    # =========================================================================
     prev_close = _f(prev, "close") or close
-    thrust = (close - prev_close) / close                      # last-bar impulse
+    thrust = (close - prev_close) / close
     atr_pct = atr / close
 
     # Anti-chasing: do not enter on exhausted climax impulses (> 1.8x ATR)
     if abs(thrust) > 1.8 * atr_pct:
         return None
 
-    # --- burst: impulse through the fast EMA with volume participation ---
-    if vol_exp >= settings.flash_vol_expansion and abs(thrust) >= 0.20 * atr_pct:
-        if close > ema9 > ema21 and 50 < rsi <= settings.flash_max_rsi_long and thrust > 0:
-            return {"direction": "long", "kind": "burst", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
-        if close < ema9 < ema21 and settings.flash_min_rsi_short <= rsi < 50 and thrust < 0:
-            return {"direction": "short", "kind": "burst", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
+    if ema9 is not None and ema21 is not None and rsi is not None:
+        if vol_exp >= settings.flash_vol_expansion and abs(thrust) >= 0.20 * atr_pct:
+            if close > ema9 > ema21 and 50 < rsi <= settings.flash_max_rsi_long and thrust > 0:
+                return {"direction": "long", "kind": "burst", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
+            if close < ema9 < ema21 and settings.flash_min_rsi_short <= rsi < 50 and thrust < 0:
+                return {"direction": "short", "kind": "burst", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
 
-    # --- breakout: takes out the recent extreme, volatility expanding ---
     lookback = ind["high"].iloc[-(settings.flash_breakout_bars + 1):-1]
     lookback_lo = ind["low"].iloc[-(settings.flash_breakout_bars + 1):-1]
-    if len(lookback) >= settings.flash_breakout_bars:
+    if len(lookback) >= settings.flash_breakout_bars and rsi is not None:
         hi_n, lo_n = float(lookback.max()), float(lookback_lo.min())
         if close > hi_n and vol_exp >= 1.05 and 50 < rsi <= settings.flash_max_rsi_long:
             return {"direction": "long", "kind": "breakout", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
         if close < lo_n and vol_exp >= 1.05 and settings.flash_min_rsi_short <= rsi < 50:
             return {"direction": "short", "kind": "breakout", "strength": min(100.0, 50.0 + 25.0 * vol_exp)}
 
-    # --- pullback: shallow pullback inside confirmed structural trend (Rank #1 backtested winner: +26.3% net, PF 1.25) ---
-    ema200 = _f(last, "ema200")
-    if ema200 is not None:
-        if close > ema200 and rsi <= 48 and close < ema21 and thrust > 0:
-            return {"direction": "long", "kind": "pullback", "strength": 85.0}
-        if close < ema200 and rsi >= 52 and close > ema21 and thrust < 0:
-            return {"direction": "short", "kind": "pullback", "strength": 85.0}
     return None
 
 
@@ -244,8 +303,6 @@ def evaluate(symbol: str, interval: str) -> dict | None:
     try:
         df = fetch_klines(symbol, interval, 200)
         df, _ = validate_ohlcv(df, interval)
-        # Drop the in-progress unclosed candle so indicators and volume expansion
-        # evaluate the true LAST CLOSED BAR (causal, completed volume and final close).
         now_utc = pd.Timestamp.now(tz="UTC")
         if not df.empty and df.index[-1] >= now_utc:
             df = df.iloc[:-1]
@@ -256,12 +313,12 @@ def evaluate(symbol: str, interval: str) -> dict | None:
     if trig is None:
         return None
 
-    # Data-driven trigger gating (2026-10-18 forensic audit of 1,002 trades):
-    # Rule 3: Kill dip/pullback on 1h (n=25, 8.0% WR, -0.22R catastrophic bleeder). Allow burst + breakout only.
-    # Rule 9: 15m allows burst trigger ONLY (n=16, 75.0% WR, PF 2.961, +0.10R).
-    if interval == "1h" and trig["kind"] not in ("burst", "breakout"):
+    # Trigger gating: allow Phase 3 institutional setups on 15m and 1h
+    if trig["kind"] in ("liq_sweep_fade", "vol_squeeze_ignition"):
+        pass
+    elif interval == "1h" and trig["kind"] not in ("burst", "breakout"):
         return None
-    if interval == "15m" and trig["kind"] != "burst":
+    elif interval == "15m" and trig["kind"] != "burst":
         return None
 
     last = ind.iloc[-1]
@@ -272,13 +329,17 @@ def evaluate(symbol: str, interval: str) -> dict | None:
     atr_pct = atr / price
     direction = trig["direction"]
 
-    # Tight scalp geometry: stop 1.5x ATR, target = flash_rr x stop.
+    # Scalp geometry: stop 1.5x ATR, target = flash_rr x stop.
     stop_dist = settings.flash_stop_atr * atr
     tgt_dist = settings.flash_rr * stop_dist
 
-    # Resting maker limit entry: rest 0.15 ATR below close (long) / above close (short)
-    # This secures the 0.02% maker fee rate instead of crossing the spread with 0.10% taker fee.
-    offset = float(settings.flash_limit_offset_atr) * atr if settings.limit_orders_enabled else 0.0
+    # Resting maker limit entry:
+    # Setup B uses Stage-1 pullback limit (0.25x ATR).
+    # Setup A and other setups rest 0.15 ATR below close (long) / above close (short).
+    if trig["kind"] == "vol_squeeze_ignition":
+        offset = 0.25 * atr
+    else:
+        offset = float(settings.flash_limit_offset_atr) * atr if settings.limit_orders_enabled else 0.0
     if direction == "long":
         entry = price - offset
         stop = entry - stop_dist
@@ -314,11 +375,11 @@ def evaluate(symbol: str, interval: str) -> dict | None:
         blocks.append(f"dead tape (ATR {atr_pct*100:.2f}% < {settings.flash_min_atr_pct*100:.2f}%)")
     if cost_multiple < settings.flash_min_cost_multiple:
         blocks.append(f"target only {cost_multiple:.1f}x the round trip")
-    # Rule 4: Flash shorts permitted ONLY for burst trigger (n=92, 76.1% WR, PF 1.536, +0.11R).
-    # All non-burst shorts (breakout, etc.) remain blocked.
-    if direction == "short" and trig["kind"] != "burst":
-        blocks.append(f"short blocked for '{trig['kind']}' trigger (burst-only allowed for shorts)")
-    elif settings.flash_long_only and direction != "long" and trig["kind"] != "burst":
+    # Phase 3: Shorts permitted for liq_sweep_fade, vol_squeeze_ignition, and burst triggers
+    allowed_short_kinds = ("burst", "liq_sweep_fade", "vol_squeeze_ignition")
+    if direction == "short" and trig["kind"] not in allowed_short_kinds:
+        blocks.append(f"short blocked for '{trig['kind']}' trigger")
+    elif settings.flash_long_only and direction != "long" and trig["kind"] not in allowed_short_kinds:
         blocks.append("short blocked by flash_long_only configuration")
     if cvd_z is not None:
         if direction == "long" and cvd_z < settings.flash_min_cvd_z:

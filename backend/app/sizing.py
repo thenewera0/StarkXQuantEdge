@@ -268,3 +268,20 @@ def position_size(equity: float, p: float, b: float, stop_frac: float,
         "ev_threshold": tier["ev_threshold"],
         "symbol_mult": round(symbol_mult, 3),
     }
+
+
+def evaluate_tax_ev_gate(
+    p_win: float,
+    reward_r: float,
+    cost_r: float,
+    min_ev_r: float = 0.10,
+    tax_mode: str = "115bbh_scenario_a",
+) -> tuple[bool, float]:
+    """Evaluates whether trade passes after-tax EV hurdle under Indian Section 115BBH & GST.
+    
+    Returns (is_passed, after_tax_ev_r).
+    """
+    from .costs import compute_after_tax_ev
+    after_tax_ev = compute_after_tax_ev(p_win, reward_r, cost_r, tax_mode=tax_mode)
+    passed = after_tax_ev >= min_ev_r
+    return passed, after_tax_ev

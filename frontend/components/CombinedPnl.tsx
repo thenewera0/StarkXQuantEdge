@@ -45,8 +45,10 @@ export function CombinedPnl({ refreshKey = 0 }: { refreshKey?: number }) {
   const core = d?.strategies?.["core"];
   const flash = d?.strategies?.["flash (paper)"] ?? d?.strategies?.["flash"];
   // Section 7.1: ledger-true figures from the same /performance query (-241 / -240.81)
-  const coreRealized = perf?.combined?.realized_pnl_usd ?? (core?.realized_pnl_usd ?? -240.81);
+  const coreRealized = core?.realized_pnl_usd ?? (perf?.combined?.realized_pnl_usd ?? -240.81);
   const coreTotal = coreRealized + floating;
+  const coreGrossMade = core?.gross_win_usd_risk_adjusted ?? core?.gross_profit_usd ?? 0;
+  const coreGrossLost = core?.gross_loss_usd_risk_adjusted ?? core?.gross_loss_usd ?? 0;
 
   return (
     <Card className="card-pad">
@@ -110,14 +112,14 @@ export function CombinedPnl({ refreshKey = 0 }: { refreshKey?: number }) {
           Frozen forward test: quiet by design (about 6 active signal days per month)
         </div>
 
-        {/* Core Gross Made vs Lost summary */}
-        {((core?.gross_profit_usd ?? 0) > 0 || (core?.gross_loss_usd ?? 0) < 0) && (
+        {/* Core Gross Made vs Lost summary (Strictly risk-adjusted) */}
+        {(coreGrossMade > 0 || coreGrossLost < 0) && (
           <div className="mt-2.5 pt-2 border-t border-emerald-500/15 flex items-center justify-between text-[11px] text-slate-400">
             <span className="flex items-center gap-1">
-              Made: <span className="font-bold text-emerald-400">+{usd(core?.gross_profit_usd ?? 0).replace("+", "")}</span>
+              Made: <span className="font-bold text-emerald-400">+{usd(coreGrossMade).replace("+", "")}</span>
             </span>
             <span className="flex items-center gap-1">
-              Lost: <span className="font-bold text-rose-400">{usd(core?.gross_loss_usd ?? 0)}</span>
+              Lost: <span className="font-bold text-rose-400">{usd(coreGrossLost)}</span>
             </span>
             <span>
               Win/Loss: <span className="text-white font-medium">{core?.wins ?? 0}W / {core?.losses ?? 0}L</span>

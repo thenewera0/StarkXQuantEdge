@@ -32,14 +32,25 @@ class BBFade1HStrategy:
     def on_bar_close(self, ctx: MarketContext) -> List[Signal]:
         df = ctx.bars
         p_bb = int(self.params["bb_period"])
-        if len(df) < max(p_bb, 30):
+        if len(df) < max(p_bb, 35):
             return []
 
-        upper, mid, lower = calc_bollinger(df["close"], p_bb, float(self.params["bb_std"]))
-        adx = calc_adx(df, int(self.params["adx_period"]))
+        from app.lab.strategies.base import calc_hurst, calc_ou_halflife, calc_rejection_wick
+
+        # 1. Hurst exponent regime check (H < 0.44 mean reverting)
+        h = calc_hurst(df["close"], lags=20)
+        if h >= 0.44:
+            return []
+
+        # 2. OU Half-life check (t_half <= 12 bars)
+        half_life = calc_ou_halflife(df["close"].iloc[-60:])
+        if half_life > 12.0:
+            return []
+
+        # 3. 2.5-sigma Bollinger Bands
+        upper, mid, lower = calc_bollinger(df["close"], p_bb, 2.5)
         atr = calc_atr(df, 14)
 
-        curr_adx = float(adx.iloc[-1])
         curr_close = float(df["close"].iloc[-1])
         curr_upper = float(upper.iloc[-1])
         curr_mid = float(mid.iloc[-1])
@@ -47,49 +58,45 @@ class BBFade1HStrategy:
         curr_atr = float(atr.iloc[-1])
         bar_open_time = df.index[-1].to_pydatetime() if hasattr(df.index[-1], "to_pydatetime") else df.index[-1]
 
+        # 4. Mandatory rejection wick >= 40%
+        lower_wick, upper_wick = calc_rejection_wick(df)
+
         signals = []
-        # Non-trending environment check
-        if curr_adx < float(self.params["adx_max"]):
-            if not self.is_short_variant and curr_close < curr_lower:
-                # Long: Target is the middle band
-                target_dist = curr_mid - curr_close
-                stop_dist = float(self.params["stop_atr"]) * curr_atr
-                target_r = round(target_dist / max(stop_dist, 1e-6), 2)
-                # Keep target_r within allowed geometry bounds [0.5, 5.0]
-                target_r = max(0.5, min(target_r, 4.0))
+        if not self.is_short_variant and curr_close < curr_lower and lower_wick >= 0.40:
+            target_dist = curr_mid - curr_close
+            stop_dist = float(self.params["stop_atr"]) * curr_atr
+            target_r = round(max(0.5, min(target_dist / max(stop_dist, 1e-6), 4.0)), 2)
 
-                signals.append(Signal(
-                    strategy_id=self.id,
-                    variant_id=self.variant_id,
-                    symbol=ctx.symbol,
-                    direction="long",
-                    bar_open_time=bar_open_time,
-                    entry_mode="next_open",
-                    stop_atr=float(self.params["stop_atr"]),
-                    target_r=target_r,
-                    trail_atr=None,
-                    max_hold_bars=int(self.params["max_hold_bars"]),
-                    meta={"adx": curr_adx, "mid": curr_mid, "atr": curr_atr},
-                ))
-            elif self.is_short_variant and curr_close > curr_upper:
-                # Short: Target is the middle band
-                target_dist = curr_close - curr_mid
-                stop_dist = float(self.params["stop_atr"]) * curr_atr
-                target_r = round(target_dist / max(stop_dist, 1e-6), 2)
-                target_r = max(0.5, min(target_r, 4.0))
+            signals.append(Signal(
+                strategy_id=self.id,
+                variant_id=self.variant_id,
+                symbol=ctx.symbol,
+                direction="long",
+                bar_open_time=bar_open_time,
+                entry_mode="next_open",
+                stop_atr=float(self.params["stop_atr"]),
+                target_r=target_r,
+                trail_atr=None,
+                max_hold_bars=int(self.params["max_hold_bars"]),
+                meta={"hurst": h, "ou_half_life": half_life, "mid": curr_mid, "atr": curr_atr},
+            ))
+        elif self.is_short_variant and curr_close > curr_upper and upper_wick >= 0.40:
+            target_dist = curr_close - curr_mid
+            stop_dist = float(self.params["stop_atr"]) * curr_atr
+            target_r = round(max(0.5, min(target_dist / max(stop_dist, 1e-6), 4.0)), 2)
 
-                signals.append(Signal(
-                    strategy_id=self.id,
-                    variant_id=self.variant_id,
-                    symbol=ctx.symbol,
-                    direction="short",
-                    bar_open_time=bar_open_time,
-                    entry_mode="next_open",
-                    stop_atr=float(self.params["stop_atr"]),
-                    target_r=target_r,
-                    trail_atr=None,
-                    max_hold_bars=int(self.params["max_hold_bars"]),
-                    meta={"adx": curr_adx, "mid": curr_mid, "atr": curr_atr},
-                ))
+            signals.append(Signal(
+                strategy_id=self.id,
+                variant_id=self.variant_id,
+                symbol=ctx.symbol,
+                direction="short",
+                bar_open_time=bar_open_time,
+                entry_mode="next_open",
+                stop_atr=float(self.params["stop_atr"]),
+                target_r=target_r,
+                trail_atr=None,
+                max_hold_bars=int(self.params["max_hold_bars"]),
+                meta={"hurst": h, "ou_half_life": half_life, "mid": curr_mid, "atr": curr_atr},
+            ))
 
         return signals

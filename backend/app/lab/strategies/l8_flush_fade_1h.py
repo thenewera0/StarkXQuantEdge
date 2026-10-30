@@ -41,7 +41,7 @@ class FlushFade1HStrategy:
         prev_close = float(df["close"].iloc[-2])
         ret_1h_pct = ((curr_close - prev_close) / prev_close) * 100.0
 
-        # 2. Volume z-score over trailing window (up to 720 bars ~ 30 days of 1h)
+        # 2. Volume z-score over trailing window
         vol = df["volume"]
         vol_lookback = min(len(vol) - 1, 720)
         vol_mean = float(vol.iloc[-vol_lookback:-1].mean())
@@ -49,15 +49,19 @@ class FlushFade1HStrategy:
         curr_vol = float(vol.iloc[-1])
         vol_z = (curr_vol - vol_mean) / max(vol_std, 1e-6)
 
-        # 3. Close > 200-day SMA (approximated on 1h as 4800 bars or available history)
-        sma_len = min(len(df) - 1, 4800)
-        sma_200d = float(df["close"].iloc[-sma_len:].mean())
+        # 3. Lower wick >= 45% (Liquidation absorption wick)
+        from app.lab.strategies.base import calc_rejection_wick
+        lower_wick, _ = calc_rejection_wick(df)
+
+        # 4. Open Interest Flush (delta OI < -2.0 sigma)
+        oi_z = ctx.extra_data.get("oi_change_z")
+        oi_flush = (oi_z is None) or (oi_z < -2.0)  # Forced liquidations absorbed
 
         # Check conditions
         if (
-            ret_1h_pct <= float(self.params["drop_pct"])
-            and vol_z >= float(self.params["volume_z_min"])
-            and curr_close > sma_200d
+            vol_z >= 3.0
+            and lower_wick >= 0.45
+            and oi_flush
         ):
             atr = calc_atr(df, 14)
             curr_atr = float(atr.iloc[-1])
@@ -77,6 +81,7 @@ class FlushFade1HStrategy:
                 meta={
                     "ret_1h": ret_1h_pct,
                     "vol_z": vol_z,
+                    "lower_wick": lower_wick,
                     "maker_offset_atr": float(self.params["maker_atr_offset"]),
                     "expiry_bars": int(self.params["maker_expiry_bars"]),
                     "atr": curr_atr,

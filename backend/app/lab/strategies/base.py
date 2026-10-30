@@ -59,6 +59,82 @@ def calc_bollinger(series: pd.Series, period: int = 20, num_std: float = 2.0) ->
     return upper, mid, lower
 
 
+def calc_ou_halflife(series: pd.Series) -> float:
+    """Ornstein-Uhlenbeck mean-reversion half-life (bars) via AR(1) OLS.
+    
+    Delta y_t = lambda * (y_{t-1} - mu) + e_t
+    t_half = -ln(2) / lambda (for lambda < 0).
+    """
+    if len(series) < 15:
+        return 999.0
+    y = series.dropna().to_numpy()
+    if len(y) < 15:
+        return 999.0
+    y_lag = y[:-1]
+    dy = y[1:] - y_lag
+    var_lag = float(np.var(y_lag))
+    if var_lag < 1e-12:
+        return 999.0
+    cov = float(np.cov(dy, y_lag)[0, 1])
+    lam = cov / var_lag
+    if lam >= -1e-6:
+        return 999.0
+    half_life = -float(np.log(2.0)) / lam
+    return max(0.5, min(999.0, half_life))
+
+
+def calc_hurst(series: pd.Series, lags: int = 20) -> float:
+    """Variance-ratio Hurst Exponent estimate."""
+    if len(series) < lags + 10:
+        return 0.50
+    vals = series.dropna().to_numpy()
+    if len(vals) < lags + 10:
+        return 0.50
+    ret1 = np.diff(vals)
+    var1 = float(np.var(ret1))
+    if var1 < 1e-12:
+        return 0.50
+    ret_q = vals[lags:] - vals[:-lags]
+    var_q = float(np.var(ret_q))
+    vr = var_q / (float(lags) * var1)
+    if vr <= 1e-6:
+        return 0.10
+    h = 0.5 + 0.5 * (float(np.log(vr)) / float(np.log(float(lags))))
+    return float(max(0.01, min(0.99, h)))
+
+
+def calc_rejection_wick(df: pd.DataFrame) -> tuple[float, float]:
+    """Returns (lower_wick_ratio, upper_wick_ratio) of the last closed bar."""
+    if df.empty:
+        return 0.0, 0.0
+    last = df.iloc[-1]
+    hi = float(last["high"])
+    lo = float(last["low"])
+    op = float(last["open"])
+    cl = float(last["close"])
+    b_range = hi - lo
+    if b_range <= 1e-10:
+        return 0.0, 0.0
+    lower_wick = min(op, cl) - lo
+    upper_wick = hi - max(op, cl)
+    return lower_wick / b_range, upper_wick / b_range
+
+
+def calc_bbw_pct_rank(close: pd.Series, window: int = 20, lookback: int = 100) -> float:
+    """Bollinger Bandwidth Percentile Rank over lookback window."""
+    if len(close) < window + 10:
+        return 0.50
+    mid = close.rolling(window=window).mean()
+    std = close.rolling(window=window).std()
+    bw = (2.0 * 2.0 * std) / mid.replace(0, np.nan)
+    recent = bw.dropna().iloc[-lookback:]
+    if len(recent) < 10:
+        return 0.50
+    curr = float(recent.iloc[-1])
+    rank = float((recent <= curr).mean())
+    return rank
+
+
 def calc_adx(df: pd.DataFrame, period: int = 14) -> pd.Series:
     """Average Directional Index (ADX)."""
     high = df["high"]

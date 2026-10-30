@@ -51,8 +51,8 @@ def limit_entry(price: float, atr: float, direction: str,
     whole trade-off, and `scripts.research_limit_orders` measures where it optimises rather than
     guessing. Do not tune this from intuition.
     """
-    off = settings.limit_offset_atr if offset_atr is None else offset_atr
-    exp = settings.limit_expiry_bars if expiry_bars is None else expiry_bars
+    off = 0.35 if offset_atr is None else offset_atr
+    exp = 3 if expiry_bars is None else expiry_bars
     dist = max(0.0, off) * max(atr, 0.0)
     limit = price - dist if direction == "long" else price + dist
     return LimitPlan(
@@ -85,22 +85,28 @@ def tick_size(price: float) -> float:
 def fill_bar(
     highs, lows, start: int, plan: LimitPlan, direction: str, n: int,
     tick: float | None = None,
+    target_1r: float | None = None,
 ) -> int | None:
     """Index of the bar where the resting order fills, or None if it expires unfilled.
 
-    Institutional execution rule (Phase 0.3):
-    A resting limit order fills ONLY if a later candle's low (long) / high (short)
-    trades THROUGH the limit by >= 1 tick, and never on the signal candle (start).
+    Institutional execution rule (Phase 0.3 + Phase 2):
+    - A resting limit order fills ONLY if a later candle's low (long) / high (short)
+      trades THROUGH the limit by >= 1 tick, and never on the signal candle (start).
+    - If price touches +1.0R target before filling, the pending order expires unfilled (runaway cancellation).
     """
     t = tick if tick is not None else tick_size(plan.limit_price)
     last = min(start + 1 + plan.expiry_bars, n)
     for j in range(start + 1, last):
+        if target_1r is not None:
+            if direction == "long" and highs[j] >= target_1r:
+                return None
+            elif direction == "short" and lows[j] <= target_1r:
+                return None
+
         if direction == "long":
-            # Buy limit requires low to trade through by at least 1 tick
             if lows[j] <= (plan.limit_price - t):
                 return j
         elif highs[j] >= (plan.limit_price + t):
-            # Sell limit requires high to trade through by at least 1 tick
             return j
     return None
 

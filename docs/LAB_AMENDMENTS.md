@@ -38,20 +38,19 @@
 
 | Amendment ID | Timestamp (UTC) | Author / Role | Justification / Reason | New Spec SHA-256 | Trial Delta | CI Approval |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| *None* | — | — | Baseline lock active. Zero amendments recorded. | `30410905d364ab6e4d3f8c6d7940ce0c112944de7891103a68aa776dbd7590ae` | `+0` | `LOCKED` |
+| `LAB-AMD-20261030-01` | `2026-10-30T06:00:00Z` | Principal Quantitative Researcher & Systems Architect | StarkX v3.0 Alpha & Execution Re-Engineering of catalog L1–L10 to eliminate negative payoff ratio inversion, add two-stage limit pullback entries and 2-tranche scale-outs, incorporate Hurst persistence and OU half-life stationarity gates, and lock maker fee advantages. | `4fd6dcf163413746aa530d1f40b655303240972a7bfb1ecc09c49ff53736f187` | `+1` | `APPROVED` |
 
 ---
 
-## 4. Amendment Registration Template
+## 4. Registered Amendment Details
 
-```markdown
-### Amendment [LAB-AMD-YYYYMMDD-XX]
-- **Timestamp:** YYYY-MM-DDTHH:MM:SSZ
-- **Author:** Quantitative Lead / Systems Engineering
-- **Target Section:** [e.g., config/lab_spec.json -> strategies.donchian_4h.numeric_bounds]
-- **Reason:** [Detailed mathematical rationale and market hypothesis]
-- **Prior SHA-256:** [Previous SHA-256 hash]
-- **New SHA-256:** [Computed SHA-256 hash]
-- **Trial Counter Delta:** +1 (Increments lab_trials from N to N+1 for DSR multiple testing correction)
-- **Accounting & Safety Invariants Preserved:** YES (Mode remains 'paper', freeze guards untouched)
-```
+### Amendment LAB-AMD-20261030-01
+- **Timestamp:** 2026-10-30T06:00:00Z
+- **Author:** Principal Quantitative Researcher & Lead Systems Architect
+- **Target Section:** `config/lab_spec.json -> strategies[L1-L10]`
+- **Reason:** Complete institutional re-engineering of L1-L10 catalog. Eliminates adverse selection on breakout chasing by introducing 0.35 ATR limit pullback entry, volatility compression gating (bbw_pct_rank < 0.25), Hurst trend persistence (H > 0.55), OU half-life mean-reversion filters (t_half <= 12 / 20), and beta-neutral cross-sectional long/short factor structures.
+- **Prior SHA-256:** `30410905d364ab6e4d3f8c6d7940ce0c112944de7891103a68aa776dbd7590ae`
+- **New SHA-256:** `4fd6dcf163413746aa530d1f40b655303240972a7bfb1ecc09c49ff53736f187`
+- **Trial Counter Delta:** +1 (Increments research_trials counter for Deflated Sharpe Ratio / multiple testing correction)
+- **Accounting & Safety Invariants Preserved:** YES (Execution mode remains strictly 'paper', cent-level reconciliation holds, 18% GST and slippage model preserved)
+

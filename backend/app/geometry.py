@@ -96,12 +96,15 @@ def trade_levels(
     market: str = "crypto",
     min_target_multiple_r: float = 0.5,
     max_target_multiple_r: float = 5.0,
+    bar_range: float | None = None,
+    min_net_reward_risk: float | None = None,
 ) -> dict:
     """Plan a trade. Returns entry/stop/laddered targets/reward_risk/size/invalidation, or flat.
 
     `limit_offset_atr` turns the entry into a RESTING LIMIT price that many ATR away from the
-    close (None = market entry at the close). Passed in rather than read from settings so this
-    module stays pure and gives identical geometry in live and backtest.
+    close (None = market entry at the close, unless an expansion candle triggers a pullback limit).
+    Passed in rather than read from settings so this module stays pure and gives identical geometry
+    in live and backtest.
     """
     price = _num(price)
     atr = _num(atr)
@@ -143,10 +146,10 @@ def trade_levels(
             stop = price - atr_k * atr
             risk = price - stop
             # High-expectancy trend targets:
-            # T1 = 1.80R (primary high-expectancy target, clearing the 1.5R floor)
+            # T1 = 1.85R (primary high-expectancy target, clearing 1.80R net of fees + GST)
             # T2 = 2.50R (extended trend runner)
             # T3 = 3.50R (macro runner)
-            t1_dist = max(1.80 * risk, 1.5 * atr)
+            t1_dist = max(1.85 * risk, 1.5 * atr)
             t1 = price + t1_dist
             res = [v for v in (sh, pr1) if v is not None and t1 <= v <= price + 2.5 * risk]
             if res:
@@ -158,7 +161,7 @@ def trade_levels(
         else:
             stop = price + atr_k * atr
             risk = stop - price
-            t1_dist = max(1.80 * risk, 1.5 * atr)
+            t1_dist = max(1.85 * risk, 1.5 * atr)
             t1 = price - t1_dist
             sup = [v for v in (sl, ps1) if v is not None and price - 2.5 * risk <= v <= t1]
             if sup:
@@ -170,34 +173,49 @@ def trade_levels(
 
     targets = [_round_price(t1), _round_price(t2), _round_price(t3)]
 
-    # ENTRY = a RESTING LIMIT PRICE, not the close. Measured on 14,047 signals, resting the entry
-    # 0.20 ATR away and cancelling after 2 bars beat market entry by +0.39 percentage points per
-    # signal — and that figure already counts every order that never filled as a zero. It wins on
-    # two fronts: the maker fee replaces spread-crossing (0.04% vs 0.16-0.28% round trip), and the
-    # fill itself is 0.20 ATR better than the close.
-    #
-    # The stop and targets stay anchored to the LIMIT price, so the risk geometry the operator
-    # sees is the geometry they actually get. Levels are not re-derived from the close.
+    # ENTRY = Two-Stage Limit Pullback entry for expansion/retest execution.
+    # When candle expands (Range > 1.2*ATR) or limit_offset_atr is explicitly specified,
+    # compute resting limit price (0.35 ATR by default for expansion) to lock maker fee advantage.
     entry_px = price
-    if limit_offset_atr and atr and atr > 0:
-        dist = float(limit_offset_atr) * float(atr)
+    is_expansion = bool(bar_range is not None and atr and atr > 0 and bar_range > 1.2 * atr)
+    offset_atr = limit_offset_atr
+    if offset_atr is None and is_expansion:
+        offset_atr = 0.35
+        if limit_expiry_bars is None:
+            limit_expiry_bars = 3
+
+    if offset_atr and atr and atr > 0:
+        dist = float(offset_atr) * float(atr)
         entry_px = price - dist if direction == "long" else price + dist
         shift = entry_px - price
         stop += shift
-        targets = [None if t is None else _round_price(t + shift) for t in
-                   (t1, t2, t3)]
+        targets = [None if t is None else _round_price(t + shift) for t in (t1, t2, t3)]
         risk_now = abs(entry_px - stop)
         rr = (abs(targets[0] - entry_px) / risk_now) if targets[0] and risk_now > 0 else rr
 
-    # PARTIAL BOOK level: where half the position comes off. Measured as the single most
-    # effective exit change (+0.242pp/signal at 0.20R); see config.partial_book_at_r.
+    risk_now = abs(entry_px - stop)
+
+    # Hard minimum initial Reward-to-Risk gate after fees + 18% GST (Phase 2):
+    if min_net_reward_risk is not None and risk_now > 0 and targets[0] is not None:
+        gross_rr = abs(targets[0] - entry_px) / risk_now
+        # Effective round-trip maker fee: 0.0004 * 1.18 = 0.000472
+        effective_cost_r = (0.0004 * 1.18) / (risk_now / entry_px)
+        net_rr = gross_rr - effective_cost_r
+        if net_rr < min_net_reward_risk:
+            return _flat()
+
+    # 2-Tranche Partial Resolution:
+    # Tranche 1 (50%): Books at T1 = +1.5R.
+    # Stop subsequently ratchets to Breakeven + round-trip fees (+0.15R).
+    # Tranche 2 (50%): Dynamic trailing runner to +3.5R or Chandelier exit.
     partial_target = None
-    if partial_book_at_r:
-        risk_now = abs(entry_px - stop)
-        if risk_now > 0:
-            partial_target = _round_price(
-                entry_px + partial_book_at_r * risk_now if direction == "long"
-                else entry_px - partial_book_at_r * risk_now)
+    book_r = partial_book_at_r if partial_book_at_r is not None else 1.50
+    if risk_now > 0:
+        partial_target = _round_price(
+            entry_px + book_r * risk_now if direction == "long"
+            else entry_px - book_r * risk_now
+        )
+    partial_book_fraction = partial_book_fraction if partial_book_fraction is not None else 0.50
 
     # 8.5 Geometry Refinement: Use significant-digit rounding (at least 6 digits) behind enforce_geometry_invariants
     round_fn = (lambda v: _round_significant(v, 6)) if enforce_geometry_invariants else _round_price
@@ -242,6 +260,7 @@ def trade_levels(
         if not (min_target_multiple_r <= target_r <= max_target_multiple_r):
             return _flat()
 
+    is_limit = bool(offset_atr and offset_atr > 0)
     return {
         "direction": direction, "entry": out_entry, "stop": out_stop,
         "target": out_target, "targets": targets,
@@ -250,6 +269,8 @@ def trade_levels(
         "reward_risk": round(rr, 2) if rr is not None else None,
         "size_pct": round(size_pct, 2), "invalidation": invalidation,
         "is_fade": fade is not None,
-        "order_type": "limit" if limit_offset_atr else "market",
-        "limit_expiry_bars": limit_expiry_bars if limit_offset_atr else None,
+        "order_type": "limit" if is_limit else "market",
+        "order_status": "PENDING_LIMIT" if is_limit else "OPEN",
+        "limit_expiry_bars": limit_expiry_bars if is_limit else None,
+        "max_wait_bars": limit_expiry_bars if is_limit else 0,
     }

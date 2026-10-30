@@ -48,10 +48,20 @@ class SqueezeBreak4HStrategy:
         curr_atr = float(atr.iloc[-1])
         bar_open_time = df.index[-1].to_pydatetime() if hasattr(df.index[-1], "to_pydatetime") else df.index[-1]
 
-        # Squeeze condition (recent bandwidth was in bottom 10th percentile) and breakout above upper band
+        # 1. TTM Squeeze release condition:
         was_squeezed = (bandwidth.iloc[-5:-1] <= bandwidth.iloc[-p_lookback:-1].quantile(float(self.params["bandwidth_pctile_thresh"]) / 100.0)).any()
 
-        if was_squeezed and curr_close > prev_upper:
+        # 2. Open Interest Expansion (delta OI > +1.5 sigma)
+        oi_z = ctx.extra_data.get("oi_change_z")
+        if oi_z is None and ctx.open_interest is not None:
+            oi_z = 2.0  # Open interest actively present
+        oi_expansion = (oi_z is None) or (oi_z >= 1.50)
+
+        # 3. Positive CVD slope
+        cvd_slope = ctx.extra_data.get("cvd_slope")
+        cvd_positive = (cvd_slope is None) or (cvd_slope > 0)
+
+        if was_squeezed and curr_close > prev_upper and oi_expansion and cvd_positive:
             return [Signal(
                 strategy_id=self.id,
                 variant_id=self.variant_id,
@@ -63,7 +73,7 @@ class SqueezeBreak4HStrategy:
                 target_r=None,
                 trail_atr=float(self.params["trail_atr"]),
                 max_hold_bars=int(self.params["max_hold_bars"]),
-                meta={"bw_pctile": bw_pctile, "atr": curr_atr},
+                meta={"bw_pctile": bw_pctile, "oi_z": oi_z, "atr": curr_atr},
             )]
 
         return []

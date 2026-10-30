@@ -667,6 +667,8 @@ export type StrategyStats = {
   realized_pnl_usd: number;
   gross_profit_usd?: number;
   gross_loss_usd?: number;
+  gross_win_usd_risk_adjusted?: number;
+  gross_loss_usd_risk_adjusted?: number;
   profit_factor?: number | null;
   avg_win_usd?: number;
   avg_loss_usd?: number;

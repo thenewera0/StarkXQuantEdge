@@ -152,8 +152,8 @@ def cost_in_r(
     stop_frac: float,
     execution: str = "taker",
     *,
-    is_perp: bool = True,
-    exit_result: str = "stop",
+    is_perp: bool = False,
+    exit_result: str = "standard",
     direction: str = "long",
     holding_hours: float = 0.0,
     funding_rate_8h: float = 0.0001,
@@ -165,15 +165,46 @@ def cost_in_r(
     """
     if not stop_frac or stop_frac <= 0:
         return float("inf")
-    cost = trade_cost(
-        market=market,
-        symbol=symbol,
-        atr_pct=atr_pct,
-        is_perp=is_perp,
-        entry_execution=execution,
-        exit_result=exit_result,
-        direction=direction,
-        holding_hours=holding_hours,
-        funding_rate_8h=funding_rate_8h,
-    )
+    if exit_result == "standard" and not is_perp:
+        cost = round_trip_cost(market, symbol, atr_pct, execution)
+    else:
+        cost = trade_cost(
+            market=market,
+            symbol=symbol,
+            atr_pct=atr_pct,
+            is_perp=is_perp,
+            entry_execution=execution,
+            exit_result=exit_result,
+            direction=direction,
+            holding_hours=holding_hours,
+            funding_rate_8h=funding_rate_8h,
+        )
     return cost / float(stop_frac)
+
+
+def compute_after_tax_ev(
+    p_win: float,
+    reward_r: float,
+    cost_r: float,
+    tax_mode: str = "115bbh_netted",
+    tax_rate: float = 0.312,
+    gst_rate: float = 0.18,
+) -> float:
+    """Compute after-tax expected value (in R-multiples) under Indian Section 115BBH & GST.
+
+    - Exchange fees are increased by 18% GST (Effective Fee = Base Fee * 1.18).
+    - Scenario A (zero loss offset): EV = p * (1 - 0.312) * (reward_r - effective_cost_r) - (1 - p) * (1 + effective_cost_r).
+    - Scenario B (netted): pre_tax * (1 - 0.312) if pre_tax > 0 else pre_tax.
+    """
+    effective_cost_r = cost_r * (1.0 + gst_rate)
+
+    if tax_mode in ("115bbh_scenario_a", "scenario_a", "gross_flat"):
+        ev_win = p_win * (1.0 - tax_rate) * max(0.0, reward_r - effective_cost_r)
+        ev_loss = (1.0 - p_win) * (1.0 + effective_cost_r)
+        return round(ev_win - ev_loss, 4)
+    else:
+        pre_tax_ev = p_win * reward_r - (1.0 - p_win) * 1.0 - effective_cost_r
+        if pre_tax_ev > 0:
+            return round(pre_tax_ev * (1.0 - tax_rate), 4)
+        return round(pre_tax_ev, 4)
+

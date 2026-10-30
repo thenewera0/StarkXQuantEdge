@@ -76,6 +76,24 @@ def main():
         )
     print("[PASS] Lab Tax API verified with mandatory statutory disclaimers on both Scenario A & B.")
 
+    # 6. After-Tax EV Gate under Section 115BBH & GST
+    from app.costs import compute_after_tax_ev
+    from app.sizing import evaluate_tax_ev_gate
+
+    # High quality trade: p=0.60, R=2.0, cost_R=0.10
+    ev_a = compute_after_tax_ev(p_win=0.60, reward_r=2.0, cost_r=0.10, tax_mode="115bbh_scenario_a")
+    passed, val = evaluate_tax_ev_gate(p_win=0.60, reward_r=2.0, cost_r=0.10, min_ev_r=0.10)
+    assert passed is True, f"High quality trade should pass tax EV gate, got {val}"
+    assert ev_a > 0.10, f"Expected EV > 0.10, got {ev_a}"
+    print(f"[PASS] Section 115BBH Scenario A high-quality EV verified: {ev_a:.4f}R > +0.10R")
+
+    # Low-payoff churn trade: p=0.50, R=1.1, cost_R=0.15
+    ev_churn = compute_after_tax_ev(p_win=0.50, reward_r=1.1, cost_r=0.15, tax_mode="115bbh_scenario_a")
+    passed_churn, val_churn = evaluate_tax_ev_gate(p_win=0.50, reward_r=1.1, cost_r=0.15, min_ev_r=0.10)
+    assert passed_churn is False, f"Low-payoff churn trade must be blocked by tax EV gate, got {val_churn}"
+    assert ev_churn < 0.10, f"Expected churn EV < 0.10, got {ev_churn}"
+    print(f"[PASS] Section 115BBH Scenario A low-payoff churn blocked: {ev_churn:.4f}R < +0.10R")
+
     print("================================================================================")
     print("ALL test_lab_tax CHECKS PASSED.")
     print("================================================================================")

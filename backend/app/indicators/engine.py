@@ -79,14 +79,30 @@ def bollinger(
     return mid, upper, lower, width
 
 
+def rolling_vwap_bands(
+    high: pd.Series, low: pd.Series, close: pd.Series, volume: pd.Series, window: int = 20
+) -> tuple[pd.Series, pd.Series, pd.Series, pd.Series, pd.Series]:
+    """Rolling VWAP over `window` bars with +/- 1 sigma and +/- 2 sigma standard deviation bands."""
+    typical = (high + low + close) / 3.0
+    pv = (typical * volume).rolling(window, min_periods=window).sum()
+    vol = volume.rolling(window, min_periods=window).sum().replace(0.0, np.nan)
+    vwap = pv / vol
+    dev2 = (typical - vwap) ** 2
+    w_var = (volume * dev2).rolling(window, min_periods=window).sum() / vol
+    std = np.sqrt(w_var.clip(lower=0.0).fillna(0.0))
+    up1 = vwap + 1.0 * std
+    lo1 = vwap - 1.0 * std
+    up2 = vwap + 2.0 * std
+    lo2 = vwap - 2.0 * std
+    return vwap, up1, lo1, up2, lo2
+
+
 def rolling_vwap(
     high: pd.Series, low: pd.Series, close: pd.Series, volume: pd.Series, window: int = 20
 ) -> pd.Series:
     """Rolling VWAP over `window` bars (causal; no session anchoring needed for backtests)."""
-    typical = (high + low + close) / 3.0
-    pv = (typical * volume).rolling(window, min_periods=window).sum()
-    vol = volume.rolling(window, min_periods=window).sum().replace(0.0, np.nan)
-    return pv / vol
+    vwap, _, _, _, _ = rolling_vwap_bands(high, low, close, volume, window)
+    return vwap
 
 
 def classic_pivots(
@@ -197,16 +213,17 @@ def ma_sabres(close: pd.Series, length: int = 50, count: int = 20) -> pd.Series:
     return up.astype(int) - dn.astype(int)
 
 
-def variance_ratio(close: pd.Series, q: int = 4, window: int = 100) -> pd.Series:
+def variance_ratio(close: pd.Series, q: int = 5, window: int = 100) -> pd.Series:
     """Lo-MacKinlay Variance Ratio VR(q) = Var(q-bar returns) / (q * Var(1-bar returns)) (§3.5).
 
     VR > 1 => momentum/persistence present; VR < 1 => mean reversion; ~1 => random walk. Causal,
-    rolling. Centered at 1.0 (a natural 'no info' point) so the meta-model reads deviations."""
+    rolling. Centered at 1.0 (a natural 'no info' point) so the meta-model reads deviations.
+    """
     logp = np.log(close.replace(0.0, np.nan))
     r1 = logp.diff()
     rq = logp.diff(q)
-    var1 = r1.rolling(window, min_periods=window // 2).var()
-    varq = rq.rolling(window, min_periods=window // 2).var()
+    var1 = r1.rolling(window, min_periods=max(5, window // 2)).var()
+    varq = rq.rolling(window, min_periods=max(5, window // 2)).var()
     vr = varq / (q * var1.replace(0.0, np.nan))
     return vr.replace([np.inf, -np.inf], np.nan)
 
@@ -220,31 +237,74 @@ def return_entropy(close: pd.Series, window: int = 32) -> pd.Series:
     return -(p * np.log2(p) + (1 - p) * np.log2(1 - p))
 
 
-def _hurst_var(r: np.ndarray) -> float:
-    """Hurst via VARIANCE-SCALING: Var(sum of s consecutive returns) ~ s^(2H), so the slope of
-    log(var) vs log(s) is 2H. Lighter and far more stable on small windows than R/S chunking."""
-    n = len(r)
-    scales = [s for s in (1, 2, 4, 8, 16, 32) if s <= n // 4]
-    if len(scales) < 3:
-        return np.nan
-    logs, logv = [], []
+def hurst_exponent(close: pd.Series, lags: int = 20, window: int = 100) -> pd.Series:
+    """Rolling Hurst exponent via vectorized Variance-Scaling Ratio (Hurst H in [0, 1]).
+
+    H > 0.52 indicates persistent / trending regime;
+    H < 0.45 indicates mean-reverting regime;
+    0.45 <= H <= 0.52 indicates random-walk / chop.
+    Causal, vectorized, and zero-lookahead.
+    """
+    logp = np.log(close.replace(0.0, np.nan))
+    scales = [s for s in (2, 4, 8, 16, lags) if 2 <= s <= max(lags, 20)]
+    scales = sorted(list(set(scales)))
+    if len(scales) < 2:
+        scales = [2, 4, 8]
+
+    x = np.log(np.array(scales, dtype=float))
+    x_mean = float(np.mean(x))
+    denom = float(np.sum((x - x_mean) ** 2))
+    if denom <= 0:
+        return pd.Series(0.5, index=close.index)
+    weights = (x - x_mean) / denom
+
+    win = max(window, max(scales) * 2)
+    min_p = max(10, win // 3)
+
+    log_vars = []
     for s in scales:
-        m = (n // s) * s
-        sums = r[:m].reshape(-1, s).sum(axis=1)   # non-overlapping s-period sums
-        if len(sums) < 2:
-            continue
-        v = float(sums.var())
-        if v > 0:
-            logs.append(np.log(s)); logv.append(np.log(v))
-    if len(logs) < 3:
-        return np.nan
-    return float(np.polyfit(logs, logv, 1)[0] / 2.0)
+        diff_s = logp - logp.shift(s)
+        var_s = diff_s.rolling(win, min_periods=min_p).var()
+        var_s_clean = np.log(var_s.replace(0.0, np.nan).clip(lower=1e-12))
+        log_vars.append(var_s_clean)
+
+    slope = sum(w * lv for w, lv in zip(weights, log_vars))
+    hurst = 0.5 * slope
+    return hurst.clip(0.0, 1.0)
 
 
-def hurst_exponent(close: pd.Series, window: int = 100) -> pd.Series:
-    """Rolling Hurst exponent (§3.2). H>0.55 trending/persistent, H<0.45 mean-reverting, ~0.5 random."""
-    r = np.log(close.replace(0.0, np.nan)).diff().fillna(0.0)
-    return r.rolling(window, min_periods=window).apply(_hurst_var, raw=True)
+def hv_ratio(close: pd.Series, short_window: int = 5, long_window: int = 20) -> pd.Series:
+    """Historical Volatility Compression Ratio: std(log_ret, 5) / std(log_ret, 20).
+
+    A ratio < 0.70 signals severe volatility compression ahead of explosive directional expansion.
+    """
+    log_ret = np.log(close.replace(0.0, np.nan)).diff()
+    std_short = log_ret.rolling(short_window, min_periods=short_window).std(ddof=0)
+    std_long = log_ret.rolling(long_window, min_periods=long_window).std(ddof=0)
+    return (std_short / std_long.replace(0.0, np.nan)).clip(0.0, 5.0)
+
+
+def bbw_pct_rank(close: pd.Series, window: int = 20, lookback: int = 100) -> pd.Series:
+    """Bollinger Bandwidth Percentile Rank over `lookback` bars.
+
+    bbw = (upper - lower) / mid.
+    Returns percentile rank in [0.0, 1.0]. Rank < 0.20 indicates extreme volatility squeeze.
+    """
+    mid = close.rolling(window, min_periods=window).mean()
+    std = close.rolling(window, min_periods=window).std(ddof=0)
+    bbw = (4.0 * std) / mid.replace(0.0, np.nan)
+
+    def _pct_rank_last(arr: np.ndarray) -> float:
+        val = arr[-1]
+        if np.isnan(val):
+            return np.nan
+        valid = arr[~np.isnan(arr)]
+        if len(valid) == 0:
+            return np.nan
+        return float(np.mean(valid <= val))
+
+    return bbw.rolling(lookback, min_periods=max(10, lookback // 4)).apply(_pct_rank_last, raw=True)
+
 
 
 def kalman_slope(close: pd.Series, atr_series: pd.Series,
@@ -446,8 +506,15 @@ def compute_indicators(df: pd.DataFrame) -> pd.DataFrame:
 
     # Volume / flow
     out["vol_sma20"] = sma(v, 20)
-    out["vwap"] = rolling_vwap(h, l, c, v, 20)
+    vwap, up1, lo1, up2, lo2 = rolling_vwap_bands(h, l, c, v, 20)
+    out["vwap"] = vwap
+    out["vwap_up1"] = up1
+    out["vwap_lo1"] = lo1
+    out["vwap_up2"] = up2
+    out["vwap_lo2"] = lo2
     out["vwap_dist"] = (c - out["vwap"]) / out["vwap"].replace(0.0, np.nan)
+    out["hv_ratio"] = hv_ratio(c, 5, 20)
+    out["bbw_pct_rank"] = bbw_pct_rank(c, 20, 100)
 
     # Structure / levels
     pivot, r1, s1 = classic_pivots(h, l, c)
@@ -471,8 +538,8 @@ def compute_indicators(df: pd.DataFrame) -> pd.DataFrame:
     out["pk_vol_ratio"] = out["pk_vol"] / out["pk_vol"].rolling(100, min_periods=50).mean()
 
     # Advanced statistical machinery (Blueprint v2 §3) — fed to the meta-model as features.
-    out["hurst"] = hurst_exponent(c, 100)
-    out["variance_ratio"] = variance_ratio(c, 4, 100)
+    out["hurst"] = hurst_exponent(c, lags=20, window=100)
+    out["variance_ratio"] = variance_ratio(c, q=5, window=100)
     out["entropy"] = return_entropy(c, 32)
     out["kalman_slope"] = kalman_slope(c, out["atr"])
 

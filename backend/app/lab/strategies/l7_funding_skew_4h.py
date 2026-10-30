@@ -63,9 +63,14 @@ class FundingSkew4HStrategy:
         z_thresh = float(self.params["z_threshold"])
 
         signals = []
+        cvd_slope = float(ctx.extra_data.get("cvd_slope", 0.0))
+        # Price action swing check for divergence
+        is_lower_high = curr_close < float(df["high"].iloc[-20:-1].max())
+        is_higher_low = curr_close > float(df["low"].iloc[-20:-1].min())
+
         if not self.is_short_variant:
-            # Long: z < -2 (extreme negative funding / oversold short squeeze setup)
-            if z_score < -z_thresh:
+            # Long: z < -2.2 PLUS Bullish Divergence (price making higher low while funding spikes negative or CVD slope > 0)
+            if z_score < -2.20 and (is_higher_low or cvd_slope > 0):
                 signals.append(Signal(
                     strategy_id=self.id,
                     variant_id=self.variant_id,
@@ -77,11 +82,11 @@ class FundingSkew4HStrategy:
                     target_r=2.0,
                     trail_atr=None,
                     max_hold_bars=int(self.params["max_hold_bars"]),
-                    meta={"z_score": z_score, "atr": curr_atr},
+                    meta={"z_score": z_score, "cvd_slope": cvd_slope, "atr": curr_atr},
                 ))
         else:
-            # Short: z > +2 and close > SMA(50) (crowded long positioning fade)
-            if z_score > z_thresh and curr_close > curr_sma:
+            # Short: z > +2.2 PLUS Bearish Divergence (price making lower high while funding spikes positive or CVD slope < 0)
+            if z_score > 2.20 and (is_lower_high or cvd_slope < 0):
                 signals.append(Signal(
                     strategy_id=self.id,
                     variant_id=self.variant_id,
@@ -93,7 +98,7 @@ class FundingSkew4HStrategy:
                     target_r=2.0,
                     trail_atr=None,
                     max_hold_bars=int(self.params["max_hold_bars"]),
-                    meta={"z_score": z_score, "atr": curr_atr},
+                    meta={"z_score": z_score, "cvd_slope": cvd_slope, "atr": curr_atr},
                 ))
 
         return signals

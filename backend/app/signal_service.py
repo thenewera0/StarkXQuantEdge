@@ -292,6 +292,8 @@ def compute_signal(
     p_eff = meta_p if use_meta else win_prob   # promoted meta prob replaces the primary in the EV
 
     ev_r = None
+    cost_r = None
+    rr = None
     position_sizing = None
     risk_state = drift.state()
     if geo["direction"] != "flat" and geo["entry"] and geo["stop"] and geo["reward_risk"]:
@@ -346,8 +348,29 @@ def compute_signal(
         silence_reason = "symbol_filter"  # this symbol has proven negative expectancy
     elif candidate_dir != "flat" and candidate_dir not in _allowed_directions(market):
         silence_reason = "direction_filter"  # this direction has proven negative expectancy
-    elif is_crypto and candidate_dir == "short" and getattr(settings, "crypto_long_only", True):
-        silence_reason = "crypto_long_only"  # crypto shorts measured 4.4% win rate / -$871 loss
+    elif is_crypto and candidate_dir == "short":
+        # 3-State Macro Regime Gate (Phase 3):
+        from .regime import get_macro_regime
+        macro = get_macro_regime()
+        if macro.get("is_bull") and ((flow_extras or {}).get("funding_z") or 0.0) < 2.5:
+            # Bull trend: altcoin shorts restricted unless extreme funding blow-off (> +2.5z)
+            silence_reason = "bull_market_short_restricted"
+        elif macro.get("is_chop") and regime != "range":
+            # Chop range: trend breakouts disabled; only range fades
+            silence_reason = "chop_range_trend_stand_down"
+        elif macro.get("is_bear"):
+            # Bear trend: shorts enabled on bleeders on rallies to EMA21/VWAP!
+            pass
+        elif getattr(settings, "crypto_long_only", True):
+            silence_reason = "crypto_long_only"  # default fallback
+    elif is_crypto and candidate_dir == "long":
+        from .regime import get_macro_regime
+        macro = get_macro_regime()
+        if macro.get("is_bear") and symbol.upper() != "BTCUSDT":
+            # Bear trend: longs disabled on altcoins
+            silence_reason = "bear_market_alt_long_disabled"
+        elif macro.get("is_chop") and regime != "range":
+            silence_reason = "chop_range_trend_stand_down"
     elif candidate_dir == "short" and not _short_ok(ind, composite, raw_features["htf_trend"],
                                                     (flow_extras or {}).get("funding_rate"))["ok"]:
         silence_reason = "short_not_qualified"  # counter-trend short — the thing that lost the money
@@ -361,6 +384,13 @@ def compute_signal(
         silence_reason = "reward_risk_below_gate"
     elif settings.ev_gate_enabled and ev_r is not None and ev_r < ev_floor:
         silence_reason = "ev_below_gate"  # calibrated EV doesn't clear cost (+ drift de-risk margin)
+    elif getattr(settings, "tax_ev_gate_enabled", False) and rr is not None and cost_r is not None:
+        from .costs import compute_after_tax_ev
+        tax_mode = getattr(settings, "tax_ev_mode", "115bbh_scenario_a")
+        tax_hurdle = getattr(settings, "tax_min_ev_r", 0.10)
+        atev = compute_after_tax_ev(p_eff, rr, cost_r, tax_mode=tax_mode)
+        if atev < tax_hurdle:
+            silence_reason = "tax_ev_below_gate"
 
     # --- L6b Price action pre-trade confirmation gate ---
     pa_details = None

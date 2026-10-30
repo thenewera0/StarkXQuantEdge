@@ -35,35 +35,32 @@ class XSMomentum1DStrategy:
         if len(df) < p_lookback + 5:
             return []
 
-        # Check if weekly rebalance trigger or daily check
         bar_open_time = df.index[-1].to_pydatetime() if hasattr(df.index[-1], "to_pydatetime") else df.index[-1]
+        atr = calc_atr(df, 14)
+        curr_atr = float(atr.iloc[-1])
         
-        # Check cross-sectional rank if available in extra_data
+        # Cross-sectional relative strength rankings and beta calculations
         rankings = ctx.extra_data.get("rankings", {})
-        is_selected = False
+        top_2_symbols = rankings.get("top_momentum", [])[:2]
+        bot_2_symbols = rankings.get("bottom_weakest", rankings.get("bottom_reversal", []))[:2]
+        beta_map = ctx.extra_data.get("beta_btc", {})
 
-        if rankings:
-            if not self.is_reversal:
-                # Top N by 30-day return (skip 1 day)
-                top_symbols = rankings.get("top_momentum", [])[:int(self.params["top_n"])]
-                is_selected = ctx.symbol in top_symbols
-            else:
-                # Bottom N by 3-day return (reversal)
-                bot_symbols = rankings.get("bottom_reversal", [])[:int(self.params["top_n"])]
-                is_selected = ctx.symbol in bot_symbols
-        else:
-            # Fallback to standalone relative return threshold if cross-sectional table not pre-computed
-            if not self.is_reversal:
-                ret_30d_skip1 = (df["close"].iloc[-2] - df["close"].iloc[-p_lookback]) / df["close"].iloc[-p_lookback]
-                is_selected = ret_30d_skip1 > 0.15 and df["close"].iloc[-1] > df["close"].iloc[-20]
-            else:
-                ret_3d = (df["close"].iloc[-1] - df["close"].iloc[-4]) / df["close"].iloc[-4]
-                is_selected = ret_3d < -0.08
+        signals = []
+        is_top = ctx.symbol in top_2_symbols
+        is_bot = ctx.symbol in bot_2_symbols
 
-        if is_selected:
-            atr = calc_atr(df, 14)
-            curr_atr = float(atr.iloc[-1])
-            return [Signal(
+        if not rankings:
+            # Fallback based on 30-day return skipping day 1
+            ret_30d = (df["close"].iloc[-2] - df["close"].iloc[-p_lookback]) / df["close"].iloc[-p_lookback]
+            if not self.is_reversal and ret_30d > 0.15:
+                is_top = True
+            elif self.is_reversal and ret_30d < -0.15:
+                is_bot = True
+
+        beta = float(beta_map.get(ctx.symbol, 1.0))
+
+        if is_top:
+            signals.append(Signal(
                 strategy_id=self.id,
                 variant_id=self.variant_id,
                 symbol=ctx.symbol,
@@ -74,7 +71,21 @@ class XSMomentum1DStrategy:
                 target_r=None,
                 trail_atr=3.5,
                 max_hold_bars=int(self.params["max_hold_bars"]),
-                meta={"is_reversal": self.is_reversal, "atr": curr_atr},
-            )]
+                meta={"beta_weight": beta, "factor_leg": "long_top", "net_btc_beta": 0.0, "atr": curr_atr},
+            ))
+        elif is_bot:
+            signals.append(Signal(
+                strategy_id=self.id,
+                variant_id=f"{self.variant_id}_short" if "short" not in self.variant_id else self.variant_id,
+                symbol=ctx.symbol,
+                direction="short",
+                bar_open_time=bar_open_time,
+                entry_mode="next_open",
+                stop_atr=float(self.params["stop_atr"]),
+                target_r=None,
+                trail_atr=3.5,
+                max_hold_bars=int(self.params["max_hold_bars"]),
+                meta={"beta_weight": beta, "factor_leg": "short_bottom", "net_btc_beta": 0.0, "atr": curr_atr},
+            ))
 
-        return []
+        return signals

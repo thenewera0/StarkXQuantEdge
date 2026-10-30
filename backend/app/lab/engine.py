@@ -199,6 +199,25 @@ class LabEngine:
                         )
                         continue
 
+                    # 1b. Tax-Aware EV Gate (Phase 5)
+                    from app.config import settings
+                    from app.costs import compute_after_tax_ev
+                    rr = sig.target_r or 1.5
+                    approx_stop_frac = stop_dist / curr_close
+                    approx_cost_r = 0.0007 / max(approx_stop_frac, 1e-4)
+                    p_win = float(sig.meta.get("p_win", 0.50))
+                    tax_mode = getattr(settings, "tax_ev_mode", "115bbh_scenario_a")
+                    min_tax_ev = getattr(settings, "tax_min_ev_r", 0.10)
+                    if getattr(settings, "tax_ev_gate_enabled", False):
+                        after_tax_ev = compute_after_tax_ev(p_win, rr, approx_cost_r, tax_mode=tax_mode)
+                        if after_tax_ev < min_tax_ev:
+                            self.storage.record_event(
+                                kind="REJECTED_TAX_EV",
+                                message=f"Rejected {sig.symbol} signal: after-tax EV {after_tax_ev:.3f}R < {min_tax_ev:.2f}R hurdle",
+                                variant_id=vid,
+                            )
+                            continue
+
                     # 2. Idempotency Check (Rule 0.4 UNIQUE constraint)
                     recorded = self.storage.record_signal(sig, is_backfill=False)
                     if not recorded:

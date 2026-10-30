@@ -109,21 +109,26 @@ class LabResolver:
         tick_size = cls.get_tick_size(signal.symbol)
         maker_fee_rate = 0.0002  # 2 bps
 
-        # For maker, limit price is at or slightly behind touch
+        # For maker, limit price is at or slightly behind touch (0.35 ATR default pullback)
         if signal.entry_mode == "maker":
-            offset = signal.meta.get("maker_offset_atr", 0.15) * atr
+            offset = signal.meta.get("maker_offset_atr", 0.35) * atr
             limit_price = (next_bar_open - offset) if signal.direction == "long" else (next_bar_open + offset)
         else:
             limit_price = next_bar_open
 
+        # Runaway check (Phase 2): if price runs to +1.0R target before filling, cancel pending limit order
+        target_1r = (next_bar_open + stop_dist) if signal.direction == "long" else (next_bar_open - stop_dist)
+        runaway = (signal.direction == "long" and next_bar_high >= target_1r) or (signal.direction == "short" and next_bar_low <= target_1r)
+
         # Through-by-1-tick fill check:
         maker_filled = False
-        if signal.direction == "long":
-            if next_bar_low <= (limit_price - tick_size):
-                maker_filled = True
-        else:
-            if next_bar_high >= (limit_price + tick_size):
-                maker_filled = True
+        if not runaway:
+            if signal.direction == "long":
+                if next_bar_low <= (limit_price - tick_size):
+                    maker_filled = True
+            else:
+                if next_bar_high >= (limit_price + tick_size):
+                    maker_filled = True
 
         maker_pos = None
         if maker_filled:
@@ -210,7 +215,7 @@ class LabResolver:
             else:
                 pos.funding_paid_usd -= funding_cost
 
-        # Update unrealized R
+        # Update unrealized R and trailing stop ratchet
         if pos.side == "long":
             price_delta = candle_close - pos.entry_price
             stop_dist = pos.entry_price - pos.initial_stop

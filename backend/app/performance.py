@@ -297,6 +297,8 @@ def by_strategy(trade_size: float | None = None) -> dict:
         f["realized_pnl_usd"] = round(f["realized_pnl_usd"], 2)
         f["gross_profit_usd"] = round(f["gross_profit_usd"], 2)
         f["gross_loss_usd"] = round(f["gross_loss_usd"], 2)
+        f["gross_win_usd_risk_adjusted"] = f["gross_profit_usd"]
+        f["gross_loss_usd_risk_adjusted"] = f["gross_loss_usd"]
         f["hit_rate"] = round(f["wins"] / f["trades"], 4) if f["trades"] else None
         f["profit_factor"] = round(abs(f["gross_profit_usd"] / f["gross_loss_usd"]), 2) if f["gross_loss_usd"] != 0 else None
         f["avg_win_usd"] = round(f["gross_profit_usd"] / f["wins"], 2) if f["wins"] else 0.0

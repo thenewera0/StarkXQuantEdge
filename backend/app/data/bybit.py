@@ -8,6 +8,7 @@ shape of the Binance equivalents in binance.py so they can be used as drop-in fa
 from __future__ import annotations
 
 import httpx
+import pandas as pd
 
 _BASE = "https://api.bybit.com"
 
@@ -103,3 +104,35 @@ def fetch_depth(symbol: str = "BTCUSDT", limit: int = 50) -> dict:
         "symbol": symbol.upper(), "bid_volume": bid_vol, "ask_volume": ask_vol,
         "imbalance": (bid_vol - ask_vol) / total if total > 0 else 0.0,
     }
+
+
+def fetch_open_interest_history(symbol: str = "BTCUSDT", period: str = "4h", limit: int = 100) -> pd.DataFrame:
+    """Historical Open Interest from Bybit linear perp as a DataFrame."""
+    res = _get("/v5/market/open-interest",
+               {"category": "linear", "symbol": symbol.upper(), "intervalTime": _iv(period), "limit": min(int(limit), 200)})
+    rows = res.get("list") or []
+    if not rows:
+        return pd.DataFrame()
+    df = pd.DataFrame(rows)
+    df["timestamp"] = pd.to_datetime(df["timestamp"].astype(int), unit="ms", utc=True)
+    df = df.set_index("timestamp").sort_index()
+    if "openInterest" in df.columns:
+        df["sumOpenInterestValue"] = pd.to_numeric(df["openInterest"], errors="coerce")
+        df["sumOpenInterest"] = df["sumOpenInterestValue"]
+    return df[["sumOpenInterest", "sumOpenInterestValue"]].dropna()
+
+
+def fetch_funding_history_df(symbol: str = "BTCUSDT", limit: int = 120) -> pd.DataFrame:
+    """Historical funding rates from Bybit as a DataFrame."""
+    res = _get("/v5/market/funding/history",
+               {"category": "linear", "symbol": symbol.upper(), "limit": min(int(limit), 200)})
+    rows = res.get("list") or []
+    if not rows:
+        return pd.DataFrame()
+    df = pd.DataFrame(rows)
+    df["fundingTime"] = pd.to_datetime(df["fundingRateTimestamp"].astype(int), unit="ms", utc=True)
+    df = df.set_index("fundingTime").sort_index()
+    if "fundingRate" in df.columns:
+        df["fundingRate"] = pd.to_numeric(df["fundingRate"], errors="coerce")
+    return df[["fundingRate"]].dropna()
+
