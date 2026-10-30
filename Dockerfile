@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY backend/ ./backend/
 COPY db/ ./db/
+COPY config/ ./config/
 
 WORKDIR /app/backend
 

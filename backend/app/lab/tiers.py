@@ -16,7 +16,10 @@ import math
 from typing import Dict, List, Literal, Optional, Tuple
 import numpy as np
 import pandas as pd
-from scipy import stats as sp_stats
+try:
+    from scipy import stats as sp_stats
+except ImportError:
+    sp_stats = None
 
 
 Tier = Literal["T0", "T1", "T2", "T3"]
@@ -90,18 +93,38 @@ def compute_dsr(
         return 0.50 if sharpe > 0 else 0.0
 
     gamma = 0.5772156649  # Euler-Mascheroni constant
-    # Expected maximum Sharpe under the null of N independent trials
-    e_max_sharpe = (1.0 - gamma) * sp_stats.norm.ppf(1.0 - 1.0 / n_trials) + gamma * sp_stats.norm.ppf(
-        1.0 - 1.0 / (n_trials * math.e)
-    )
 
-    # Standard error of the Sharpe ratio accounting for non-normality
-    var_sr = (1.0 - skewness * sharpe + ((kurtosis - 1.0) / 4.0) * (sharpe**2)) / max(sample_length - 1, 1)
-    se_sr = math.sqrt(max(var_sr, 1e-6))
+    if sp_stats is not None:
+        # Expected maximum Sharpe under the null of N independent trials
+        e_max_sharpe = (1.0 - gamma) * sp_stats.norm.ppf(1.0 - 1.0 / n_trials) + gamma * sp_stats.norm.ppf(
+            1.0 - 1.0 / (n_trials * math.e)
+        )
+        var_sr = (1.0 - skewness * sharpe + ((kurtosis - 1.0) / 4.0) * (sharpe**2)) / max(sample_length - 1, 1)
+        se_sr = math.sqrt(max(var_sr, 1e-6))
+        z = (sharpe - e_max_sharpe) / se_sr
+        dsr = float(sp_stats.norm.cdf(z))
+    else:
+        # Pure math fallback without scipy dependency
+        def _norm_ppf(p: float) -> float:
+            p = min(max(p, 1e-7), 1.0 - 1e-7)
+            q = 2.0 * p - 1.0
+            a = 0.147
+            ln = math.log(max(1.0 - q * q, 1e-12))
+            two_pi_a = 2.0 / (math.pi * a)
+            term1 = two_pi_a + ln / 2.0
+            inner = term1 * term1 - ln / a
+            erf_inv = math.copysign(1.0, q) * math.sqrt(max(0.0, math.sqrt(max(0.0, inner)) - term1))
+            return erf_inv * math.sqrt(2.0)
 
-    z = (sharpe - e_max_sharpe) / se_sr
-    dsr = float(sp_stats.norm.cdf(z))
-    return round(dsr, 4)
+        e_max_sharpe = (1.0 - gamma) * _norm_ppf(1.0 - 1.0 / n_trials) + gamma * _norm_ppf(
+            1.0 - 1.0 / (n_trials * math.e)
+        )
+        var_sr = (1.0 - skewness * sharpe + ((kurtosis - 1.0) / 4.0) * (sharpe**2)) / max(sample_length - 1, 1)
+        se_sr = math.sqrt(max(var_sr, 1e-6))
+        z = (sharpe - e_max_sharpe) / se_sr
+        dsr = 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
+
+    return round(float(dsr), 4)
 
 
 class EvidenceTierEvaluator:
