@@ -717,12 +717,12 @@ export default function LabPage() {
             <div className="flex items-center justify-between pb-3 border-b border-[#1E2733]">
               <h2 className="text-base font-semibold text-white flex items-center gap-2">
                 <Percent size={18} className="text-[#FFB020]" />
-                Statutory Tax Audit (Indian IT Act 1961)
+                Statutory Tax Audit (Indian IT Act 1961: Crypto Sec 115BBH vs NSE F&amp;O Sec 43(5))
               </h2>
-              <span className="text-[10.5px] font-mono text-[#8B98A9]">Scenario A vs B</span>
+              <span className="text-[10.5px] font-mono text-[#8B98A9]">Scenario A vs B vs C (NSE F&amp;O)</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
               {taxRows.map((t) => (
                 <div key={t.scenario} className="p-3.5 rounded-[8px] bg-[#0B0F14] border border-[#1E2733] text-xs space-y-2">
                   <div className="flex items-center justify-between font-bold text-white pb-1.5 border-b border-[#1E2733]">

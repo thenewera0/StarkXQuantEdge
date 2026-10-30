@@ -86,6 +86,20 @@ def main():
         assert "PAPER · VIRTUAL" in lab_text, "Lab page.tsx missing 'PAPER · VIRTUAL' badge!"
     print("[PASS] app/lab/page.tsx verified: 'PAPER · VIRTUAL' banner present.")
 
+    # Check LayoutComponents.tsx contains all 11 navigation tabs with ZERO dead '#' links
+    layout_comp_file = FRONTEND_DIR / "components" / "LayoutComponents.tsx"
+    assert layout_comp_file.exists(), "LayoutComponents.tsx missing!"
+    with open(layout_comp_file, "r", encoding="utf-8") as f:
+        layout_text = f.read()
+        required_tabs = [
+            "overview", "flash", "live", "markets", "investments",
+            "fund", "analytics", "history", "arbitrage", "portfolio", "lab"
+        ]
+        for tab in required_tabs:
+            assert f'key: "{tab}"' in layout_text, f"Navigation tab '{tab}' missing in LayoutComponents.tsx!"
+        assert 'href="#"' not in layout_text, "Found dead href='#' in LayoutComponents.tsx!"
+    print("[PASS] LayoutComponents.tsx verified: all 11 navigation tabs wired with zero dead href='#' links.")
+
     print("================================================================================")
     print("ALL test_dashboard_labels CHECKS PASSED.")
     print("================================================================================")

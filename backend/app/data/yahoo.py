@@ -27,14 +27,44 @@ from __future__ import annotations
 
 import threading
 import time
+from datetime import datetime, timezone, timedelta
 
 import httpx
 import pandas as pd
+
+_IST_OFFSET = timedelta(hours=5, minutes=30)
+_IST_TZ = timezone(_IST_OFFSET)
+
+
+def to_ist(dt: datetime | pd.Timestamp) -> datetime:
+    """Convert UTC datetime or pandas Timestamp to Indian Standard Time (IST, UTC+05:30)."""
+    if isinstance(dt, pd.Timestamp):
+        dt = dt.to_pydatetime()
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(_IST_TZ)
+
+
+def ist_now() -> datetime:
+    """Current Indian Standard Time."""
+    return datetime.now(_IST_TZ)
+
 
 _BASE = "https://query1.finance.yahoo.com/v8/finance/chart"
 # Yahoo rejects the default httpx agent on some edges; a browser UA is the documented workaround.
 _HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                           "(KHTML, like Gecko) Chrome/125.0 Safari/537.36"}
+
+# Top Liquid Indian NSE Equities & Indices
+NSE_INDICES = ["^NSEI", "^NSEBANK", "^CNXIT", "^INDIAVIX"]
+NSE_TOP_30_EQUITIES = [
+    "RELIANCE.NS", "HDFCBANK.NS", "ICICIBANK.NS", "INFY.NS", "TCS.NS",
+    "SBIN.NS", "LT.NS", "BHARTIARTL.NS", "AXISBANK.NS", "KOTAKBANK.NS",
+    "BAJFINANCE.NS", "M&M.NS", "TATAMOTORS.NS", "SUNPHARMA.NS", "NTPC.NS",
+    "MARUTI.NS", "ITC.NS", "HCLTECH.NS", "TRENT.NS", "HAL.NS",
+    "TITAN.NS", "ULTRACEMCO.NS", "ASIANPAINT.NS", "ADANIENT.NS", "POWERGRID.NS",
+    "WIPRO.NS", "COALINDIA.NS", "JSWSTEEL.NS", "GRASIM.NS", "NESTLEIND.NS",
+]
 
 # Yahoo's own interval strings. Anything not here is synthesised by resampling.
 _NATIVE = {"1m": "1m", "5m": "5m", "15m": "15m", "30m": "30m", "1h": "1h",

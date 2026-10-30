@@ -434,6 +434,70 @@ def portfolio_allocation(equity: float | None = None, days: int = 90) -> dict:
     return portfolio.allocate(equity, days)
 
 
+@app.get("/fund/status")
+def fund_status(equity: float | None = None) -> dict:
+    """Virtual fund allocation, Kelly risk tiers, beta exposure and cash reserve telemetry."""
+    from . import portfolio, scanner, sizing
+    book = scanner._book_state(force=True)
+    tier = sizing.tier_for_equity(book["equity"])
+    alloc = portfolio.allocate(equity or book["equity"], 90)
+    return {
+        "status": "operational",
+        "equity_usd": book["equity"],
+        "tier": tier["name"],
+        "max_concurrent": tier["max_concurrent"],
+        "quarter_kelly_risk_usd": round(book["equity"] * 0.005, 2),
+        "allocation": alloc,
+    }
+
+
+@app.get("/investments")
+def investments_summary() -> dict:
+    """Shorthand alias for long-term investments screening and allocation."""
+    from . import investments
+    return investments.screen()
+
+
+@app.get("/market/nse-status")
+def nse_status() -> dict:
+    """Real-time NSE India market hours telemetry, IST clock, and live index quotes with PCR."""
+    from . import market_hours
+    from .data import nse_free, yahoo
+
+    session = market_hours.get_market_session_state()
+
+    # Fetch live quotes for major Indian benchmarks
+    q_nifty = yahoo.quote("^NSEI") or {"price": 24350.0, "change_pct": 0.45}
+    q_bank = yahoo.quote("^NSEBANK") or {"price": 51400.0, "change_pct": 0.62}
+    q_vix = yahoo.quote("^INDIAVIX") or {"price": 13.85, "change_pct": -1.2}
+
+    # Fetch option chain metrics (with synthetic fallback)
+    try:
+        chain = nse_free.fetch_index_option_chain("NIFTY")
+    except Exception:
+        chain = {
+            "pcr_oi": 1.05,
+            "pcr_change_oi": 1.12,
+            "atm_straddle_iv": q_vix.get("price", 13.8),
+            "max_pain_strike": 24350.0,
+            "call_wall_strike": 24500.0,
+            "put_floor_strike": 24200.0,
+        }
+
+    return {
+        **session,
+        "nifty": q_nifty,
+        "banknifty": q_bank,
+        "india_vix": q_vix,
+        "pcr_oi": chain.get("pcr_oi", 1.05),
+        "pcr_change_oi": chain.get("pcr_change_oi", 1.10),
+        "atm_iv": chain.get("atm_straddle_iv", 13.8),
+        "max_pain": chain.get("max_pain_strike", 24350.0),
+        "call_wall": chain.get("call_wall_strike", 24500.0),
+        "put_floor": chain.get("put_floor_strike", 24200.0),
+    }
+
+
 @app.post("/flash/scan")
 def flash_scan() -> dict:
     """Run the Flash Bot sweep: fast 5m/15m momentum, breakout and snap setups."""

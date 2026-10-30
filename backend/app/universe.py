@@ -30,6 +30,53 @@ import time
 import pandas as pd
 
 # --------------------------------------------------------------------------------------
+# NSE UNIVERSES & LOT SIZES
+# --------------------------------------------------------------------------------------
+MARKET_NSE_INDEX = "nse_index"
+MARKET_NSE_EQ = "nse_eq"
+
+NSE_LOT_SIZES: dict[str, int] = {
+    "NIFTY": 75,
+    "^NSEI": 75,
+    "BANKNIFTY": 30,
+    "^NSEBANK": 30,
+    "CNXIT": 25,
+    "^CNXIT": 25,
+    "RELIANCE.NS": 500,
+    "HDFCBANK.NS": 550,
+    "ICICIBANK.NS": 700,
+    "INFY.NS": 400,
+    "TCS.NS": 175,
+    "SBIN.NS": 750,
+    "BHARTIARTL.NS": 475,
+    "LT.NS": 175,
+    "AXISBANK.NS": 625,
+    "KOTAKBANK.NS": 400,
+    "BAJFINANCE.NS": 125,
+    "M&M.NS": 350,
+    "TATAMOTORS.NS": 575,
+    "SUNPHARMA.NS": 350,
+    "NTPC.NS": 1500,
+    "MARUTI.NS": 50,
+    "ITC.NS": 1600,
+    "HCLTECH.NS": 350,
+    "TRENT.NS": 100,
+    "HAL.NS": 150,
+}
+
+
+def get_lot_size(symbol: str) -> int:
+    """Return exact NSE F&O lot size or 1 for cash equity / single share virtual account."""
+    sym = (symbol or "").upper()
+    if sym in NSE_LOT_SIZES:
+        return NSE_LOT_SIZES[sym]
+    base = sym.replace(".NS", "")
+    if base in NSE_LOT_SIZES:
+        return NSE_LOT_SIZES[base]
+    return 1
+
+
+# --------------------------------------------------------------------------------------
 # FOREX — canonical 'EUR/USD' -> Yahoo 'EURUSD=X'
 # --------------------------------------------------------------------------------------
 _FX_MAJORS = ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", "USD/CAD", "AUD/USD", "NZD/USD"]
@@ -198,6 +245,44 @@ def _fx_yahoo(sym: str) -> str:
     return sym.replace("/", "") + "=X"
 
 
+# --------------------------------------------------------------------------------------
+# INDIAN NSE MARKETS — Indices, Options & Top 30 Liquid F&O Equities
+# --------------------------------------------------------------------------------------
+MARKET_CRYPTO = "crypto"
+MARKET_NSE_INDEX = "nse_index"
+MARKET_NSE_EQ = "nse_eq"
+MARKET_FOREX = "forex"
+
+_NSE_INDICES_MAP: dict[str, tuple[str, str, str]] = {
+    "NIFTY":     ("^NSEI", "Nifty 50 Index", "index"),
+    "BANKNIFTY": ("^NSEBANK", "Nifty Bank Index", "index"),
+    "NIFTYIT":   ("^CNXIT", "Nifty IT Index", "index"),
+    "INDIAVIX":  ("^INDIAVIX", "India VIX", "volatility"),
+}
+
+_NSE_TOP_EQUITIES_MAP: dict[str, tuple[str, str, str]] = {
+    "RELIANCE":   ("RELIANCE.NS", "Reliance Industries Ltd", "energy"),
+    "HDFCBANK":   ("HDFCBANK.NS", "HDFC Bank Ltd", "banking"),
+    "ICICIBANK":  ("ICICIBANK.NS", "ICICI Bank Ltd", "banking"),
+    "INFY":       ("INFY.NS", "Infosys Ltd", "it"),
+    "TCS":        ("TCS.NS", "Tata Consultancy Services Ltd", "it"),
+    "SBIN":       ("SBIN.NS", "State Bank of India", "banking"),
+    "LT":         ("LT.NS", "Larsen & Toubro Ltd", "infra"),
+    "BHARTIARTL": ("BHARTIARTL.NS", "Bharti Airtel Ltd", "telecom"),
+    "AXISBANK":   ("AXISBANK.NS", "Axis Bank Ltd", "banking"),
+    "KOTAKBANK":  ("KOTAKBANK.NS", "Kotak Mahindra Bank Ltd", "banking"),
+    "BAJFINANCE": ("BAJFINANCE.NS", "Bajaj Finance Ltd", "finance"),
+    "MM":         ("M&M.NS", "Mahindra & Mahindra Ltd", "auto"),
+    "TATAMOTORS": ("TATAMOTORS.NS", "Tata Motors Ltd", "auto"),
+    "SUNPHARMA":  ("SUNPHARMA.NS", "Sun Pharmaceutical Ind Ltd", "pharma"),
+    "NTPC":       ("NTPC.NS", "NTPC Ltd", "power"),
+    "MARUTI":     ("MARUTI.NS", "Maruti Suzuki India Ltd", "auto"),
+    "ITC":        ("ITC.NS", "ITC Ltd", "fmcg"),
+    "HCLTECH":    ("HCLTECH.NS", "HCL Technologies Ltd", "it"),
+    "TRENT":      ("TRENT.NS", "Trent Ltd", "retail"),
+    "HAL":        ("HAL.NS", "Hindustan Aeronautics Ltd", "defense"),
+}
+
 # Canonical -> provider routing, built once at import.
 _CATALOG: dict[str, dict] = {}
 
@@ -213,6 +298,24 @@ for _src, _cat in ((_COMMODITIES, "commodities"), (_INDICES, "indices"), (_RATES
         _CATALOG[_s] = {"symbol": _s, "category": _cat, "group": _g,
                         "name": _n, "provider": "yahoo", "provider_symbol": _y,
                         "allocatable": not _why, "note": _why}
+
+# Register Indian NSE Indices
+for _s, (_y, _n, _g) in _NSE_INDICES_MAP.items():
+    _CATALOG[_s] = {"symbol": _s, "category": MARKET_NSE_INDEX, "group": _g,
+                    "name": _n, "provider": "yahoo", "provider_symbol": _y,
+                    "allocatable": True, "note": ""}
+    _CATALOG[_y] = {"symbol": _y, "category": MARKET_NSE_INDEX, "group": _g,
+                    "name": _n, "provider": "yahoo", "provider_symbol": _y,
+                    "allocatable": True, "note": ""}
+
+# Register Indian NSE Equities
+for _s, (_y, _n, _g) in _NSE_TOP_EQUITIES_MAP.items():
+    _CATALOG[_s] = {"symbol": _s, "category": MARKET_NSE_EQ, "group": _g,
+                    "name": _n, "provider": "yahoo", "provider_symbol": _y,
+                    "allocatable": True, "note": ""}
+    _CATALOG[_y] = {"symbol": _y, "category": MARKET_NSE_EQ, "group": _g,
+                    "name": _n, "provider": "yahoo", "provider_symbol": _y,
+                    "allocatable": True, "note": ""}
 
 # --------------------------------------------------------------------------------------
 # CRYPTO — resolved live from Binance so the list follows real liquidity instead of a
@@ -315,7 +418,7 @@ def catalog(categories: list[str] | None = None, crypto_limit: int = 150,
 
 
 def resolve(symbol: str) -> dict | None:
-    """Canonical symbol -> routing entry. Crypto resolves by convention, not by table."""
+    """Canonical symbol -> routing entry. Crypto and NSE resolve by convention, not just table."""
     hit = _CATALOG.get(symbol) or _CATALOG.get(symbol.upper())
     if hit:
         return dict(hit)
@@ -323,6 +426,12 @@ def resolve(symbol: str) -> dict | None:
     if up.endswith("USDT"):     # any Binance pair, listed or not
         return {"symbol": up, "category": "crypto", "group": "spot", "name": up[:-4],
                 "provider": "binance", "provider_symbol": up, "allocatable": True, "note": ""}
+    if up.endswith(".NS"):      # any NSE equity
+        return {"symbol": up, "category": MARKET_NSE_EQ, "group": "equity", "name": up[:-3],
+                "provider": "yahoo", "provider_symbol": up, "allocatable": True, "note": ""}
+    if up.startswith("^NSE") or up == "^INDIAVIX" or up == "^CNXIT":
+        return {"symbol": up, "category": MARKET_NSE_INDEX, "group": "index", "name": up,
+                "provider": "yahoo", "provider_symbol": up, "allocatable": True, "note": ""}
     return None
 
 

@@ -124,6 +124,42 @@ def calculate_tax_scenario_b(
     }
 
 
+def calculate_tax_scenario_c(
+    trades_pnl: Iterable[float],
+    tax_rate: float = 0.30,
+    expenses: float = 0.0,
+) -> dict[str, float]:
+    """Scenario C: Indian Section 43(5) Business Income for NSE Equities & F&O.
+    
+    - 100% loss offset against trading gains.
+    - Full deduction of STT, brokerage, exchange turnover charges, and GST.
+    - Loss carry-forward up to 8 years (non-speculative F&O) or 4 years (intraday speculative equity).
+    - Standard base corporate/slab rate (~30%).
+    """
+    pnls = [float(p) for p in trades_pnl]
+    net_trading_pnl = sum(pnls)
+    net_taxable_business_pnl = net_trading_pnl - float(expenses)
+
+    if net_taxable_business_pnl > 0.0:
+        tax_liability = net_taxable_business_pnl * tax_rate
+        after_tax_pnl = net_taxable_business_pnl - tax_liability
+        effective_tax_rate = tax_liability / max(net_trading_pnl, 1e-4)
+    else:
+        tax_liability = 0.0
+        after_tax_pnl = net_taxable_business_pnl
+        effective_tax_rate = 0.0
+
+    return {
+        "scenario": "C (Section 43(5) NSE F&O Netted + Loss Carry-Forward)",
+        "net_pnl_pre_tax": net_trading_pnl,
+        "deductible_expenses": float(expenses),
+        "taxable_business_income": net_taxable_business_pnl,
+        "tax_liability": tax_liability,
+        "after_tax_pnl": after_tax_pnl,
+        "effective_tax_rate": effective_tax_rate,
+    }
+
+
 def evaluate_series_after_tax(
     trades_df: pd.DataFrame,
     pnl_col: str = "pnl",

@@ -39,6 +39,7 @@
 | Amendment ID | Timestamp (UTC) | Author / Role | Justification / Reason | New Spec SHA-256 | Trial Delta | CI Approval |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | `LAB-AMD-20261030-01` | `2026-10-30T06:00:00Z` | Principal Quantitative Researcher & Systems Architect | StarkX v3.0 Alpha & Execution Re-Engineering of catalog L1–L10 to eliminate negative payoff ratio inversion, add two-stage limit pullback entries and 2-tranche scale-outs, incorporate Hurst persistence and OU half-life stationarity gates, and lock maker fee advantages. | `4fd6dcf163413746aa530d1f40b655303240972a7bfb1ecc09c49ff53736f187` | `+1` | `APPROVED` |
+| `LAB-AMD-20261030-02` | `2026-10-30T07:45:00Z` | Principal Quantitative Architect & Lead Full-Stack Engineer | Addition of Zero-Cost Indian NSE Equities & Index F&O strategies L11 (nse_orb_pcr_15m), L12 (nse_rs_vwap_1h), and L13 (nse_bank_nifty_statarb_1h), incorporating IST session hours, MIS auto-square-off at 15:15 IST, exact Indian statutory friction, and Section 43(5) tax accounting. | `d025e66b676e2a7179184f5d8d05a7d3163d295381aa2fae202e75183276dc76` | `+1` | `APPROVED` |
 
 ---
 
@@ -53,4 +54,14 @@
 - **New SHA-256:** `4fd6dcf163413746aa530d1f40b655303240972a7bfb1ecc09c49ff53736f187`
 - **Trial Counter Delta:** +1 (Increments research_trials counter for Deflated Sharpe Ratio / multiple testing correction)
 - **Accounting & Safety Invariants Preserved:** YES (Execution mode remains strictly 'paper', cent-level reconciliation holds, 18% GST and slippage model preserved)
+
+### Amendment LAB-AMD-20261030-02
+- **Timestamp:** 2026-10-30T07:45:00Z
+- **Author:** Principal Quantitative Architect & Lead Full-Stack Engineer
+- **Target Section:** `config/lab_spec.json -> strategies[L11-L13]`
+- **Reason:** Expansion of institutional strategy catalog with 3 zero-cost Indian NSE Equities & Index F&O strategies: L11 (nse_orb_pcr_15m), L12 (nse_rs_vwap_1h), and L13 (nse_bank_nifty_statarb_1h), incorporating IST session hours, MIS auto-square-off at 15:15 IST, exact statutory charges (STT, Stamp Duty, NSE turnover, SEBI, 18% GST), and Section 43(5) business income tax accounting.
+- **Prior SHA-256:** `4fd6dcf163413746aa530d1f40b655303240972a7bfb1ecc09c49ff53736f187`
+- **New SHA-256:** `d025e66b676e2a7179184f5d8d05a7d3163d295381aa2fae202e75183276dc76`
+- **Trial Counter Delta:** +1 (Increments research_trials counter for Deflated Sharpe Ratio / multiple testing correction)
+- **Accounting & Safety Invariants Preserved:** YES (Execution mode remains strictly 'paper', zero real exchange orders, cent-level reconciliation preserved)
 

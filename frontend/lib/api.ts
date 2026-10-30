@@ -908,7 +908,7 @@ export interface LabPortfolioResponse {
 }
 
 export interface LabTaxScenarioRow {
-  scenario: "A" | "B";
+  scenario: "A" | "B" | "C";
   name: string;
   grossGainUsd: number;
   grossLossUsd: number;
@@ -918,6 +918,31 @@ export interface LabTaxScenarioRow {
   netProfitAfterTaxUsd: number;
   effectiveTaxRatePct: number;
   disclaimer: string;
+}
+
+export interface NSEMarketStatus {
+  is_open: boolean;
+  ist_clock: string;
+  ist_date: string;
+  status_label: string;
+  status_color: string;
+  entry_permitted: boolean;
+  mis_squareoff_active: boolean;
+  nifty: { symbol?: string; price: number; change_pct: number };
+  banknifty: { symbol?: string; price: number; change_pct: number };
+  india_vix: { symbol?: string; price: number; change_pct: number };
+  pcr_oi: number;
+  pcr_change_oi: number;
+  atm_iv: number;
+  max_pain: number;
+  call_wall: number;
+  put_floor: number;
+}
+
+export async function fetchNseStatus(): Promise<NSEMarketStatus> {
+  const res = await fetch(`${API_BASE}/market/nse-status`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Backend ${res.status}`);
+  return res.json();
 }
 
 export async function fetchLabLeaderboard(): Promise<VariantRow[]> {

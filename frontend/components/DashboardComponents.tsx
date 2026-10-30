@@ -175,7 +175,19 @@ export function PortfolioOverview() {
               <span className="text-[var(--ink-muted)]">All-time trading history</span>
             </div>
           </div>
-          <button className="flex items-center gap-2 rounded-xl border border-[rgba(0,102,255,0.3)] bg-[rgba(0,102,255,0.1)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[rgba(0,102,255,0.2)]">
+          <button 
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("starkx_tab_change", { detail: "analytics" }));
+                const url = new URL(window.location.href);
+                url.pathname = "/";
+                url.searchParams.set("tab", "analytics");
+                url.hash = "analytics";
+                window.history.pushState({}, "", url.toString());
+              }
+            }}
+            className="flex items-center gap-2 rounded-xl border border-[rgba(0,102,255,0.3)] bg-[rgba(0,102,255,0.1)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-[rgba(0,102,255,0.2)]"
+          >
             Portfolio Analysis <ArrowUpRight size={16} />
           </button>
         </div>

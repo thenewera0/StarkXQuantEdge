@@ -69,7 +69,7 @@ def main():
 
     # 5. API Tax Endpoint & Statutory Disclaimers
     tax_rows = get_tax()
-    assert len(tax_rows) == 2, f"Expected 2 scenario rows, got {len(tax_rows)}"
+    assert len(tax_rows) in (2, 3), f"Expected 2 or 3 scenario rows, got {len(tax_rows)}"
     for r in tax_rows:
         assert "Not tax advice" in r.disclaimer or "consult" in r.disclaimer.lower(), (
             f"Row {r.scenario} missing required tax disclaimer!"

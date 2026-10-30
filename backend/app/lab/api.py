@@ -129,7 +129,7 @@ class LabPortfolioResponse(BaseModel):
 
 
 class LabTaxScenarioRow(BaseModel):
-    scenario: Literal["A", "B"]
+    scenario: Literal["A", "B", "C"]
     name: str
     grossGainUsd: float
     grossLossUsd: float
@@ -297,10 +297,11 @@ def get_portfolio() -> LabPortfolioResponse:
 
 
 @router.get("/tax", response_model=List[LabTaxScenarioRow])
-def get_tax() -> List[LabTaxScenarioRow]:
-    """Statutory Indian tax assessment (Scenarios A and B). Not tax advice."""
-    disclaimer = "Not tax advice; consult a Chartered Accountant. Illustrative statutory scenarios under Section 115BBH (Scenario A: No Loss Offset vs Scenario B: Netted at 31.2%)."
-    
+def get_tax(include_nse: bool = Query(default=True)) -> List[LabTaxScenarioRow]:
+    """Statutory Indian tax assessment (Scenarios A, B, and C). Not tax advice."""
+    disclaimer_crypto = "Not tax advice; consult a Chartered Accountant. Illustrative statutory scenarios under Section 115BBH (Scenario A: No Loss Offset vs Scenario B: Netted at 31.2%)."
+    disclaimer_nse = "Not tax advice; consult a Chartered Accountant. Illustrative statutory comparison under Section 43(5) non-speculative business income with loss carry-forward up to 8 financial years and full expense deductions."
+
     # Calculate portfolio-wide gains and losses
     positions = _engine.storage.get_all_variants()
     gains = sum(max(0.0, (v["equity_usd"] - 10000.0)) for v in positions)
@@ -325,7 +326,14 @@ def get_tax() -> List[LabTaxScenarioRow]:
         net_b = net_pnl
         eff_rate_b = 0.0
 
-    return [
+    # Scenario C: Section 43(5) NSE F&O Business Income (100% loss offset + deductible trading friction)
+    est_expenses = (gains + losses) * 0.0008  # ~8 bps avg statutory friction (brokerage, STT, turnover, GST)
+    taxable_c = max(0.0, net_pnl - est_expenses)
+    tax_c = taxable_c * 0.30
+    net_c = net_pnl - tax_c - est_expenses
+    eff_rate_c = round((tax_c / max(net_pnl, 1e-4)) * 100.0, 2) if net_pnl > 0 else 0.0
+
+    rows = [
         LabTaxScenarioRow(
             scenario="A",
             name="Section 115BBH Flat VDA Regime (31.2% on Gains, Zero Loss Offset, 1% TDS)",
@@ -336,7 +344,7 @@ def get_tax() -> List[LabTaxScenarioRow]:
             totalTaxUsd=round(tax_a, 2),
             netProfitAfterTaxUsd=round(net_a, 2),
             effectiveTaxRatePct=round((tax_a / max(net_pnl, 1e-4)) * 100.0, 2) if gains > losses else 0.0,
-            disclaimer=disclaimer,
+            disclaimer=disclaimer_crypto,
         ),
         LabTaxScenarioRow(
             scenario="B",
@@ -348,6 +356,24 @@ def get_tax() -> List[LabTaxScenarioRow]:
             totalTaxUsd=round(tax_b, 2),
             netProfitAfterTaxUsd=round(net_b, 2),
             effectiveTaxRatePct=eff_rate_b,
-            disclaimer=disclaimer,
+            disclaimer=disclaimer_crypto,
         ),
     ]
+
+    if include_nse:
+        rows.append(
+            LabTaxScenarioRow(
+                scenario="C",
+                name="Section 43(5) NSE F&O Regime (30% Netted, 100% Loss Offset & Expense Deduction)",
+                grossGainUsd=round(gains, 2),
+                grossLossUsd=round(losses, 2),
+                tdsDeductedUsd=0.0,
+                cessUsd=round(tax_c * 0.04, 2),
+                totalTaxUsd=round(tax_c, 2),
+                netProfitAfterTaxUsd=round(net_c, 2),
+                effectiveTaxRatePct=eff_rate_c,
+                disclaimer=disclaimer_nse,
+            )
+        )
+
+    return rows

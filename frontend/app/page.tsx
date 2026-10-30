@@ -27,46 +27,76 @@ import { RebalancePanel } from "@/components/RebalancePanel";
 import { UniversePanel } from "@/components/UniversePanel";
 import { RiskPanel } from "@/components/RiskPanel";
 import { PortfolioPanel } from "@/components/PortfolioPanel";
+import { PerformancePanel } from "@/components/PerformancePanel";
 import { ViewHeader } from "@/components/PanelShell";
 import { Card } from "@/components/ui";
-import { Activity, Bitcoin, DollarSign, Sparkles, RefreshCw } from "lucide-react";
+import { Activity, Bitcoin, DollarSign, Sparkles, RefreshCw, Percent, ShieldCheck } from "lucide-react";
+import { fetchLabTax, type LabTaxScenarioRow } from "@/lib/api";
 
-type Market = "crypto" | "forex";
+type Market = "crypto" | "forex" | "nse_index" | "nse_eq";
 type View = "overview" | "flash" | "live" | "markets" | "invest" | "fund" | "analytics" | "history" | "arb";
 
 const VIEWS: View[] = ["overview", "flash", "live", "markets", "invest", "fund", "analytics", "history", "arb"];
 
 const WATCHLISTS: Record<Market, string[]> = {
   crypto: ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"],
+  nse_index: ["^NSEI", "^NSEBANK", "^CNXIT", "^INDIAVIX"],
+  nse_eq: ["RELIANCE.NS", "HDFCBANK.NS", "ICICIBANK.NS", "INFY.NS", "TCS.NS", "SBIN.NS"],
   forex: ["EUR/USD", "GBP/USD", "USD/JPY", "XAU/USD"],
 };
 
 const TIMEFRAMES = [
-  { label: "Intraday", interval: "15m" },
-  { label: "Short", interval: "1h" },
-  { label: "Short+", interval: "4h" },
-  { label: "Swing", interval: "1d" },
-  { label: "Long", interval: "1w" },
+  { label: "1m", interval: "1m" },
+  { label: "5m", interval: "5m" },
+  { label: "15m", interval: "15m" },
+  { label: "1h", interval: "1h" },
+  { label: "4h", interval: "4h" },
+  { label: "1d", interval: "1d" },
 ];
 
-/** Sidebar drives this via the URL hash — real navigation, back button works. */
+/** Sidebar drives this via ?tab=... and URL hash — real navigation, back button works. */
 function useHashView(): View {
   const [view, setView] = useState<View>("overview");
   useEffect(() => {
-    const read = () => {
-      const h = (window.location.hash || "").replace("#", "") as View;
-      setView(VIEWS.includes(h) ? h : "overview");
+    const parse = () => {
+      const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const tabParam = params?.get("tab");
+      const hashParam = typeof window !== "undefined" ? (window.location.hash || "").replace("#", "") : "";
+      const raw = tabParam || hashParam || "overview";
+
+      let normalized: View = "overview";
+      if (raw === "investments" || raw === "invest") normalized = "invest";
+      else if (raw === "arbitrage" || raw === "arb") normalized = "arb";
+      else if (VIEWS.includes(raw as View)) normalized = raw as View;
+      setView(normalized);
     };
-    read();
-    window.addEventListener("hashchange", read);
-    window.addEventListener("popstate", read);   // browser back/forward
+
+    parse();
+
+    const handleCustomChange = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      const raw = customEvent.detail;
+      let normalized: View = "overview";
+      if (raw === "investments" || raw === "invest") normalized = "invest";
+      else if (raw === "arbitrage" || raw === "arb") normalized = "arb";
+      else if (VIEWS.includes(raw as View)) normalized = raw as View;
+      setView(normalized);
+    };
+
+    window.addEventListener("hashchange", parse);
+    window.addEventListener("popstate", parse);
+    window.addEventListener("starkx_tab_change", handleCustomChange);
     return () => {
-      window.removeEventListener("hashchange", read);
-      window.removeEventListener("popstate", read);
+      window.removeEventListener("hashchange", parse);
+      window.removeEventListener("popstate", parse);
+      window.removeEventListener("starkx_tab_change", handleCustomChange);
     };
   }, []);
-  // Views replace the whole page, so start each one at the top.
-  useEffect(() => { document.querySelector("main")?.scrollTo({ top: 0 }); }, [view]);
+
+  useEffect(() => {
+    document.querySelector("main")?.scrollTo({ top: 0 });
+  }, [view]);
+
   return view;
 }
 
@@ -86,6 +116,7 @@ export default function Dashboard() {
   const [debateError, setDebateError] = useState<string | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
   const [livePrice, setLivePrice] = useState<number | null>(null);
+  const [taxRows, setTaxRows] = useState<LabTaxScenarioRow[]>([]);
   const handlePrice = useCallback((p: number) => setLivePrice(p), []);
 
   const load = useCallback(async (sym: string, tf: string, mkt: Market) => {
@@ -102,13 +133,43 @@ export default function Dashboard() {
     finally { setDebating(false); }
   }, [symbol, interval, market]);
 
-  // Only fetch the analytics signal when that view is actually visible.
+  // Fetch signal when markets view is visible
   useEffect(() => {
-    if (view === "analytics") load(symbol, interval, market);
+    if (view === "markets") load(symbol, interval, market);
   }, [symbol, interval, market, load, view]);
 
+  // Fetch tax scenarios when analytics view is visible
   useEffect(() => {
-    if (view !== "analytics") return;
+    if (view === "analytics") {
+      fetchLabTax().then(setTaxRows).catch(() => {});
+    }
+  }, [view]);
+
+  // Listen for global symbol pick (e.g. from command palette)
+  useEffect(() => {
+    const handleSymbolPick = (e: any) => {
+      if (e.detail?.symbol) {
+        const sym = e.detail.symbol;
+        setSymbol(sym);
+        if (e.detail.market) {
+          setMarket(e.detail.market as Market);
+        } else if (sym.endsWith(".NS") || sym.startsWith("^")) {
+          setMarket(sym.startsWith("^") ? "nse_index" : "nse_eq");
+        }
+        window.dispatchEvent(new CustomEvent("starkx_tab_change", { detail: "markets" }));
+        const url = new URL(window.location.href);
+        url.pathname = "/";
+        url.searchParams.set("tab", "markets");
+        url.hash = "markets";
+        window.history.pushState({}, "", url.toString());
+      }
+    };
+    window.addEventListener("starkx_symbol_pick", handleSymbolPick);
+    return () => window.removeEventListener("starkx_symbol_pick", handleSymbolPick);
+  }, []);
+
+  useEffect(() => {
+    if (view !== "markets") return;
     const id = window.setInterval(() => {
       fetchSignalLite(symbol, interval, market)
         .then((lite) => setSignal((prev) => (prev ? { ...lite, explanation: prev.explanation } : lite)))
@@ -121,9 +182,18 @@ export default function Dashboard() {
 
   function switchMarket(mkt: Market) { setMarket(mkt); setSymbol(WATCHLISTS[mkt][0]); }
   function pickSignal(s: EmittedSignal) {
-    setMarket((s.market as Market) ?? "crypto");
+    let mkt: Market = "crypto";
+    if (s.market === "forex") mkt = "forex";
+    else if (s.market === "nse_index" || s.symbol.startsWith("^")) mkt = "nse_index";
+    else if (s.market === "nse_eq" || s.symbol.endsWith(".NS")) mkt = "nse_eq";
+    setMarket(mkt);
     setInterval(s.interval); setSymbol(s.symbol);
-    window.location.hash = "analytics";
+    window.dispatchEvent(new CustomEvent("starkx_tab_change", { detail: "markets" }));
+    const url = new URL(window.location.href);
+    url.pathname = "/";
+    url.searchParams.set("tab", "markets");
+    url.hash = "markets";
+    window.history.pushState({}, "", url.toString());
   }
 
   if (!mounted) return null;
@@ -180,10 +250,87 @@ export default function Dashboard() {
       {view === "markets" && (
         <>
           <ViewHeader
-            title="Markets"
-            subtitle="Every instrument the engine can see — crypto, forex, commodities, indices and rates, all on free keyless data."
+            title="Markets &amp; Quantitative Scanner"
+            subtitle="Free, zero-API-key live and historical streaming across Indian NSE Equities, Index F&amp;O, Crypto, and Global FX."
+            right={
+              <button onClick={() => load(symbol, interval, market)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(255,255,255,0.1)] bg-white/5 px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/10">
+                <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh Feed
+              </button>
+            }
           />
-          <UniversePanel />
+
+          <div className="mb-5 flex flex-wrap items-center gap-3">
+            <div className="seg">
+              {(["crypto", "nse_index", "nse_eq", "forex"] as Market[]).map((m) => (
+                <button key={m} data-active={market === m} onClick={() => switchMarket(m)} className="flex items-center gap-1.5 uppercase font-mono text-xs">
+                  {m === "crypto" ? <Bitcoin size={14} /> : m.startsWith("nse") ? <Activity size={14} /> : <DollarSign size={14} />}{m.replace("_", " ")}
+                </button>
+              ))}
+            </div>
+            <div className="seg">
+              {TIMEFRAMES.map((tf) => (
+                <button key={tf.interval} data-active={interval === tf.interval} onClick={() => setInterval(tf.interval)}>
+                  {tf.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mb-5 flex flex-wrap items-center gap-2">
+            {WATCHLISTS[market].map((sym) => (
+              <button key={sym} className="chip font-mono" data-active={symbol === sym} onClick={() => setSymbol(sym)}>{sym}</button>
+            ))}
+            <input
+              value={symbol}
+              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+              className="ml-auto w-44 rounded-lg border border-[rgba(255,255,255,0.1)] bg-white/5 px-3 py-2 text-sm font-mono text-white outline-none transition-colors focus:border-[var(--accent-bright)]"
+              placeholder="Search symbol (e.g. ^NSEI)"
+            />
+          </div>
+
+          {loading && (
+            <Card className="card-pad flex items-center gap-2 text-sm text-slate-400">
+              <Activity size={15} className="shimmer text-[var(--accent-bright)]" /> Loading live feed {symbol} {interval}…
+            </Card>
+          )}
+          {error && (
+            <Card className="card-pad border-rose-500/20 bg-rose-500/10 text-sm text-[var(--loss)]">{error}</Card>
+          )}
+
+          {!loading && !error && signal && (
+            <div className="space-y-6 mb-8">
+              <PriceChart symbol={symbol} interval={interval} market={market} onPrice={handlePrice} />
+              <SignalCard s={signal} livePrice={livePrice} />
+
+              <Card className="card-pad">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-sm font-semibold tracking-tight text-white">
+                      <Sparkles size={15} className="text-[var(--accent-bright)]" /> 3-Agent AI Qualitative Debate
+                    </div>
+                    <div className="mt-0.5 text-xs text-slate-400">
+                      Bull and Bear quant analysts debate factor confluence; Risk Manager delivers synthesized conviction score.
+                    </div>
+                  </div>
+                  <button onClick={runDebate} disabled={debating}
+                    className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-br from-[var(--accent-bright)] to-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90 disabled:opacity-60">
+                    <Sparkles size={15} />{debating ? "Agents debating…" : decision ? "Re-run debate" : "Run AI debate"}
+                  </button>
+                </div>
+                {debateError && <div className="mt-3 text-sm text-[var(--loss)]">{debateError}</div>}
+              </Card>
+
+              {decision && !debating && <DebatePanel d={decision} />}
+            </div>
+          )}
+
+          <div className="mt-8">
+            <h4 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+              <Activity size={16} className="text-[var(--accent-bright)]" /> Global Allocatable Universe Explorer
+            </h4>
+            <UniversePanel />
+          </div>
         </>
       )}
 
@@ -216,80 +363,66 @@ export default function Dashboard() {
       {view === "analytics" && (
         <>
           <ViewHeader
-            title="Engine Analytics"
-            subtitle="Inspect any market through the full confluence engine."
-            right={
-              <button onClick={() => load(symbol, interval, market)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[rgba(255,255,255,0.1)] bg-white/5 px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/10">
-                <RefreshCw size={14} /> Refresh
-              </button>
-            }
+            title="Quantitative Performance &amp; Calibration Cockpit"
+            subtitle="Track realized R-distributions, Kelly tier sizing, regime breakdown, and post-tax Section 43(5) vs 115BBH efficiency."
           />
-
-          <div className="mb-5 flex flex-wrap items-center gap-3">
-            <div className="seg">
-              {(["crypto", "forex"] as Market[]).map((m) => (
-                <button key={m} data-active={market === m} onClick={() => switchMarket(m)} className="flex items-center gap-1.5 capitalize">
-                  {m === "crypto" ? <Bitcoin size={14} /> : <DollarSign size={14} />}{m}
-                </button>
-              ))}
+          <div className="space-y-6">
+            <PerformancePanel refreshKey={historyKey} />
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+              <SummaryPanel refreshKey={historyKey} />
+              <CombinedPnl refreshKey={historyKey} />
             </div>
-            <div className="seg">
-              {TIMEFRAMES.map((tf) => (
-                <button key={tf.interval} data-active={interval === tf.interval} onClick={() => setInterval(tf.interval)}>
-                  {tf.label}
-                </button>
-              ))}
-            </div>
-          </div>
 
-          <div className="mb-5 flex flex-wrap items-center gap-2">
-            {WATCHLISTS[market].map((sym) => (
-              <button key={sym} className="chip" data-active={symbol === sym} onClick={() => setSymbol(sym)}>{sym}</button>
-            ))}
-            <input
-              value={symbol}
-              onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-              className="ml-auto w-40 rounded-lg border border-[rgba(255,255,255,0.1)] bg-white/5 px-3 py-2 text-sm text-white outline-none transition-colors focus:border-[var(--accent-bright)]"
-              placeholder="Symbol"
-            />
-          </div>
+            {/* Indian Statutory Tax Comparison: Crypto 115BBH vs NSE Sec 43(5) */}
+            <Card className="card-pad">
+              <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <Percent size={16} className="text-[#FFB020]" />
+                  Statutory Tax Drag Comparison: Crypto Sec 115BBH vs NSE F&amp;O Sec 43(5)
+                </h3>
+                <span className="text-[11px] font-mono text-slate-400">Indian Income Tax Act, 1961</span>
+              </div>
 
-          {loading && (
-            <Card className="card-pad flex items-center gap-2 text-sm text-slate-400">
-              <Activity size={15} className="shimmer text-[var(--accent-bright)]" /> Loading {symbol} {interval}…
-            </Card>
-          )}
-          {error && (
-            <Card className="card-pad border-rose-500/20 bg-rose-500/10 text-sm text-[var(--loss)]">{error}</Card>
-          )}
-
-          {!loading && !error && signal && (
-            <div className="space-y-6">
-              <PriceChart symbol={symbol} interval={interval} market={market} onPrice={handlePrice} />
-              <SignalCard s={signal} livePrice={livePrice} />
-
-              <Card className="card-pad">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="flex items-center gap-1.5 text-sm font-semibold tracking-tight text-white">
-                      <Sparkles size={15} className="text-[var(--accent-bright)]" /> Deep AI Analysis
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                {taxRows.map((t) => (
+                  <div key={t.scenario} className="p-3.5 rounded-xl border border-[var(--line)] bg-[var(--surface-raised)] text-xs space-y-2">
+                    <div className="flex items-center justify-between font-bold text-white pb-1.5 border-b border-[var(--line)]">
+                      <span>Scenario {t.scenario}</span>
+                      <span className="text-[#FFB020] font-mono">{t.effectiveTaxRatePct.toFixed(1)}% Eff. Tax</span>
                     </div>
-                    <div className="mt-0.5 text-xs text-slate-400">
-                      Bull and Bear analysts argue the numbers; a Risk Manager rules on final conviction.
+                    <div className="text-[11px] text-slate-400 leading-tight">{t.name}</div>
+                    <div className="space-y-1 pt-1 text-[11px]">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Gross Gain:</span>
+                        <span className="text-[#00E5A8] font-mono font-medium">+${t.grossGainUsd.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Gross Loss:</span>
+                        <span className="text-[#FF4D6A] font-mono font-medium">-${t.grossLossUsd.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">TDS (1%) + Cess:</span>
+                        <span className="text-slate-300 font-mono">${(t.tdsDeductedUsd + t.cessUsd).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold pt-1.5 border-t border-[var(--line)]">
+                        <span className="text-white">Net After-Tax:</span>
+                        <span className={`font-mono ${t.netProfitAfterTaxUsd >= 0 ? "text-[#00E5A8]" : "text-[#FF4D6A]"}`}>
+                          ${t.netProfitAfterTaxUsd.toFixed(2)}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <button onClick={runDebate} disabled={debating}
-                    className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-br from-[var(--accent-bright)] to-[var(--accent)] px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90 disabled:opacity-60">
-                    <Sparkles size={15} />{debating ? "Agents debating…" : decision ? "Re-run debate" : "Run AI debate"}
-                  </button>
-                </div>
-                {debateError && <div className="mt-3 text-sm text-[var(--loss)]">{debateError}</div>}
-              </Card>
+                ))}
+              </div>
 
-              {decision && !debating && <DebatePanel d={decision} />}
-            </div>
-          )}
+              <div className="mt-3 p-2.5 rounded-lg bg-white/5 border border-white/10 text-[11px] text-slate-400 flex items-center gap-2">
+                <ShieldCheck size={14} className="text-[#4DA3FF] shrink-0" />
+                <span>
+                  Notice: Under Section 43(5), Indian F&amp;O trading allows 100% loss offset, business expense deductions (STT, Brokerage, GST), and 8-year loss carry-forward, avoiding the punitive 31.2% flat gross tax drag of Section 115BBH.
+                </span>
+              </div>
+            </Card>
+          </div>
         </>
       )}
 

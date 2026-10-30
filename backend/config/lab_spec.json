@@ -1,6 +1,7 @@
 {
-  "spec_version": "1.0.0",
+  "spec_version": "3.0.0",
   "created_at": "2026-10-29T00:00:00Z",
+  "amended_at": "2026-10-30T06:00:00Z",
   "execution_mode": "paper",
   "universe_rule": "Top 30 USDT perps by trailing 30-day USD volume, >= 90 days history",
   "active_timeframes": ["1h", "4h", "1d"],
@@ -32,7 +33,9 @@
         "slow_ema": 55,
         "stop_atr": 2.0,
         "trail_atr": 2.5,
-        "max_hold_bars": 60
+        "max_hold_bars": 60,
+        "hurst_thresh": 0.55,
+        "donchian_period": 20
       },
       "numeric_bounds": {
         "fast_ema": [10, 40],
@@ -53,7 +56,9 @@
         "exit_period": 20,
         "stop_atr": 2.5,
         "trail_atr": 3.0,
-        "max_hold_bars": 60
+        "max_hold_bars": 60,
+        "bbw_pct_rank_thresh": 0.25,
+        "maker_offset_atr": 0.35
       },
       "numeric_bounds": {
         "entry_period": [20, 100],
@@ -72,15 +77,16 @@
       "defaults": {
         "rsi_period": 2,
         "trend_sma": 200,
-        "oversold_thresh": 10,
-        "overbought_thresh": 70,
+        "oversold_thresh": 5.0,
+        "overbought_thresh": 95.0,
+        "vwap_sigma": 2.0,
         "stop_atr": 2.0,
         "max_hold_bars": 12
       },
       "numeric_bounds": {
         "trend_sma": [100, 300],
-        "oversold_thresh": [5, 20],
-        "overbought_thresh": [60, 85],
+        "oversold_thresh": [2, 10],
+        "overbought_thresh": [90, 98],
         "stop_atr": [1.0, 3.5],
         "max_hold_bars": [6, 24]
       },
@@ -93,16 +99,19 @@
       "cost_gate": 0.25,
       "defaults": {
         "bb_period": 20,
-        "bb_std": 2.0,
+        "bb_std": 2.5,
         "adx_period": 14,
         "adx_max": 20.0,
+        "ou_halflife_max": 12.0,
+        "hurst_max": 0.44,
+        "min_rejection_wick": 0.40,
         "stop_atr": 1.5,
         "target_r": 1.5,
         "max_hold_bars": 24
       },
       "numeric_bounds": {
         "bb_period": [10, 40],
-        "bb_std": [1.5, 3.0],
+        "bb_std": [2.0, 3.0],
         "adx_max": [15.0, 30.0],
         "stop_atr": [1.0, 3.0],
         "target_r": [0.8, 3.0],
@@ -118,6 +127,7 @@
       "defaults": {
         "lookback_bars": 180,
         "bandwidth_pctile_thresh": 10.0,
+        "oi_z_thresh": 1.5,
         "stop_atr": 1.5,
         "trail_atr": 2.5,
         "max_hold_bars": 48
@@ -139,7 +149,8 @@
       "defaults": {
         "lookback_days": 30,
         "skip_days": 1,
-        "top_n": 3,
+        "top_n": 2,
+        "beta_neutral": true,
         "rebalance_days": 7,
         "stop_atr": 3.0,
         "max_hold_bars": 14
@@ -160,14 +171,15 @@
       "cost_gate": 0.25,
       "defaults": {
         "z_lookback_days": 30,
-        "z_threshold": 2.0,
+        "z_threshold": 2.2,
         "trend_sma": 50,
+        "cvd_divergence": true,
         "stop_atr": 2.0,
         "max_hold_bars": 24
       },
       "numeric_bounds": {
         "z_lookback_days": [14, 60],
-        "z_threshold": [1.5, 3.0],
+        "z_threshold": [1.8, 3.0],
         "trend_sma": [20, 100],
         "stop_atr": [1.0, 3.5],
         "max_hold_bars": [12, 48]
@@ -182,16 +194,18 @@
       "defaults": {
         "drop_pct": -3.0,
         "volume_z_min": 3.0,
-        "maker_atr_offset": 0.15,
-        "maker_expiry_bars": 2,
+        "maker_atr_offset": 0.20,
+        "maker_expiry_bars": 3,
+        "min_rejection_wick": 0.45,
+        "oi_flush_z": -2.0,
         "target_r": 1.5,
         "stop_r": 1.0,
         "max_hold_bars": 24
       },
       "numeric_bounds": {
         "drop_pct": [-5.0, -1.5],
-        "volume_z_min": [2.0, 4.5],
-        "maker_atr_offset": [0.05, 0.35],
+        "volume_z_min": [2.5, 4.5],
+        "maker_atr_offset": [0.10, 0.35],
         "target_r": [1.0, 3.0],
         "stop_r": [0.5, 2.0],
         "max_hold_bars": [12, 48]
@@ -208,6 +222,8 @@
         "entry_z": 2.0,
         "exit_z": 0.5,
         "stop_z": 4.0,
+        "max_ou_halflife": 20.0,
+        "max_hurst": 0.55,
         "max_hold_days": 30
       },
       "numeric_bounds": {
@@ -227,7 +243,9 @@
       "defaults": {
         "hurdle_apr_pct": 10.5,
         "min_liq_buffer_atr": 3.0,
-        "max_hold_days": 90
+        "max_hold_days": 90,
+        "fee_hurdle_mult": 3.5,
+        "persistence_epochs": 3
       },
       "numeric_bounds": {
         "hurdle_apr_pct": [6.0, 15.0],
@@ -235,6 +253,76 @@
         "max_hold_days": [30, 180]
       },
       "starting_variants": ["carry_v2_base"]
+    },
+    "nse_orb_pcr_15m": {
+      "name": "L11 NSE 15m Opening Range Breakout + PCR Flow",
+      "timeframe": "15m",
+      "short_enabled": true,
+      "cost_gate": 0.25,
+      "defaults": {
+        "max_range_pct": 0.85,
+        "pcr_long_min": 1.10,
+        "pcr_short_max": 0.85,
+        "vol_mult": 1.40,
+        "target_r": 2.0,
+        "max_hold_bars": 24
+      },
+      "numeric_bounds": {
+        "max_range_pct": [0.5, 1.2],
+        "pcr_long_min": [1.0, 1.3],
+        "pcr_short_max": [0.7, 0.95],
+        "vol_mult": [1.1, 2.0],
+        "target_r": [1.5, 3.5],
+        "max_hold_bars": [12, 36]
+      },
+      "starting_variants": ["nse_orb_pcr_15m_base"]
+    },
+    "nse_rs_vwap_1h": {
+      "name": "L12 NSE Relative Strength Leaders vs Laggards L/S",
+      "timeframe": "1h",
+      "short_enabled": true,
+      "cost_gate": 0.25,
+      "defaults": {
+        "rs_lookback_bars": 30,
+        "rs_z_thresh": 1.20,
+        "rsi_period": 14,
+        "ema_trend": 50,
+        "ema_pullback": 21,
+        "stop_atr": 1.8,
+        "target_r": 2.5,
+        "max_hold_bars": 36
+      },
+      "numeric_bounds": {
+        "rs_lookback_bars": [20, 60],
+        "rs_z_thresh": [0.8, 2.0],
+        "stop_atr": [1.2, 2.5],
+        "target_r": [1.8, 4.0],
+        "max_hold_bars": [20, 60]
+      },
+      "starting_variants": ["nse_rs_vwap_1h_base"]
+    },
+    "nse_bank_nifty_statarb_1h": {
+      "name": "L13 NSE BankNifty / Nifty StatArb 1h",
+      "timeframe": "1h",
+      "short_enabled": true,
+      "cost_gate": 0.25,
+      "defaults": {
+        "ols_window": 60,
+        "entry_z": 2.10,
+        "exit_z": 0.25,
+        "stop_z": 3.40,
+        "max_halflife": 18.0,
+        "max_hurst": 0.44,
+        "max_hold_bars": 48
+      },
+      "numeric_bounds": {
+        "ols_window": [40, 100],
+        "entry_z": [1.6, 2.8],
+        "exit_z": [0.1, 0.6],
+        "stop_z": [2.8, 4.5],
+        "max_hold_bars": [24, 72]
+      },
+      "starting_variants": ["nse_bank_nifty_statarb_1h_base"]
     }
   }
 }

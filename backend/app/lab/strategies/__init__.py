@@ -17,6 +17,9 @@ from app.lab.strategies.l7_funding_skew_4h import FundingSkew4HStrategy
 from app.lab.strategies.l8_flush_fade_1h import FlushFade1HStrategy
 from app.lab.strategies.l9_pairs_btceth_1d import PairsBTCETH1DStrategy
 from app.lab.strategies.l10_carry_v2 import CarryV2Strategy
+from app.lab.strategies.l11_nse_orb_pcr_15m import NSEOrbPcr15MStrategy
+from app.lab.strategies.l12_nse_rs_vwap_1h import NSERSVwap1HStrategy
+from app.lab.strategies.l13_nse_bank_nifty_statarb_1h import NSEBankNiftyStatArb1HStrategy
 
 STRATEGY_CLASSES: Dict[str, Type] = {
     "trend_d1": TrendD1Strategy,
@@ -29,6 +32,9 @@ STRATEGY_CLASSES: Dict[str, Type] = {
     "flush_fade_1h": FlushFade1HStrategy,
     "pairs_btceth_1d": PairsBTCETH1DStrategy,
     "carry_v2": CarryV2Strategy,
+    "nse_orb_pcr_15m": NSEOrbPcr15MStrategy,
+    "nse_rs_vwap_1h": NSERSVwap1HStrategy,
+    "nse_bank_nifty_statarb_1h": NSEBankNiftyStatArb1HStrategy,
 }
 
 

@@ -10,6 +10,7 @@ Every realized/backtested P&L number is only as honest as the cost assumed. This
 from __future__ import annotations
 
 import math
+from typing import Dict, Any
 from .config import settings
 
 # --- Crypto liquidity tiers (Binance USDT pairs) ---------------------------
@@ -190,11 +191,12 @@ def compute_after_tax_ev(
     tax_rate: float = 0.312,
     gst_rate: float = 0.18,
 ) -> float:
-    """Compute after-tax expected value (in R-multiples) under Indian Section 115BBH & GST.
+    """Compute after-tax expected value (in R-multiples) under Indian Section 115BBH (Crypto) vs Section 43(5) (NSE F&O).
 
-    - Exchange fees are increased by 18% GST (Effective Fee = Base Fee * 1.18).
-    - Scenario A (zero loss offset): EV = p * (1 - 0.312) * (reward_r - effective_cost_r) - (1 - p) * (1 + effective_cost_r).
-    - Scenario B (netted): pre_tax * (1 - 0.312) if pre_tax > 0 else pre_tax.
+    - Crypto Section 115BBH Scenario A (zero loss offset): EV = p * (1 - 0.312) * (reward_r - effective_cost_r) - (1 - p) * (1 + effective_cost_r).
+    - Crypto Section 115BBH Scenario B (netted): pre_tax * (1 - 0.312) if pre_tax > 0 else pre_tax.
+    - NSE F&O Section 43(5) Scenario C (netted business income with loss carry-forward & full expense deduction):
+      Trading losses offset gains 100%, and all fees/STT/GST are tax-deductible expenses.
     """
     effective_cost_r = cost_r * (1.0 + gst_rate)
 
@@ -202,9 +204,108 @@ def compute_after_tax_ev(
         ev_win = p_win * (1.0 - tax_rate) * max(0.0, reward_r - effective_cost_r)
         ev_loss = (1.0 - p_win) * (1.0 + effective_cost_r)
         return round(ev_win - ev_loss, 4)
+    elif tax_mode in ("scenario_c", "43_5_netted", "nse_business"):
+        # Section 43(5): 100% loss offset + full fee/STT deduction against gross business income
+        pre_tax_ev = p_win * reward_r - (1.0 - p_win) * 1.0 - effective_cost_r
+        # Loss carry-forward shields future profits at corporate/slab rate (~30%)
+        return round(pre_tax_ev * (1.0 - 0.30), 4)
     else:
+        # Crypto Scenario B: Netting allowed for the year, but losses cannot offset non-crypto income
         pre_tax_ev = p_win * reward_r - (1.0 - p_win) * 1.0 - effective_cost_r
         if pre_tax_ev > 0:
             return round(pre_tax_ev * (1.0 - tax_rate), 4)
         return round(pre_tax_ev, 4)
+
+
+def compute_nse_trade_friction(
+    notional_inr: float,
+    segment: str = "fno_futures",
+) -> Dict[str, float]:
+    """Compute exact Indian statutory charges & discount broker friction on round-trip trades.
+
+    Components:
+    - Brokerage: min(₹20, 0.03% * Turnover) per executed leg (buy & sell = 2 legs).
+    - STT (Securities Transaction Tax):
+        - fno_futures: 0.02% on sell side only
+        - eq_intraday: 0.025% on sell side only
+        - fno_options: 0.125% on sell side of premium
+    - NSE Exchange Transaction Charge:
+        - fno_futures: 0.00188% on both legs
+        - eq_intraday: 0.00322% on both legs
+        - fno_options: 0.0495% on both legs
+    - SEBI Turnover Charges: 0.0001% on both legs
+    - Stamp Duty:
+        - fno_futures: 0.002% on buy side only
+        - eq_intraday: 0.003% on buy side only
+        - fno_options: 0.003% on buy side only
+    - GST: 18.0% strictly on (Brokerage + Exchange Charge + SEBI Charge). STT and Stamp Duty are exempt.
+
+    Returns dict containing all individual rupee charges and total_friction_inr + total_friction_pct.
+    """
+    notional = max(float(notional_inr or 0.0), 1.0)
+    seg = (segment or "fno_futures").lower()
+
+    # 1. Brokerage (2 legs: entry + exit)
+    brokerage_per_leg = min(20.0, 0.0003 * notional)
+    brokerage = brokerage_per_leg * 2.0
+
+    # 2. STT (Sell side only)
+    if seg == "fno_futures":
+        stt = 0.00020 * notional  # 0.02%
+    elif seg == "eq_intraday":
+        stt = 0.00025 * notional  # 0.025%
+    else:  # fno_options
+        stt = 0.00125 * notional  # 0.125% on premium
+
+    # 3. NSE Exchange Transaction Charge (Both legs)
+    if seg == "fno_futures":
+        txn_rate = 0.0000188  # 0.00188%
+    elif seg == "eq_intraday":
+        txn_rate = 0.0000322  # 0.00322%
+    else:
+        txn_rate = 0.000495   # 0.0495%
+    exchange_txn = txn_rate * 2.0 * notional
+
+    # 4. SEBI Turnover Charge (Both legs: 0.0001%)
+    sebi = 0.000001 * 2.0 * notional
+
+    # 5. Stamp Duty (Buy leg only)
+    if seg == "fno_futures":
+        stamp = 0.000020 * notional  # 0.002%
+    elif seg == "eq_intraday":
+        stamp = 0.000030 * notional  # 0.003%
+    else:
+        stamp = 0.000030 * notional  # 0.003%
+
+    # 6. GST (18% on Brokerage + Exchange Txn + SEBI)
+    gst_base = brokerage + exchange_txn + sebi
+    gst = 0.18 * gst_base
+
+    total_friction_inr = round(brokerage + stt + exchange_txn + sebi + stamp + gst, 4)
+    total_friction_pct = round(total_friction_inr / notional, 6)
+
+    return {
+        "notional_inr": round(notional, 2),
+        "brokerage": round(brokerage, 4),
+        "stt": round(stt, 4),
+        "exchange_txn": round(exchange_txn, 4),
+        "sebi": round(sebi, 4),
+        "stamp_duty": round(stamp, 4),
+        "gst": round(gst, 4),
+        "total_friction_inr": total_friction_inr,
+        "total_friction_pct": total_friction_pct,
+    }
+
+
+def compute_nse_cost_r(
+    notional_inr: float,
+    stop_distance_pct: float,
+    segment: str = "fno_futures",
+) -> float:
+    """Express round-trip NSE statutory friction in R-multiples."""
+    if stop_distance_pct <= 0:
+        return float("inf")
+    friction = compute_nse_trade_friction(notional_inr, segment)
+    return round(friction["total_friction_pct"] / stop_distance_pct, 4)
+
 
